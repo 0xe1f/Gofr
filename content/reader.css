@@ -1,0 +1,681 @@
+/*****************************************************************************
+ **
+ ** Copyright (C) 2013 Akop Karapetyan
+ **
+ ** This program is free software; you can redistribute it and/or modify
+ ** it under the terms of the GNU General Public License as published by
+ ** the Free Software Foundation; either version 2 of the License, or
+ ** (at your option) any later version.
+ **
+ ** This program is distributed in the hope that it will be useful,
+ ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ** GNU General Public License for more details.
+ **
+ ** You should have received a copy of the GNU General Public License
+ ** along with this program; if not, write to the Free Software
+ ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ **
+ ******************************************************************************
+ */
+ 
+body 
+{
+  font-family: arial, sans-serif;
+  font-size: 10pt;
+  color: #444;
+  margin: 0;
+}
+
+#reader
+{
+  position: absolute;
+  top: 125px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-top: solid 1px #aaa;
+}
+
+.houmu-rogo
+{
+  margin: 3px;
+}
+
+.navbar a
+{
+  color: #0276FD;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.navbar .admin
+{
+  margin-left: 2em;
+}
+
+.logout
+{
+  float: right;
+}
+
+.feeds-container
+{
+  position: absolute;
+  width: 280px;
+  top: 0;
+  bottom: 0;
+  overflow: auto;
+}
+
+.floated-nav #reader .feeds-container
+{
+  display: none;
+}
+
+#floating-nav
+{
+  display: none;
+  position: absolute;
+  width: 280px;
+  bottom: 0;
+  margin: 4px;
+  background-color: white;
+  border: solid 1px #ccc;
+  box-shadow: 2px 2px 5px #aaa;
+}
+
+#entries
+{
+  margin-left: 0.25em;
+  margin-right: 0.75em;
+}
+
+.entries-header
+{
+  font-size: 10.5pt;
+  font-weight: bold;
+  padding: 0.5em;
+  color: #444;
+  white-space: nowrap;
+  border-bottom: solid 1px #ccc;
+}
+
+.entries-header a
+{
+  color: #444;
+  text-decoration: none;
+}
+
+.entries-container
+{
+  position: absolute;
+  left: 280px;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  overflow: auto;
+}
+
+.floated-nav .entries-container
+{
+  left: 0;
+}
+
+.entry
+{
+  cursor: pointer;
+  clear: both;
+  border-bottom: solid 1px #ccc;
+  border-left: solid 1px transparent;
+}
+
+.entry.open
+{
+  border-left-color: #4d90f0;
+}
+
+.entry-item,
+.entry.selected.open .entry-item
+{
+  padding-left: 0.5em;
+  padding-right: 0.5em;
+  height: 37px;
+  background-color: #fff;
+  line-height: 37px;
+  position: relative;
+}
+
+.entry.read .entry-item,
+.entry.read.open .entry-item
+{
+  background-color: #eee;
+}
+
+.entry.selected .entry-item
+{
+  background-color: #ffffcc;
+}
+
+.entry-source 
+{
+  overflow: hidden;
+  white-space: nowrap;
+  margin-left: 20px;
+  width: 10em;
+  display: block;
+  position: absolute;
+}
+
+.single-feed .entry-source
+{
+  display: none;
+}
+
+.entry-excerpt
+{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: 12em;
+  margin-right: 7em;
+}
+
+.single-feed .entry-excerpt
+{
+  margin-left: 20px;
+}
+
+.entry-link
+{
+  display: block;
+  width: 15px;
+  height: 15px;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  margin-top: -8px;
+  margin-right: 8px;
+  background-image: url(sprites.png);
+  background-position: -210px -210px;
+  white-space: nowrap;
+}
+
+.entry-pubDate
+{
+  display: block;
+  position: absolute;
+  right: 32px;
+  text-align: right;
+  width: 6em;
+}
+
+.entry-title
+{
+  font-size: 10pt;
+  display: inline;
+  margin: 0;
+}
+
+.entry.read .entry-title
+{
+  font-weight: normal;
+}
+
+.article-title, 
+.article-author a
+{
+  color: rgb(17, 85, 204);
+  text-decoration: none;
+}
+
+.article-title h2
+{
+  font-size: 14pt;
+  margin: 0;
+}
+
+.article-body
+{
+  margin: 0.7em 0;
+}
+
+.entry-summary
+{
+    color: #777;
+}
+
+.entry-content
+{
+  display: block;
+  cursor: auto;
+}
+
+.article 
+{
+  margin: 0.5em 1em;
+}
+
+.entry-footer
+{
+  padding: 0.5em 0.5em;
+  border-top: solid 1px #ebebeb;
+  background-color: #fafafa;
+}
+
+.entry-action
+{
+  background-repeat: no-repeat;
+  padding-left: 20px;
+  margin-left: 1em;
+  cursor: pointer;
+}
+
+.entry-action a
+{
+  text-decoration: none;
+  color: #000;
+}
+
+.entry-action a span
+{
+  margin-left: 5px;
+}
+
+.action-unread
+{
+  background-image: url(sprites.png);
+  background-position: -15px -15px;
+}
+
+.action-tag
+{
+  background-image: url(sprites.png);
+  background-position: -120px -120px;
+}
+
+.action-tag.has-tags
+{
+  background-position: -105px -105px;
+}
+
+.entry.read .action-unread
+{
+  background-position: 0 0;
+}
+
+.action-star
+{
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  background-image: url(sprites.png);
+  background-position: -30px -30px;
+  cursor: pointer;
+}
+
+.action-like
+{
+  background-image: url(sprites.png);
+  background-position: -60px -60px;
+}
+
+.star .action-star
+{
+  background-position: -45px -45px;
+}
+
+.like .action-like
+{
+  background-position: -75px -75px;
+}
+
+.entry-footer .action-star
+{
+  margin-right: 3em;
+}
+
+.entry-item .action-star
+{
+  top: 50%;
+  margin-top: -8px;
+  white-space: nowrap;
+  position: absolute;
+}
+
+.next-page 
+{
+  padding: 1em;
+  text-align: center;
+  cursor: pointer;
+  font-size: 11pt;
+}
+
+ul#feeds,
+#feeds ul
+{
+  margin: 0;
+  padding: 0;
+}
+
+#feeds li
+{
+  margin: 0;
+}
+
+.feed-icon
+{
+  width: 15px;
+  height: 15px;
+  float: left;
+  margin-right: 5px;
+  background-image: url(sprites.png);
+  background-position: -150px -150px;
+}
+
+#feeds .feed-item
+{
+  padding-left: 0;
+}
+
+#feeds > li > ul .feed-item
+{
+  padding-left: 20px;
+}
+
+#feeds > li > ul > li > ul .feed-item
+{
+  padding-left: 40px;
+}
+
+#feeds > li > ul > li > ul > li > ul .feed-item
+{
+  padding-left: 60px;
+}
+
+#feeds > li > ul > li > ul > li > ul > li > ul .feed-item
+{
+  padding-left: 80px;
+}
+
+#feeds > li > ul > li > ul > li > ul > li > ul > li > ul .feed-item
+{
+  padding-left: 100px;
+}
+
+.feed
+{
+}
+
+.feed-item
+{
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  padding: 0.35em 1em;
+  margin-right: 1em;
+  border: solid 1px transparent;
+}
+
+.feed-item:hover
+{
+  background-color: #eee;
+}
+
+.feed.selected > .feed-item
+{
+  background-color: #cedefa;
+}
+
+.feed.highlighted > .feed-item
+{
+  border: solid 1px #000;
+}
+
+.feed-title
+{
+}
+
+.feed-unread-count
+{
+  color: #aaa;
+  display: none;
+  margin-left: 0.5em;
+}
+
+.has-unread .feed-title
+{
+  font-weight: bold;
+}
+
+.has-unread .feed-unread-count
+{
+  display: inline;
+}
+
+#navbar
+{
+  padding: 10px;
+}
+
+#navbar .right-aligned
+{
+  float: right;
+}
+
+button
+{
+  height: 30px;
+  padding: 0.5em 1.5em;
+  background-color: #eee;
+  border: solid 1px #aaa;
+  border-radius: 3px;
+  box-shadow: 1px 1px 1px #ddd;
+  font-family: arial, sans-serif;
+  font-size: 8pt;
+  font-weight: bold;
+}
+
+button.dropdown
+{
+  background: url(sprites.png) no-repeat right #eee;
+  background-position: 100% -270px;
+  padding: 0.5em 30px 0.5em 20px;
+}
+
+.navigate
+{
+  display: none;
+}
+
+.floated-nav .navigate
+{
+  display: inline-block;
+}
+
+.select-article
+{
+  width: 40px;
+  padding: 0;
+}
+
+.select-article.up
+{
+  margin-right: 0;
+  box-shadow: 0 1px 1px #aaa;
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  background: url(sprites.png) no-repeat -25px -240px #eee;
+}
+
+.select-article.down
+{
+  margin-left: 0;
+  box-shadow: 0 1px 1px #aaa;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  background: url(sprites.png) no-repeat 5px -240px #eee;
+}
+
+.refresh
+{
+  width: 60px;
+  padding: 0;
+  background: url(sprites.png) no-repeat 0 -270px #eee;
+}
+
+#navbar button:active
+{
+  box-shadow: none;
+}
+
+#navbar button:hover
+{
+  border-color: #777;
+}
+
+button.subscribe
+{
+  border-color: #D14836;
+  background-color: #D14836;
+  color: white;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin: 1em 20px;
+}
+
+#navbar .spacer
+{
+  margin-left: 20px;
+}
+
+#toast
+{
+  display: none;
+  position: absolute;
+  top: 1em;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+#toast span
+{
+  border-style: solid;
+  border-width: 2px;
+  border-radius: 3px;
+  padding: 0.5em 2em;
+  box-shadow: 1px 1px 1px #aaa;
+  font-size: 9pt;
+  color: #000;
+}
+
+#toast.info span 
+{
+  border-color: #FDC68A;
+  background-color: #FFF79A;
+}
+
+#toast.error span 
+{
+  border-color: red;
+  background-color: #ffaaaa;
+}
+
+.spinner
+{
+  margin: 5px auto;
+}
+
+.feed-item .chevron
+{
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  float: left;
+  visibility: hidden;
+  background-image: url(sprites.png);
+  background-position: -90px -90px;
+}
+
+.feed-item:hover .chevron
+{
+  visibility: visible;
+}
+
+ul.menu
+{
+  position: absolute;
+  display: none;
+  margin: 0;
+  padding-left: 0;
+  background-color: #fff;
+  list-style-type: none;
+  border: solid 1px #ccc;
+  border-radius: 2px;
+  box-shadow: 2px 2px 2px #ddd;
+  min-width: 13em;
+}
+
+.menu li
+{
+  color: #555;
+  cursor: pointer;
+  padding: 0.5em 1em;
+}
+
+.menu li:hover
+{
+  background-color: #ccc;
+}
+
+.menu .divider
+{
+  height: 1px;
+  background-color: #ccc;
+}
+
+.menu li.selected-menu-item
+{
+}
+
+.shortcuts
+{
+  position: absolute;
+  top: 2em;
+  right: 2em;
+  bottom: 2em;
+  left: 2em;
+  background-color: #000;
+  border-radius: 1em;
+  display: none;
+  overflow: auto;
+}
+
+.shortcuts table
+{
+  margin: auto;
+  color: #fff;
+  font-size: 15pt;
+}
+
+.shortcuts th
+{
+  color: yellow;
+  padding: 1em 0 0.3em 0;
+}
+
+.shortcuts .sh-keys
+{
+  text-align: right;
+  padding-left: 2em;
+  font-weight: bold;
+}
+
+.shortcuts .sh-action
+{
+  text-align: left;
+  padding-right: 2em;
+}
