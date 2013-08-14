@@ -1,5 +1,7 @@
 /*****************************************************************************
  **
+ ** FRAE
+ ** https://github.com/melllvar/frae
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -59,6 +61,12 @@ type ReadableError struct {
   err *error
 }
 
+var validProperties = map[string]bool {
+  "read" : true,
+  "star" : true,
+  "like" : true,
+}
+
 func NewReadableError(message string, err *error) ReadableError {
   return ReadableError { message: message, httpCode: http.StatusInternalServerError, err: err }
 }
@@ -72,13 +80,15 @@ func (e ReadableError) Error() string {
 }
 
 func _l(s string) string {
-  return s
+  return s // TODO
 }
 
 func init() {
   http.HandleFunc("/subscriptions", subscriptions)
   http.HandleFunc("/entries", entries)
   http.HandleFunc("/setProperty", setProperty)
+  
+  http.HandleFunc("/tasks/subscribe/", subscribe)
 
   http.HandleFunc("/", index)
   http.HandleFunc("/root", root)
@@ -218,6 +228,11 @@ func entries(w http.ResponseWriter, r *http.Request) {
   }
 
   subscriptionID := r.FormValue("subscription")
+  if subscriptionID == "" {
+    writeError(c, w, NewReadableError(_l("Subscription not found"), nil))
+    return
+  }
+
   var ancestorKey *datastore.Key
   if subscriptionID == "" {
     ancestorKey = userKey
@@ -238,6 +253,22 @@ func entries(w http.ResponseWriter, r *http.Request) {
 func setProperty(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
+  subEntryID := r.FormValue("entry")
+  subscriptionID := r.FormValue("subscription")
+
+  if subEntryID == "" || subscriptionID == "" {
+    writeError(c, w, NewReadableError(_l("Article not found"), nil))
+    return
+  }
+
+  propertyName := r.FormValue("property")
+  setProp := r.FormValue("set") == "true"
+
+  if !validProperties[propertyName] {
+    writeError(c, w, NewReadableError(_l("Property not valid"), nil))
+    return
+  }
+
   var userKey *datastore.Key
   if u, err := authorize(c, r, w); err != nil {
     writeError(c, w, err)
@@ -245,11 +276,6 @@ func setProperty(w http.ResponseWriter, r *http.Request) {
   } else {
     userKey = u
   }
-
-  subEntryID := r.FormValue("entry")
-  subscriptionID := r.FormValue("subscription")
-  propertyName := r.FormValue("property")
-  setProp := r.FormValue("set") == "true"
 
   subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionID, 0, userKey)
   subEntryKey := datastore.NewKey(c, "SubEntry", subEntryID, 0, subscriptionKey)
@@ -268,17 +294,37 @@ func setProperty(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+  writeChanges := true
   if setProp && tagIndex == -1 {
     subEntry.Properties = append(subEntry.Properties, propertyName)
+  } else if !setProp && tagIndex != -1 {
+    subEntry.Properties = append(subEntry.Properties[:tagIndex], subEntry.Properties[tagIndex + 1:]...)
+  } else {
+    writeChanges = false
+  }
+
+  if writeChanges {
     if _, err := datastore.Put(c, subEntryKey, subEntry); err != nil {
       writeError(c, w, NewReadableError(_l("Error updating article"), &err))
       return
     }
-  } else if !setProp && tagIndex != -1 {
-    subEntry.Properties = append(subEntry.Properties[:tagIndex], subEntry.Properties[tagIndex + 1:]...)
-    if _, err := datastore.Put(c, subEntryKey, subEntry); err != nil {
-      writeError(c, w, NewReadableError(_l("Error updating article"), &err))
-      return
+
+    if propertyName == "read" {
+      // Update unread counts - not critical
+      subscription := new(Subscription)
+      if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
+        c.Errorf("Unread count update failed: subscription fetch error (%s)", err)
+      } else {
+        if !setProp {
+          subscription.UnreadCount++
+        } else {
+          subscription.UnreadCount--
+        }
+
+        if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+          c.Errorf("Unread count update failed: subscription write error (%s)", err)
+        }
+      }
     }
   }
 

@@ -1,5 +1,7 @@
 /*****************************************************************************
  **
+ ** FRAE
+ ** https://github.com/melllvar/frae
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -351,19 +353,19 @@ body
   font-size: 11pt;
 }
 
-ul#feeds,
-#feeds ul
+ul#subscriptions,
+#subscriptions ul
 {
   margin: 0;
   padding: 0;
 }
 
-#feeds li
+#subscriptions li
 {
   margin: 0;
 }
 
-.feed-icon
+.subscription-icon
 {
   width: 15px;
   height: 15px;
@@ -373,41 +375,26 @@ ul#feeds,
   background-position: -150px -150px;
 }
 
-#feeds .feed-item
+#subscriptions .subscription-item
 {
   padding-left: 0;
 }
 
-#feeds > li > ul .feed-item
+#subscriptions > li > ul .subscription-item
 {
   padding-left: 20px;
 }
 
-#feeds > li > ul > li > ul .feed-item
+#subscriptions > li > ul > li > ul .subscription-item
 {
   padding-left: 40px;
 }
 
-#feeds > li > ul > li > ul > li > ul .feed-item
-{
-  padding-left: 60px;
-}
-
-#feeds > li > ul > li > ul > li > ul > li > ul .feed-item
-{
-  padding-left: 80px;
-}
-
-#feeds > li > ul > li > ul > li > ul > li > ul > li > ul .feed-item
-{
-  padding-left: 100px;
-}
-
-.feed
+.subscription
 {
 }
 
-.feed-item
+.subscription-item
 {
   overflow: hidden;
   white-space: nowrap;
@@ -418,38 +405,38 @@ ul#feeds,
   border: solid 1px transparent;
 }
 
-.feed-item:hover
+.subscription-item:hover
 {
   background-color: #eee;
 }
 
-.feed.selected > .feed-item
+.subscription.selected > .subscription-item
 {
   background-color: #cedefa;
 }
 
-.feed.highlighted > .feed-item
+.subscription.highlighted > .subscription-item
 {
   border: solid 1px #000;
 }
 
-.feed-title
+.subscription-title
 {
 }
 
-.feed-unread-count
+.subscription-unread-count
 {
   color: #aaa;
   display: none;
   margin-left: 0.5em;
 }
 
-.has-unread .feed-title
+.has-unread .subscription-title
 {
   font-weight: bold;
 }
 
-.has-unread .feed-unread-count
+.has-unread .subscription-unread-count
 {
   display: inline;
 }
@@ -589,7 +576,7 @@ button.subscribe
   margin: 5px auto;
 }
 
-.feed-item .chevron
+.subscription-item .chevron
 {
   width: 15px;
   height: 15px;
@@ -600,7 +587,7 @@ button.subscribe
   background-position: -90px -90px;
 }
 
-.feed-item:hover .chevron
+.subscription-item:hover .chevron
 {
   visibility: visible;
 }

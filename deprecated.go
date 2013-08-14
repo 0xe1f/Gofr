@@ -1,5 +1,7 @@
 /*****************************************************************************
  **
+ ** FRAE
+ ** https://github.com/melllvar/frae
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -148,27 +150,29 @@ func refresh(w http.ResponseWriter, r *http.Request) {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
       } else {
-        subEntries := make([]SubEntry, len(entryKeys))
-        subEntryKeys := make([]*datastore.Key, len(entryKeys))
+        writeCount := len(entryKeys)
+        subEntries := make([]SubEntry, writeCount)
+        subEntryKeys := make([]*datastore.Key, writeCount)
         for j, entryKey := range entryKeys {
           subEntryKeys[j] = datastore.NewKey(c, "SubEntry", entryKey.StringID(), 0, subscriptionKeys[i])
           subEntries[j].Entry = entryKey
           subEntries[j].Created = time.Now().UTC()
-          subEntries[j].Properties = []string { "unread" }
         }
         if _, err := datastore.PutMulti(c, subEntryKeys, subEntries); err != nil {
           http.Error(w, err.Error(), http.StatusInternalServerError)
           return
         }
 
-        if len(entryKeys) > 0 {
+        if writeCount > 0 {
           lastEntry := new(parser.Entry)
-          lastEntryKey := entryKeys[len(entryKeys) - 1]
+          lastEntryKey := entryKeys[writeCount - 1]
           if err := datastore.Get(c, lastEntryKey, lastEntry); err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)
             return
           } else {
             subscription.Updated = lastEntry.Retrieved
+            subscription.UnreadCount += writeCount
+            
             if _, err := datastore.Put(c, subscriptionKeys[i], &subscription); err != nil {
               http.Error(w, err.Error(), http.StatusInternalServerError)
               return

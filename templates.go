@@ -1,5 +1,7 @@
 /*****************************************************************************
  **
+ ** FRAE
+ ** https://github.com/melllvar/frae
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -55,7 +57,7 @@ const indexTemplateHTML = `
     <div id="reader">
       <div class="feeds-container">
         <button class="subscribe">Subscribe</button>
-        <ul id="feeds"></ul>
+        <ul id="subscriptions"></ul>
       </div>
       <div class="entries-container">
         <div class="entries-header"></div>
