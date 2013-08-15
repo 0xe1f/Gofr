@@ -27,6 +27,21 @@ import (
   "net/http"
 )
 
+func init() {
+  registerJson()
+  registerTasks()
+  registerWeb()
+
+  // Deprecated
+  http.HandleFunc("/root", root)
+  http.HandleFunc("/addFeed", addFeed)
+  http.HandleFunc("/doAddFeed", doAddFeed)
+}
+
+func registerWeb() {
+  http.HandleFunc("/", index)
+}
+
 func index(w http.ResponseWriter, r *http.Request) {
   if err := indexTemplate.Execute(w, nil); err != nil {
     http.Error(w, err.Error(), http.StatusInternalServerError)

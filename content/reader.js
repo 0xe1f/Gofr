@@ -27,7 +27,11 @@ $().ready(function()
 
   $('button.refresh').click(function()
   {
-    loadSubscriptions();
+    refresh();
+  });
+  $('button.subscribe').click(function()
+  {
+    subscribe();
   });
 
   var showToast = function(message, isError)
@@ -82,7 +86,10 @@ $().ready(function()
       errorMessage = _l("An unexpected error has occurred. Please try again later.");
     }
 
-    showToast(errorMessage, true);
+    if (errorMessage != null)
+      showToast(errorMessage, true);
+    else if (errorJson.infoMessage != null)
+      showToast(errorJson.infoMessage, false);
   });
 
   var subscriptionMethods = 
@@ -321,6 +328,26 @@ $().ready(function()
     },
   };
 
+  var subscribe = function()
+  {
+    var feedUrl = prompt(_l('Enter the feed URL'));
+    if (feedUrl)
+    {
+      $.post('subscribe', 
+      {
+        'url' : feedUrl,
+      },
+      function(response)
+      {
+        if (response.message)
+          showToast(response.message, false);
+        
+        // FIXME
+        refresh();
+      }, 'json');
+    }
+  };
+
   var collapseAllEntries = function()
   {
     $('.entry.open').removeClass('open');
@@ -383,6 +410,11 @@ $().ready(function()
             subscription.select();
       });
     });
+  };
+
+  var refresh = function()
+  {
+    loadSubscriptions();
   };
 
   loadSubscriptions();

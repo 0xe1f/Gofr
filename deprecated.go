@@ -26,10 +26,8 @@ package frae
 import (
     "appengine"
     "appengine/datastore"
-    "appengine/user"
     "html/template"
     "net/http"
-    "time"
     "parser"
 
     "fmt"
@@ -64,7 +62,6 @@ func addFeed(w http.ResponseWriter, r *http.Request) {
 
 var rootTemplate = template.Must(template.New("book").Parse(rootTemplateHTML))
 var addFeedTemplate = template.Must(template.New("book").Parse(addFeedTemplateHTML))
-var addSubTemplate = template.Must(template.New("book").Parse(addSubTemplateHTML))
 
 const rootTemplateHTML = `
 <html>
@@ -90,179 +87,6 @@ const addFeedTemplateHTML = `
   </body>
 </html>
 `
-
-const addSubTemplateHTML = `
-<html>
-  <body>
-    <form action="/doAddSub" method="post">
-      <div><input name="url" type="text" style="width: 50em;" /></div>
-      <div><input type="submit" value="Add Subscription"></div>
-    </form>
-  </body>
-</html>
-`
-
-func ensureUser(c appengine.Context, userKey *datastore.Key, u *user.User) (*User, error) {
-  k := datastore.NewKey(c, "User", u.ID, 0, nil)
-  e := new(User)
-
-  if err := datastore.Get(c, k, e); err != nil {
-    e.Joined = time.Now().UTC()
-    if _, err := datastore.Put(c, k, e); err != nil {
-      return nil, err
-    }
-  }
-
-  *userKey = *k
-  return e, nil
-}
-
-func refresh(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-  u := user.Current(c)
-  if u == nil {
-    url, err := user.LoginURL(c, r.URL.String())
-    if err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
-    w.Header().Set("Location", url)
-    w.WriteHeader(http.StatusFound)
-    return
-  }
-
-  var userKey datastore.Key
-  if _, err := ensureUser(c, &userKey, u); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
-
-  var subscriptions []Subscription
-  q := datastore.NewQuery("Subscription").Ancestor(&userKey).Limit(1000)
-  if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else {
-    for i, subscription := range subscriptions {
-      // FIXME: this would be a problem if the number of new records exceeded 1000
-      q = datastore.NewQuery("Entry").Ancestor(subscription.Feed).Filter("Retrieved >", subscription.Updated).Order("Retrieved").KeysOnly().Limit(1000)
-      if entryKeys, err := q.GetAll(c, nil); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-      } else {
-        writeCount := len(entryKeys)
-        subEntries := make([]SubEntry, writeCount)
-        subEntryKeys := make([]*datastore.Key, writeCount)
-        for j, entryKey := range entryKeys {
-          subEntryKeys[j] = datastore.NewKey(c, "SubEntry", entryKey.StringID(), 0, subscriptionKeys[i])
-          subEntries[j].Entry = entryKey
-          subEntries[j].Created = time.Now().UTC()
-        }
-        if _, err := datastore.PutMulti(c, subEntryKeys, subEntries); err != nil {
-          http.Error(w, err.Error(), http.StatusInternalServerError)
-          return
-        }
-
-        if writeCount > 0 {
-          lastEntry := new(parser.Entry)
-          lastEntryKey := entryKeys[writeCount - 1]
-          if err := datastore.Get(c, lastEntryKey, lastEntry); err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-          } else {
-            subscription.Updated = lastEntry.Retrieved
-            subscription.UnreadCount += writeCount
-            
-            if _, err := datastore.Put(c, subscriptionKeys[i], &subscription); err != nil {
-              http.Error(w, err.Error(), http.StatusInternalServerError)
-              return
-            }
-          }
-        }
-      }
-    }
-  }
-  fmt.Fprintf(w, "done")
-}
-
-func addSub(w http.ResponseWriter, r *http.Request) {
-    c := appengine.NewContext(r)
-    u := user.Current(c)
-    if u == nil {
-        url, err := user.LoginURL(c, r.URL.String())
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-        }
-        w.Header().Set("Location", url)
-        w.WriteHeader(http.StatusFound)
-        return
-    }
-
-    var userKey datastore.Key
-    if _, err := ensureUser(c, &userKey, u); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
-    
-    if err := addSubTemplate.Execute(w, nil); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-    }
-}
-
-func doAddSub(w http.ResponseWriter, r *http.Request) {
-    c := appengine.NewContext(r)
-    u := user.Current(c)
-    if u == nil {
-        url, err := user.LoginURL(c, r.URL.String())
-        if err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-        }
-        w.Header().Set("Location", url)
-        w.WriteHeader(http.StatusFound)
-        return
-    }
-
-    url := r.FormValue("url")
-
-    var userKey datastore.Key
-    if _, err := ensureUser(c, &userKey, u); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
-
-    fk := datastore.NewKey(c, "Feed", url, 0, nil)
-    fe := new(parser.Feed)
-
-    if err := datastore.Get(c, fk, fe); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
-
-    q := datastore.NewQuery("Subscription").Ancestor(&userKey).Filter("Feed =", fk)
-    if count, err := q.Count(c); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-    } else {
-      if count > 0 {
-        http.Error(w, "Already subscribed", http.StatusInternalServerError)
-      } else {
-        se := new (Subscription)
-        se.Title = fe.Title
-        se.Subscribed = time.Now().UTC()
-        se.Updated = time.Time {}
-        se.Feed = fk
-
-        sk := datastore.NewKey(c, "Subscription", url, 0, &userKey)
-        if _, err := datastore.Put(c, sk, se); err != nil {
-          http.Error(w, err.Error(), http.StatusInternalServerError)
-        }
-      }
-    }
-
-    w.Header().Set("Location", "/listSubs")
-    w.WriteHeader(http.StatusFound)
-}
 
 func doAddFeed(w http.ResponseWriter, r *http.Request) {
     c := appengine.NewContext(r)

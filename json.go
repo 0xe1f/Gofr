@@ -27,6 +27,9 @@ import (
   "appengine"
   "appengine/datastore"
   "appengine/user"
+  "appengine/taskqueue"
+  "fmt"
+  "net/url"
   "net/http"
   "time"
   "parser"
@@ -50,7 +53,7 @@ type Subscription struct {
 }
 
 type SubEntry struct {
-  Created time.Time
+  Retrieved time.Time
   Entry *datastore.Key
   Properties []string
 }
@@ -67,6 +70,13 @@ var validProperties = map[string]bool {
   "like" : true,
 }
 
+func registerJson() {
+  http.HandleFunc("/subscriptions", subscriptions)
+  http.HandleFunc("/entries", entries)
+  http.HandleFunc("/setProperty", setProperty)
+  http.HandleFunc("/subscribe", subscribe)
+}
+
 func NewReadableError(message string, err *error) ReadableError {
   return ReadableError { message: message, httpCode: http.StatusInternalServerError, err: err }
 }
@@ -79,24 +89,9 @@ func (e ReadableError) Error() string {
   return e.message
 }
 
-func _l(s string) string {
-  return s // TODO
-}
-
-func init() {
-  http.HandleFunc("/subscriptions", subscriptions)
-  http.HandleFunc("/entries", entries)
-  http.HandleFunc("/setProperty", setProperty)
-  
-  http.HandleFunc("/tasks/subscribe/", subscribe)
-
-  http.HandleFunc("/", index)
-  http.HandleFunc("/root", root)
-  http.HandleFunc("/addFeed", addFeed)
-  http.HandleFunc("/doAddFeed", doAddFeed)
-  http.HandleFunc("/addSub", addSub)
-  http.HandleFunc("/doAddSub", doAddSub)
-  http.HandleFunc("/refresh", refresh)
+func _l(format string, v ...interface {}) string {
+  // FIXME
+  return fmt.Sprintf(format, v...)
 }
 
 func writeError(c appengine.Context, w http.ResponseWriter, err error) {
@@ -189,7 +184,7 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
 func getEntries(c appengine.Context, ancestorKey *datastore.Key) ([]parser.Entry, error) {
   var entries []parser.Entry
 
-  q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Created").Limit(40)
+  q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Retrieved").Limit(40)
   var subEntries []SubEntry
 
   if _, err := q.GetAll(c, &subEntries); err != nil {
@@ -329,4 +324,50 @@ func setProperty(w http.ResponseWriter, r *http.Request) {
   }
 
   writeObject(w, subEntry.Properties)
+}
+
+func subscribe(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  var userKey *datastore.Key
+  if u, err := authorize(c, r, w); err != nil {
+    writeError(c, w, err)
+    return
+  } else {
+    userKey = u
+  }
+
+  subscriptionUrl := r.PostFormValue("url")
+  if subscriptionUrl == "" {
+    writeError(c, w, NewReadableError(_l("URL unspecified"), nil))
+    return
+  }
+
+  // FIXME: Verify if in system, or otherwise, if valid URL
+
+  subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionUrl, 0, userKey)
+  subscription := new(Subscription)
+
+  if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
+    // FIXME: provide title
+    writeObject(w, map[string]string { "message": _l("You are already subscribed to %s", subscription.Title) })
+    return
+  } else if err != datastore.ErrNoSuchEntity {
+    writeError(c, w, err)
+    return
+  }
+
+  user := user.Current(c)
+  task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
+    "url": { subscriptionUrl },
+    "userID": { user.ID },
+  })
+  task.Name = "subscribe " + user.ID + "@" + subscriptionUrl
+
+  if _, err := taskqueue.Add(c, task, ""); err != nil {
+    writeError(c, w, NewReadableError(_l("Subscription may already have been queued"), &err))
+    return
+  }
+
+  writeObject(w, map[string]string { "message": _l("Your subscription has been queued") })
 }

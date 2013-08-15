@@ -26,12 +26,124 @@ package frae
 import (
   "appengine"
   "appengine/datastore"
+  "appengine/urlfetch"
   "net/http"
   "time"
   "parser"
 )
 
-func subscribe(w http.ResponseWriter, r *http.Request) {
+func registerTasks() {
+  http.HandleFunc("/tasks/subscribe", subscribeTask)
+}
+
+func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, feedKey *datastore.Key, feed *parser.Feed) error {
+  batchSize := 1000
+  mostRecentEntryTime := time.Time {}
+  entry := new(parser.Entry)
+  subEntries := make([]SubEntry, batchSize)
+  subEntryKeys := make([]*datastore.Key, batchSize)
+  entriesRead := 0
+  entriesWritten := 0
+
+  subscription := new(Subscription)
+  if err := datastore.Get(c, subscriptionKey, subscription); err != nil && err != datastore.ErrNoSuchEntity {
+    c.Errorf("Error getting subscription: %s", err)
+    return err
+  } else if err == datastore.ErrNoSuchEntity {
+    // Set defaults
+    subscription.Title = feed.Title
+    subscription.Subscribed = time.Now().UTC()
+    subscription.Feed = feedKey
+  }
+
+  q := datastore.NewQuery("Entry").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
+  for t := q.Run(c); ; entriesRead++ {
+    entryKey, err := t.Next(entry)
+
+    if err == datastore.Done || entriesRead + 1 >= batchSize {
+      c.Infof("Writing batch; %d elements out of %d", entriesRead, batchSize)
+      
+      // Write the batch
+      if entriesRead > 0 {
+        if _, err := datastore.PutMulti(c, subEntryKeys[:entriesRead], subEntries[:entriesRead]); err != nil {
+          c.Errorf("Error writing SubEntry batch: %s", err)
+          return err
+        }
+      }
+
+      entriesWritten += entriesRead
+      entriesRead = 0
+
+      if err == datastore.Done {
+        break
+      }
+    } else if err != nil {
+      c.Errorf("Error reading Entry: %s", err)
+      return err
+    }
+
+    subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryKey.StringID(), 0, subscriptionKey)
+    subEntries[entriesRead].Entry = entryKey
+    subEntries[entriesRead].Retrieved = entry.Retrieved
+
+    mostRecentEntryTime = entry.Retrieved
+  }
+
+  // Write the subscription
+  subscription.Updated = mostRecentEntryTime
+  subscription.UnreadCount += entriesWritten
+
+  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+    c.Errorf("Error writing subscription: %s", err)
+    return err
+  }
+
+  return nil
+}
+
+func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *parser.Feed) error {
+  if _, err := datastore.Put(c, feedKey, feed); err != nil {
+    c.Errorf("Error writing feed: %s", err)
+    return err
+  }
+
+  batchSize := 4
+  elements := len(feed.Entry)
+
+  entryKeys := make([]*datastore.Key, batchSize)
+
+  pending := 0
+  written := 0
+
+  // FIXME: transactions
+
+  for i := 0; ; i++ {
+    if i >= elements || pending + 1 >= batchSize {
+      c.Infof("Writing batch; %d elements out of %d", pending, batchSize)
+
+      if pending > 0 {
+        if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entry[written:written + pending]); err != nil {
+          c.Errorf("Error writing Entry batch: %s", err)
+          return err
+        }
+      }
+
+      written += pending
+      pending = 0
+
+      if i >= elements {
+        break
+      }
+    }
+
+    entryKeys[i] = datastore.NewKey(c, "Entry", feed.Entry[i].GUID, 0, feedKey)
+    pending++
+  }
+
+  return nil
+}
+
+func subscribeTask(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
   var userKey *datastore.Key
@@ -55,81 +167,35 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     http.Error(w, err.Error(), http.StatusInternalServerError)
     return
   } else if err == datastore.ErrNoSuchEntity {
-    // FIXME: add a new feed first
-    http.Error(w, "FIXME: feed not in system", http.StatusInternalServerError)
-    return
-  }
-
-  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, userKey)
-  subscription := new(Subscription)
-
-  if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
-    // Already subscribed; success
-    return
-  } else if err != datastore.ErrNoSuchEntity {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
-
-  // FIXME: write the entries
-
-  var subscriptions []Subscription
-  q := datastore.NewQuery("Subscription").Ancestor(&userKey).Limit(1000)
-  if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else {
-    for i, subscription := range subscriptions {
-      // FIXME: this would be a problem if the number of new records exceeded 1000
-      q = datastore.NewQuery("Entry").Ancestor(subscription.Feed).Filter("Retrieved >", subscription.Updated).Order("Retrieved").KeysOnly().Limit(1000)
-      if entryKeys, err := q.GetAll(c, nil); err != nil {
+    // FIXME: this may be problematic if two people add same nonexistent subscription
+    // at once
+    client := urlfetch.Client(c)
+    if resp, err := client.Get(url); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+    } else {
+      defer resp.Body.Close()
+      if loadedFeed, err := parser.UnmarshalStream(url, resp.Body); err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
       } else {
-        writeCount := len(entryKeys)
-        subEntries := make([]SubEntry, writeCount)
-        subEntryKeys := make([]*datastore.Key, writeCount)
-        for j, entryKey := range entryKeys {
-          subEntryKeys[j] = datastore.NewKey(c, "SubEntry", entryKey.StringID(), 0, subscriptionKeys[i])
-          subEntries[j].Entry = entryKey
-          subEntries[j].Created = time.Now().UTC()
-        }
-        if _, err := datastore.PutMulti(c, subEntryKeys, subEntries); err != nil {
-          http.Error(w, err.Error(), http.StatusInternalServerError)
-          return
-        }
-
-        if writeCount > 0 {
-          lastEntry := new(parser.Entry)
-          lastEntryKey := entryKeys[writeCount - 1]
-          if err := datastore.Get(c, lastEntryKey, lastEntry); err != nil {
-            http.Error(w, err.Error(), http.StatusInternalServerError)
-            return
-          } else {
-            subscription.Updated = lastEntry.Retrieved
-            subscription.UnreadCount += writeCount
-            
-            if _, err := datastore.Put(c, subscriptionKeys[i], &subscription); err != nil {
-              http.Error(w, err.Error(), http.StatusInternalServerError)
-              return
-            }
-          }
-        }
+        feed = loadedFeed
       }
     }
   }
-  
-  // Update the subscription
 
-  subscription.Title = feed.Title
-  subscription.Subscribed = time.Now().UTC()
-  subscription.Updated = time.Time {}
-  subscription.Feed = feedKey
-  subscription.UnreadCount = 0
+  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, userKey)
+  if err := datastore.Get(c, subscriptionKey, nil); err == nil {
+    // Already subscribed; success
+    return
+  } else if err != datastore.ErrNoSuchEntity {
+    c.Errorf("Error reading subscription: %s", err)
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  }
 
-  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+  if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
     http.Error(w, err.Error(), http.StatusInternalServerError)
     return
   }
 }
-
