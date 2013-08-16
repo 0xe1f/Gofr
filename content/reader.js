@@ -115,6 +115,7 @@ $().ready(function()
         $.each(entries, function()
         {
           var entry = this;
+          var details = entry.details;
 
           // Inject methods
           for (var name in entryMethods)
@@ -134,16 +135,16 @@ $().ready(function()
                 }))
               .append($('<span />', { 'class' : 'entry-source' })
                 .text(entrySubscription.title))
-              .append($('<a />', { 'class' : 'entry-link', 'href' : entry.link, 'target' : '_blank' })
+              .append($('<a />', { 'class' : 'entry-link', 'href' : details.link, 'target' : '_blank' })
                 .click(function(e)
                 {
                   e.stopPropagation();
                 }))
               .append($('<span />', { 'class' : 'entry-pubDate' })
-                .text(getPublishedDate(entry.published)))
+                .text(getPublishedDate(details.published)))
               .append($('<div />', { 'class' : 'entry-excerpt' })
                 .append($('<h2 />', { 'class' : 'entry-title' })
-                  .text(entry.title))))
+                  .text(details.title))))
             .click(function() 
             {
               entry.select();
@@ -155,11 +156,11 @@ $().ready(function()
                 entry.expand();
             });
 
-          if (entry.summary)
+          if (details.summary)
           {
             entryDom.find('.entry-excerpt')
               .append($('<span />', { 'class' : 'entry-spacer' }).text(' - '))
-              .append($('<span />', { 'class' : 'entry-summary' }).text(entry.summary));
+              .append($('<span />', { 'class' : 'entry-summary' }).text(details.summary));
           }
 
           $('#entries').append(entryDom);
@@ -250,6 +251,7 @@ $().ready(function()
     'expand': function()
     {
       var entry = this;
+      var details = entry.details;
       var subscription = this.getSubscription();
       var entryDom = this.getDom();
 
@@ -262,15 +264,15 @@ $().ready(function()
       var content = 
         $('<div />', { 'class' : 'entry-content' })
           .append($('<div />', { 'class' : 'article' })
-            .append($('<a />', { 'href' : entry.link, 'target' : '_blank', 'class' : 'article-title' })
+            .append($('<a />', { 'href' : details.link, 'target' : '_blank', 'class' : 'article-title' })
               .append($('<h2 />')
-                .text(entry.title)))
+                .text(details.title)))
             .append($('<div />', { 'class' : 'article-author' })
               .append('from ')
               .append($('<a />', { 'href' : subscription.link, 'target' : '_blank' })
                 .text(subscription.title)))
             .append($('<div />', { 'class' : 'article-body' })
-              .append(entry.content)))
+              .append(details.content)))
           .append($('<div />', { 'class' : 'entry-footer'})
             .append($('<span />', { 'class' : 'action-star' })
               .click(function(e)
@@ -302,11 +304,11 @@ $().ready(function()
             e.stopPropagation();
           });
 
-      if (this.author)
+      if (details.author)
         content.find('.article-author')
           .append(' by ')
           .append($('<span />')
-            .text(entry.author));
+            .text(details.author));
 
       // Links in the content should open in a new window
       content.find('.article-body a').attr('target', '_blank');

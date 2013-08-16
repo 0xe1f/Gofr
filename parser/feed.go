@@ -34,7 +34,7 @@ import (
   "sort"
 )
 
-type Feed struct {
+type Feed_ struct {
   URL string
   Title string
   Description string
@@ -43,19 +43,17 @@ type Feed struct {
   Format string
   Retrieved time.Time
   HourlyUpdateFrequency float32
-  Entry []*Entry `datastore:"-"`
+  Entries []*Entry_
 }
 
-func (feed *Feed)LatestEntryModification() time.Time {
-  mostRecent := time.Time {}
-  for _, entry := range feed.Entry {
-    latestModification := entry.LatestModification()
-    if latestModification.After(mostRecent) {
-      mostRecent = latestModification
-    }
-  }
-
-  return mostRecent
+type Entry_ struct {
+  GUID string
+  Author string
+  Title string
+  WWWURL string
+  Content string
+  Published time.Time
+  Updated time.Time
 }
 
 type SortableTimes []time.Time 
@@ -72,15 +70,15 @@ func (s SortableTimes) Less(i int, j int) bool {
   return s[i].Before(s[j])
 }
 
-func (feed *Feed)DurationBetweenUpdates() time.Duration {
+func (feed *Feed_)DurationBetweenUpdates() time.Duration {
   if feed.HourlyUpdateFrequency != 0 {
     // Set explicitly
     return time.Duration(feed.HourlyUpdateFrequency) * time.Hour
   }
 
   // Compute frequency by analyzing entries in the feed
-  pubDates := make(SortableTimes, len(feed.Entry))
-  for i, entry := range feed.Entry {
+  pubDates := make(SortableTimes, len(feed.Entries))
+  for i, entry := range feed.Entries {
     pubDates[i] = entry.LatestModification()
   }
 
@@ -111,42 +109,7 @@ func (feed *Feed)DurationBetweenUpdates() time.Duration {
   return durationBetweenUpdates
 }
 
-type Entry struct {
-  ID string `json:"id" datastore:"-"`
-  GUID string `json:"-"`
-  Author string `json:"author"`
-  Title string `json:"title"`
-  WWWURL string `json:"link"`
-  Content string `datastore:",noindex" json:"content"`
-  Summary string `datastore:",noindex" json:"summary"`
-  Published time.Time `json:"published"`
-  Source string `datastore:"-" json:"source"`
-  Updated time.Time `json:"-"`
-  Retrieved time.Time `json:"-"`
-  Properties []string `datastore:"-" json:"properties"`
-  Feed *Feed `datastore:"-" json:"-"`
-}
-
-func (entry *Entry)PlainTextTitle() string {
-  // FIXME
-  // return template.StripTags(entry.Author)
-  return entry.Title
-}
-
-func (entry *Entry)PlainTextAuthor() string {
-  // FIXME
-  // return template.StripTags(entry.Author)
-  return entry.Author
-}
-
-func (entry *Entry)PlainTextSummary() string {
-  // FIXME
-  // plainText := strings.TrimSpace(template.StripTags(entry.Content))
-  plainText := strings.TrimSpace(entry.Content)
-  return substr(plainText, 0, 512)
-}
-
-func (entry *Entry)LatestModification() time.Time {
+func (entry *Entry_)LatestModification() time.Time {
   if entry.Updated.After(entry.Published) {
     return entry.Updated
   }
@@ -155,7 +118,7 @@ func (entry *Entry)LatestModification() time.Time {
 }
 
 type FeedMarshaler interface {
-  Marshal() (Feed, error)
+  Marshal() (Feed_, error)
 }
 
 type GenericFeed struct {
@@ -170,7 +133,7 @@ func charsetReader(charset string, r io.Reader) (io.Reader, error) {
   return nil, errors.New("Unsupported encoding: " + charset)
 }
 
-func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
+func UnmarshalStream(url string, reader io.Reader) (*Feed_, error) {
   // Read the stream into memory (we'll need to parse it twice)
   var contentReader *bytes.Reader
   if buffer, err := ioutil.ReadAll(reader); err == nil {
@@ -213,10 +176,6 @@ func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
   feed, err := xmlFeed.Marshal()
   feed.URL = url
   feed.Retrieved = time.Now().UTC()
-
-  for _, entry := range feed.Entry {
-    entry.Retrieved = feed.Retrieved
-  }
 
   if err != nil {
     return nil, err

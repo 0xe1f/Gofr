@@ -26,43 +26,15 @@ package frae
 import (
   "appengine"
   "appengine/datastore"
-  "appengine/user"
   "appengine/taskqueue"
+  // "appengine/urlfetch"
+  "appengine/user"
   "fmt"
   "net/url"
   "net/http"
-  "time"
-  "parser"
 
   "encoding/json"
 )
-
-type User struct {
-  Key *datastore.Key `datastore:"-"`
-  Joined time.Time
-}
-
-type Subscription struct {
-  ID string `datastore:"-" json:"id"`
-  Link string `datastore:"-" json:"link"`
-  Title string `json:"title"`
-  UnreadCount int `json:"unread"`
-  Subscribed time.Time `json:"-"`
-  Updated time.Time `json:"-"`
-  Feed *datastore.Key `json:"-"`
-}
-
-type SubEntry struct {
-  Retrieved time.Time
-  Entry *datastore.Key
-  Properties []string
-}
-
-type ReadableError struct {
-  message string
-  httpCode int
-  err *error
-}
 
 var validProperties = map[string]bool {
   "read" : true,
@@ -72,51 +44,14 @@ var validProperties = map[string]bool {
 
 func registerJson() {
   http.HandleFunc("/subscriptions", subscriptions)
-  http.HandleFunc("/entries", entries)
-  http.HandleFunc("/setProperty", setProperty)
-  http.HandleFunc("/subscribe", subscribe)
-}
-
-func NewReadableError(message string, err *error) ReadableError {
-  return ReadableError { message: message, httpCode: http.StatusInternalServerError, err: err }
-}
-
-func NewReadableErrorWithCode(message string, code int, err *error) ReadableError {
-  return ReadableError { message: message, httpCode: code, err: err }
-}
-
-func (e ReadableError) Error() string {
-  return e.message
+  http.HandleFunc("/entries",       entries)
+  http.HandleFunc("/setProperty",   setProperty)
+  http.HandleFunc("/subscribe",     subscribe)
 }
 
 func _l(format string, v ...interface {}) string {
   // FIXME
   return fmt.Sprintf(format, v...)
-}
-
-func writeError(c appengine.Context, w http.ResponseWriter, err error) {
-  var message string
-  var httpCode int
-
-  if readableError, ok := err.(ReadableError); ok {
-    message = err.Error() 
-    httpCode = readableError.httpCode
-
-    if readableError.err != nil {
-      c.Errorf("Source error: %s", *readableError.err)
-    }
-  } else {
-    message = _l("An unexpected error has occurred")
-    httpCode = http.StatusInternalServerError
-
-    c.Errorf("Error: %s", err)
-  }
-
-  jsonObj := map[string]string { "errorMessage": message }
-  bf, _ := json.Marshal(jsonObj)
-
-  w.Header().Set("Content-type", "application/json; charset=utf-8")
-  http.Error(w, string(bf), httpCode)
 }
 
 func writeObject(w http.ResponseWriter, obj interface{}) {
@@ -165,7 +100,7 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
     feedKeys[i] = subscription.Feed
   }
 
-  feeds := make([]parser.Feed, len(subscriptions))
+  feeds := make([]Feed, len(subscriptions))
   if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
     writeError(c, w, err)
     return
@@ -175,22 +110,20 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
     feed := feeds[i]
 
     subscription.ID = subscriptionKeys[i].StringID()
-    subscription.Link = feed.WWWURL
+    subscription.Link = feed.Link
   }
 
   writeObject(w, subscriptions)
 }
 
-func getEntries(c appengine.Context, ancestorKey *datastore.Key) ([]parser.Entry, error) {
-  var entries []parser.Entry
-
+func getEntries(c appengine.Context, ancestorKey *datastore.Key) ([]SubEntry, error) {
   q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Retrieved").Limit(40)
   var subEntries []SubEntry
 
   if _, err := q.GetAll(c, &subEntries); err != nil {
     return nil, err
   } else {
-    entries = make([]parser.Entry, len(subEntries))
+    entries := make([]Entry, len(subEntries))
 
     entryKeys := make([]*datastore.Key, len(subEntries))
     for i, subEntry := range subEntries {
@@ -201,14 +134,14 @@ func getEntries(c appengine.Context, ancestorKey *datastore.Key) ([]parser.Entry
       return nil, err
     }
 
-    for i, _ := range entries {
-      entries[i].ID = entryKeys[i].StringID()
-      entries[i].Source = entryKeys[i].Parent().StringID()
-      entries[i].Properties = subEntries[i].Properties
+    for i, _ := range subEntries {
+      subEntries[i].ID = entryKeys[i].StringID()
+      subEntries[i].Source = entryKeys[i].Parent().StringID()
+      subEntries[i].Details = &entries[i]
     }
   }
 
-  return entries, nil
+  return subEntries, nil
 }
 
 func entries(w http.ResponseWriter, r *http.Request) {
@@ -338,18 +271,17 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
   }
 
   subscriptionUrl := r.PostFormValue("url")
+  feedContent := ""
+
   if subscriptionUrl == "" {
-    writeError(c, w, NewReadableError(_l("URL unspecified"), nil))
+    writeError(c, w, NewReadableError(_l("Missing URL"), nil))
     return
   }
-
-  // FIXME: Verify if in system, or otherwise, if valid URL
 
   subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionUrl, 0, userKey)
   subscription := new(Subscription)
 
   if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
-    // FIXME: provide title
     writeObject(w, map[string]string { "message": _l("You are already subscribed to %s", subscription.Title) })
     return
   } else if err != datastore.ErrNoSuchEntity {
@@ -357,10 +289,38 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  // FIXME
+  // feedKey := datastore.NewKey(c, "Feed", subscriptionUrl, 0, nil)
+  // if err := datastore.Get(c, feedKey, nil); err == nil {
+  //   // Already have the feed
+  // } else if err == datastore.ErrNoSuchEntity {
+  //   // Don't have the feed - fetch it
+  //   client := urlfetch.Client(c)
+  //   if response, err := client.Get(subscriptionUrl); err != nil {
+  //     writeError(c, w, NewReadableError(_l("Feed could not be downloaded"), &err))
+  //     return
+  //   } else {
+  //     defer response.Body.Close()
+  //     if loadedFeed, err := parser.UnmarshalStream(subscriptionUrl, response.Body); err != nil {
+  //       writeError(c, w, NewReadableError(_l("Feed could not be parsed"), &err))
+  //       return
+  //     } else {
+  //       // FIXME
+  //       if loadedFeed != nil { feedContent = "" }
+  //       // FIXME
+  //     }
+  //   }
+  // } else {
+  //   // Some other error
+  //   writeError(c, w, err)
+  //   return
+  // }
+
   user := user.Current(c)
   task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
     "url": { subscriptionUrl },
     "userID": { user.ID },
+    "feedContent": { feedContent },
   })
   task.Name = "subscribe " + user.ID + "@" + subscriptionUrl
 

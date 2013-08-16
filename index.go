@@ -31,11 +31,6 @@ func init() {
   registerJson()
   registerTasks()
   registerWeb()
-
-  // Deprecated
-  http.HandleFunc("/root", root)
-  http.HandleFunc("/addFeed", addFeed)
-  http.HandleFunc("/doAddFeed", doAddFeed)
 }
 
 func registerWeb() {
