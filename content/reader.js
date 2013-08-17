@@ -33,6 +33,14 @@ $().ready(function()
   {
     subscribe();
   });
+  $('.select-article.up').click(function()
+  {
+    openArticle(-1);
+  });
+  $('.select-article.down').click(function()
+  {
+    openArticle(1);
+  });
 
   var showToast = function(message, isError)
   {
@@ -72,6 +80,17 @@ $().ready(function()
       return date.toLocaleDateString();
   };
 
+  // Default click handler
+
+  $('html').click(function() 
+  {
+    $('.shortcuts').hide();
+    $('.menu').hide();
+    $('#floating-nav').hide();
+  });
+
+  // Default error handler
+
   $(document).ajaxError(function(event, jqxhr, settings, exception) 
   {
     var errorMessage;
@@ -98,18 +117,42 @@ $().ready(function()
     {
       return $('#subscriptions').find('.' + this.domId);
     },
+    'isFolder': function()
+    {
+      return this.link == "";
+    },
+    'isRoot': function()
+    {
+      return this.id == "";
+    },
     'loadEntries': function()
     {
       var subscription = this;
+      var selectedFilter = $('.group-filter.selected-menu-item').data('value');
 
       $.getJSON('entries', 
       {
         subscription: subscription.id,
-      },
-      function(entries)
+        filter: selectedFilter,
+      })
+      .success(function(entries)
       {
         $('#entries').empty();
 
+        // Set the entry header
+        var selectedSubscription = getSelectedSubscription();
+        if (selectedSubscription != null)
+        {
+          if (!selectedSubscription.link)
+            $('.entries-header').text(selectedSubscription.title);
+          else
+            $('.entries-header').html($('<a />', { 'href' : selectedSubscription.link, 'target' : '_blank' })
+              .text(selectedSubscription.title)
+              .append($('<span />')
+                .text(' »')));
+        }
+
+        // Set up individual entries
         var idCounter = $('#entries').find('.entry').length;
 
         $.each(entries, function()
@@ -153,7 +196,10 @@ $().ready(function()
 
               collapseAllEntries();
               if (!wasExpanded)
+              {
                 entry.expand();
+                entry.scrollIntoView();
+              }
             });
 
           if (details.summary)
@@ -169,12 +215,19 @@ $().ready(function()
         });
       });
     },
+    'refresh': function() 
+    {
+      this.loadEntries();
+    },
     'select': function()
     {
+      this.selectedEntry = null;
+
       $('#subscriptions').find('.subscription.selected').removeClass('selected');
       this.getDom().addClass('selected');
 
       this.loadEntries();
+      updateUnreadCount();
     },
     'syncView': function()
     {
@@ -212,8 +265,8 @@ $().ready(function()
         subscription: this.source,
         property:     propertyName,
         set:          propertyValue,
-      },
-      function(properties)
+      })
+      .success(function(properties)
       {
         delete entry.properties;
 
@@ -229,6 +282,7 @@ $().ready(function()
             subscription.unread += 1;
 
           subscription.syncView();
+          updateUnreadCount();
         }
       });
     },
@@ -306,7 +360,7 @@ $().ready(function()
 
       if (details.author)
         content.find('.article-author')
-          .append(' by ')
+          .append(' by ') // FIXME: localize
           .append($('<span />')
             .text(details.author));
 
@@ -315,6 +369,10 @@ $().ready(function()
 
       entryDom.toggleClass('open', true);
       entryDom.append(content);
+    },
+    'scrollIntoView': function()
+    {
+      this.getDom().scrollintoview({ duration: 0});
     },
     'collapse': function()
     {
@@ -330,23 +388,81 @@ $().ready(function()
     },
   };
 
-  var subscribe = function()
+  var initButtons = function()
   {
-    var feedUrl = prompt(_l('Enter the feed URL'));
-    if (feedUrl)
+    $('button.filter').click(function(e)
     {
-      $.post('subscribe', 
+      var topOffset = 0;
+      var selected = $('#menu-filter').find('.selected-menu-item');
+
+      $('.menu').hide();
+      $('#menu-filter')
+        .show();
+
+      if (selected.length)
+        topOffset += selected.position().top;
+
+      $('#menu-filter')
+        .css(
+        {
+          top: $(this).offset().top - topOffset, 
+          left: $(this).offset().left,
+        });
+
+      e.stopPropagation();
+    });
+  };
+
+  var initMenus = function()
+  {
+    // Build the menus
+
+    $('body')
+      .append($('<ul />', { 'id': 'menu-filter', 'class': 'menu', 'data-dropdown': 'button.filter' })
+        .append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
+        .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
+        .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))));
+
+    $('.menu').click(function(event)
+    {
+      event.stopPropagation();
+    });
+
+    $('.menu li').click(function()
+    {
+      var item = $(this);
+      var menu = item.closest('ul');
+
+      var groupName = null;
+      $.each(item.attr('class').split(/\s+/), function()
       {
-        'url' : feedUrl,
-      },
-      function(response)
+        if (this.indexOf('group-') == 0)
+        {
+          groupName = this;
+          return false;
+        }
+      });
+
+      if (groupName)
       {
-        if (response.message)
-          showToast(response.message, false);
-        
-        // FIXME
-        refresh();
-      }, 'json');
+        $('.' + groupName).removeClass('selected-menu-item');
+        item.addClass('selected-menu-item');
+      }
+
+      $(menu.data('dropdown')).text(item.text());
+
+      menu.hide();
+      onMenuItemClick(menu.data('object'), item);
+    });
+  };
+
+  var onMenuItemClick = function(contextObject, menuItem)
+  {
+    if (menuItem.is('.menu-all-items, .menu-new-items, .menu-starred-items'))
+    {
+      var subscription = getSelectedSubscription();
+      if (subscription != null)
+        subscription.refresh();
     }
   };
 
@@ -356,16 +472,114 @@ $().ready(function()
     $('.entry .entry-content').remove();
   };
 
+  // which: < 0 to select previous; > 0 to select next
+  var selectArticle = function(which, scrollIntoView)
+  {
+    if (which < 0)
+    {
+      if ($('.entry.selected').prev('.entry').length > 0)
+        $('.entry.selected')
+          .removeClass('selected')
+          .prev('.entry')
+          .addClass('selected');
+    }
+    else if (which > 0)
+    {
+      var selected = $('.entry.selected');
+      if (selected.length < 1)
+        next = $('#entries .entry:first');
+      else
+        next = selected.next('.entry');
+
+      $('.entry.selected').removeClass('selected');
+      next.addClass('selected');
+
+      if (next.next('.entry').length < 1)
+        loadNextPage(); // Load another page - this is the last item
+    }
+
+    scrollIntoView = (typeof scrollIntoView !== 'undefined') ? scrollIntoView : true;
+    if (scrollIntoView)
+      $('.entry.selected').scrollintoview({ duration: 0});
+  };
+
+  // which: < 0 to open previous; > 0 to open next; 0 to toggle current
+  var openArticle = function(which)
+  {
+    selectArticle(which, false);
+
+    if (!$('.entry-content', $('.entry.selected')).length || which === 0)
+      $('.entry.selected')
+        .click()
+        .scrollintoview();
+  };
+
+  var getSelectedSubscription = function()
+  {
+    if ($('.subscription.selected').length > 0)
+      return $('.subscription.selected').data('subscription');
+
+    return null;
+  };
+
+  var updateUnreadCount = function()
+  {
+    // Update the 'new items' caption in the dropdown to reflect
+    // the unread count
+
+    var selectedSubscription = getSelectedSubscription();
+    var caption;
+
+    if (!selectedSubscription || selectedSubscription.unread === null)
+      caption = _l("New items");
+    else if (selectedSubscription.unread == 0)
+      caption = _l("No new items");
+    else
+      caption = _l("%1$s new item(s)", [selectedSubscription.unread]);
+
+    var newItems = $('.menu-new-items');
+
+    newItems.text(caption);
+    if (newItems.is('.selected-menu-item'))
+      $('.filter').text(caption);
+
+    var totalUnread = 0;
+    $(".subscription").each(function()
+    {
+      var subDom = $(this);
+      var subscription = subDom.data('subscription');
+
+      if (!subscription.isRoot())
+        totalUnread += subscription.unread;
+    });
+
+    var root = $(".root.subscription").data("subscription");
+    root.unread = totalUnread;
+    root.syncView();
+
+    $(".root.subscription").data("subscription").unread = totalUnread;
+
+    // Update the title bar
+
+    var title = '>:(';
+    if (root.unread > 0)
+      title += ' (' + root.unread + ')';
+
+    document.title = title;
+  };
+
   var loadSubscriptions = function()
   {
     $.getJSON('subscriptions', 
     {
-    },
-    function(subscriptions)
+    })
+    .success(function(subscriptions)
     {
+      var selectedSubscription = getSelectedSubscription();
       var selectedSubscriptionId = null;
-      if ($('.subscription.selected').length > 0)
-        selectedSubscriptionId = $('.subscription.selected').data('subscription').id;
+
+      if (selectedSubscription != null)
+        selectedSubscriptionId = selectedSubscription.id;
 
       $('#subscriptions').empty();
 
@@ -403,21 +617,50 @@ $().ready(function()
               subscription.select();
             }));
 
-          $('#subscriptions').append(subDom);
+        if (subscription.isFolder())
+          subDom.addClass('folder');
+        if (subscription.isRoot())
+          subDom.addClass('root');
 
-          subscriptionMap[subscription.id] = subscription;
-          subscription.syncView();
+        $('#subscriptions').append(subDom);
 
-          if (subscription.id == selectedSubscriptionId)
-            subscription.select();
+        subscriptionMap[subscription.id] = subscription;
+        subscription.syncView();
+
+        if (selectedSubscriptionId == subscription.id)
+          selectedSubscription = subscription;
+        else if (selectedSubscriptionId == null && subscription.isRoot())
+          selectedSubscription = subscription;
       });
+
+      selectedSubscription.select();
     });
+  };
+
+  var subscribe = function()
+  {
+    var feedUrl = prompt(_l('Enter the feed URL'));
+    if (feedUrl)
+    {
+      $.post('subscribe', 
+      {
+        'url' : feedUrl,
+      },
+      function(response)
+      {
+        if (response.message)
+          showToast(response.message, false);
+      }, 'json');
+    }
   };
 
   var refresh = function()
   {
     loadSubscriptions();
   };
+
+  initMenus();
+  initButtons();
 
   loadSubscriptions();
 });

@@ -70,7 +70,7 @@ type atomText struct {
   Content string `xml:",chardata"`
 }
 
-func (nativeFeed *atomFeed) Marshal() (feed Feed_, err error) {
+func (nativeFeed *atomFeed) Marshal() (feed Feed, err error) {
   updated := time.Time {}
   if nativeFeed.Updated != "" {
     updated, err = parseTime(supportedAtomTimeFormats, nativeFeed.Updated)
@@ -83,7 +83,7 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed_, err error) {
     }
   }
 
-  feed = Feed_ {
+  feed = Feed {
     Title: nativeFeed.Title,
     Description: nativeFeed.Description,
     Updated: updated,
@@ -92,7 +92,7 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed_, err error) {
   }
 
   if nativeFeed.Entry != nil {
-    feed.Entries = make([]*Entry_, len(nativeFeed.Entry))
+    feed.Entries = make([]*Entry, len(nativeFeed.Entry))
     for i, v := range nativeFeed.Entry {
       var entryError error
       feed.Entries[i], entryError = v.Marshal()
@@ -106,7 +106,7 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed_, err error) {
   return feed, err
 }
 
-func (nativeEntry *atomEntry) Marshal() (entry *Entry_, err error) {
+func (nativeEntry *atomEntry) Marshal() (entry *Entry, err error) {
   linkUrl := ""
   for _, link := range nativeEntry.Link {
     if linkUrl == "" || link.Rel == "alternate" {
@@ -131,7 +131,7 @@ func (nativeEntry *atomEntry) Marshal() (entry *Entry_, err error) {
     updated, err = parseTime(supportedAtomTimeFormats, nativeEntry.Updated)
   }
 
-  entry = &Entry_ {
+  entry = &Entry {
     GUID: guid,
     Author: nativeEntry.Author.Name,
     Title: nativeEntry.EntryTitle.Content,

@@ -34,7 +34,7 @@ import (
   "sort"
 )
 
-type Feed_ struct {
+type Feed struct {
   URL string
   Title string
   Description string
@@ -43,10 +43,10 @@ type Feed_ struct {
   Format string
   Retrieved time.Time
   HourlyUpdateFrequency float32
-  Entries []*Entry_
+  Entries []*Entry
 }
 
-type Entry_ struct {
+type Entry struct {
   GUID string
   Author string
   Title string
@@ -70,7 +70,7 @@ func (s SortableTimes) Less(i int, j int) bool {
   return s[i].Before(s[j])
 }
 
-func (feed *Feed_)DurationBetweenUpdates() time.Duration {
+func (feed *Feed)DurationBetweenUpdates() time.Duration {
   if feed.HourlyUpdateFrequency != 0 {
     // Set explicitly
     return time.Duration(feed.HourlyUpdateFrequency) * time.Hour
@@ -109,7 +109,7 @@ func (feed *Feed_)DurationBetweenUpdates() time.Duration {
   return durationBetweenUpdates
 }
 
-func (entry *Entry_)LatestModification() time.Time {
+func (entry *Entry)LatestModification() time.Time {
   if entry.Updated.After(entry.Published) {
     return entry.Updated
   }
@@ -118,7 +118,7 @@ func (entry *Entry_)LatestModification() time.Time {
 }
 
 type FeedMarshaler interface {
-  Marshal() (Feed_, error)
+  Marshal() (Feed, error)
 }
 
 type GenericFeed struct {
@@ -133,7 +133,7 @@ func charsetReader(charset string, r io.Reader) (io.Reader, error) {
   return nil, errors.New("Unsupported encoding: " + charset)
 }
 
-func UnmarshalStream(url string, reader io.Reader) (*Feed_, error) {
+func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
   // Read the stream into memory (we'll need to parse it twice)
   var contentReader *bytes.Reader
   if buffer, err := ioutil.ReadAll(reader); err == nil {

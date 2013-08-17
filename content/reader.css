@@ -375,34 +375,25 @@ ul#subscriptions,
   background-position: -150px -150px;
 }
 
-#subscriptions .subscription-item
-{
-  padding-left: 0;
-}
-
-#subscriptions > li > ul .subscription-item
-{
-  padding-left: 20px;
-}
-
-#subscriptions > li > ul > li > ul .subscription-item
-{
-  padding-left: 40px;
-}
-
-.subscription
-{
-}
-
 .subscription-item
 {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: pointer;
-  padding: 0.35em 1em;
+  padding: 0.35em 2em;
   margin-right: 1em;
   border: solid 1px transparent;
+}
+
+.subscription.folder .subscription-item
+{
+  padding-left: 1em;
+}
+
+.subscription.folder .subscription-icon 
+{
+  background-position: -165px -165px;
 }
 
 .subscription-item:hover

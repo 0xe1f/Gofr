@@ -85,6 +85,8 @@ func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, fee
     subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryMeta.Entry.StringID(), 0, subscriptionKey)
     subEntries[entriesRead].Entry = entryMeta.Entry
     subEntries[entriesRead].Retrieved = entryMeta.Retrieved
+    subEntries[entriesRead].Published = entryMeta.Published
+    subEntries[entriesRead].Properties = []string { "unread" }
 
     mostRecentEntryTime = entryMeta.Retrieved
   }
@@ -123,7 +125,7 @@ func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *Feed) error {
           return err
         }
         if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
-          c.Errorf("Error writing Entry batch: %s", err)
+          c.Errorf("Error writing EntryMetas batch: %s", err)
           return err
         }
       }
@@ -179,16 +181,6 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
     return
   } else if err == datastore.ErrNoSuchEntity {
     // Add the feed first
-    // FIXME: this may be problematic if two people add same nonexistent subscription
-    // at once
-
-    /*
-    err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-        var err1 error
-        count, err1 = inc(c, datastore.NewKey(c, "Counter", "singleton", 0, nil))
-        return err1
-    }, nil)
-    */
     client := urlfetch.Client(c)
     if resp, err := client.Get(url); err != nil {
       c.Errorf("Error fetching from URL %s: %s", url, err)

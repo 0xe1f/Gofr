@@ -27,19 +27,21 @@ import (
   "appengine"
   "appengine/datastore"
   "appengine/taskqueue"
-  // "appengine/urlfetch"
+  "appengine/urlfetch"
   "appengine/user"
-  "fmt"
+  "encoding/json"
   "net/url"
   "net/http"
-
-  "encoding/json"
+  "fmt"
+  "parser"
+  "strings"
 )
 
 var validProperties = map[string]bool {
-  "read" : true,
-  "star" : true,
-  "like" : true,
+  "unread": true,
+  "read":   true,
+  "star":   true,
+  "like":   true,
 }
 
 func registerJson() {
@@ -85,7 +87,7 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
   var subscriptions []*Subscription
   var subscriptionKeys []*datastore.Key
 
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(1000)
+  q := datastore.NewQuery("Subscription").Ancestor(userKey).Order("Title").Limit(1000)
   if subKeys, err := q.GetAll(c, &subscriptions); err != nil {
     writeError(c, w, err)
     return
@@ -95,9 +97,11 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
     subscriptionKeys = subKeys
   }
 
+  totalUnreadCount := 0
   feedKeys := make([]*datastore.Key, len(subscriptions))
   for i, subscription := range subscriptions {
     feedKeys[i] = subscription.Feed
+    totalUnreadCount += subscription.UnreadCount
   }
 
   feeds := make([]Feed, len(subscriptions))
@@ -113,12 +117,24 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
     subscription.Link = feed.Link
   }
 
-  writeObject(w, subscriptions)
+  allItems := Subscription {
+    ID: "",
+    Link: "",
+
+    Title: _l("Subscriptions"),
+    UnreadCount: totalUnreadCount,
+  }
+
+  writeObject(w, append([]*Subscription { &allItems }, subscriptions...))
 }
 
-func getEntries(c appengine.Context, ancestorKey *datastore.Key) ([]SubEntry, error) {
-  q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Retrieved").Limit(40)
+func getEntries(c appengine.Context, ancestorKey *datastore.Key, filterProperty string) ([]SubEntry, error) {
   var subEntries []SubEntry
+
+  q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Published").Limit(40)
+  if filterProperty != "" {
+    q = q.Filter("Properties = ", filterProperty)
+  }
 
   if _, err := q.GetAll(c, &subEntries); err != nil {
     return nil, err
@@ -155,20 +171,19 @@ func entries(w http.ResponseWriter, r *http.Request) {
     userKey = u
   }
 
-  subscriptionID := r.FormValue("subscription")
-  if subscriptionID == "" {
-    writeError(c, w, NewReadableError(_l("Subscription not found"), nil))
-    return
-  }
-
   var ancestorKey *datastore.Key
-  if subscriptionID == "" {
+  if subscriptionID := r.FormValue("subscription"); subscriptionID == "" {
     ancestorKey = userKey
   } else {
     ancestorKey = datastore.NewKey(c, "Subscription", subscriptionID, 0, userKey)
   }
 
-  if entries, err := getEntries(c, ancestorKey); err != nil {
+  filterProperty := r.FormValue("filter")
+  if !validProperties[filterProperty] {
+    filterProperty = ""
+  }
+
+  if entries, err := getEntries(c, ancestorKey, filterProperty); err != nil {
     writeError(c, w, err)
     return
   } else {
@@ -214,41 +229,68 @@ func setProperty(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  tagIndex := -1
-  for i, property := range subEntry.Properties {
-    if property == propertyName {
-      tagIndex = i
-      break
+  // Convert set property list to a map
+  propertyMap := make(map[string]bool)
+  for _, property := range subEntry.Properties {
+    propertyMap[property] = true
+  }
+
+  unreadDelta := 0
+  writeChanges := false
+
+  // 'read' and 'unread' are mutually exclusive
+  if propertyName == "read" {
+    if propertyMap[propertyName] && !setProp {
+      delete(propertyMap, "read")
+      propertyMap["unread"] = true
+      unreadDelta = 1
+    } else if !propertyMap[propertyName] && setProp {
+      delete(propertyMap, "unread")
+      propertyMap["read"] = true
+      unreadDelta = -1
+    }
+    writeChanges = unreadDelta != 0
+  } else if propertyName == "unread" {
+    if propertyMap[propertyName] && !setProp {
+      delete(propertyMap, "unread")
+      propertyMap["read"] = true
+      unreadDelta = -1
+    } else if !propertyMap[propertyName] && setProp {
+      delete(propertyMap, "read")
+      propertyMap["unread"] = true
+      unreadDelta = 1
+    }
+    writeChanges = unreadDelta != 0
+  } else {
+    if propertyMap[propertyName] && !setProp {
+      delete(propertyMap, propertyName)
+      writeChanges = true
+    } else if !propertyMap[propertyName] && setProp {
+      propertyMap[propertyName] = true
+      writeChanges = true
     }
   }
 
-  writeChanges := true
-  if setProp && tagIndex == -1 {
-    subEntry.Properties = append(subEntry.Properties, propertyName)
-  } else if !setProp && tagIndex != -1 {
-    subEntry.Properties = append(subEntry.Properties[:tagIndex], subEntry.Properties[tagIndex + 1:]...)
-  } else {
-    writeChanges = false
-  }
-
   if writeChanges {
+    subEntry.Properties = make([]string, len(propertyMap))
+    i := 0
+    for key, _ := range propertyMap {
+      subEntry.Properties[i] = key
+      i++
+    }
+
     if _, err := datastore.Put(c, subEntryKey, subEntry); err != nil {
       writeError(c, w, NewReadableError(_l("Error updating article"), &err))
       return
     }
 
-    if propertyName == "read" {
+    if unreadDelta != 0 {
       // Update unread counts - not critical
       subscription := new(Subscription)
       if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
         c.Errorf("Unread count update failed: subscription fetch error (%s)", err)
       } else {
-        if !setProp {
-          subscription.UnreadCount++
-        } else {
-          subscription.UnreadCount--
-        }
-
+        subscription.UnreadCount += unreadDelta
         if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
           c.Errorf("Unread count update failed: subscription write error (%s)", err)
         }
@@ -270,8 +312,7 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     userKey = u
   }
 
-  subscriptionUrl := r.PostFormValue("url")
-  feedContent := ""
+  subscriptionUrl := strings.TrimSpace(r.PostFormValue("url"))
 
   if subscriptionUrl == "" {
     writeError(c, w, NewReadableError(_l("Missing URL"), nil))
@@ -289,38 +330,32 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // FIXME
-  // feedKey := datastore.NewKey(c, "Feed", subscriptionUrl, 0, nil)
-  // if err := datastore.Get(c, feedKey, nil); err == nil {
-  //   // Already have the feed
-  // } else if err == datastore.ErrNoSuchEntity {
-  //   // Don't have the feed - fetch it
-  //   client := urlfetch.Client(c)
-  //   if response, err := client.Get(subscriptionUrl); err != nil {
-  //     writeError(c, w, NewReadableError(_l("Feed could not be downloaded"), &err))
-  //     return
-  //   } else {
-  //     defer response.Body.Close()
-  //     if loadedFeed, err := parser.UnmarshalStream(subscriptionUrl, response.Body); err != nil {
-  //       writeError(c, w, NewReadableError(_l("Feed could not be parsed"), &err))
-  //       return
-  //     } else {
-  //       // FIXME
-  //       if loadedFeed != nil { feedContent = "" }
-  //       // FIXME
-  //     }
-  //   }
-  // } else {
-  //   // Some other error
-  //   writeError(c, w, err)
-  //   return
-  // }
+  feedKey := datastore.NewKey(c, "Feed", subscriptionUrl, 0, nil)
+  if err := datastore.Get(c, feedKey, nil); err == nil {
+    // Already have the feed
+  } else if err == datastore.ErrNoSuchEntity {
+    // Don't have the feed - fetch it
+    client := urlfetch.Client(c)
+    if response, err := client.Get(subscriptionUrl); err != nil {
+      writeError(c, w, NewReadableError(_l("An error occurred while downloading the feed"), &err))
+      return
+    } else {
+      defer response.Body.Close()
+      if _, err := parser.UnmarshalStream(subscriptionUrl, response.Body); err != nil {
+        writeError(c, w, NewReadableError(_l("An error occurred while parsing the feed"), &err))
+        return
+      }
+    }
+  } else {
+    // Some other error
+    writeError(c, w, err)
+    return
+  }
 
   user := user.Current(c)
   task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
     "url": { subscriptionUrl },
     "userID": { user.ID },
-    "feedContent": { feedContent },
   })
   task.Name = "subscribe " + user.ID + "@" + subscriptionUrl
 

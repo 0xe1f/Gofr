@@ -29,6 +29,19 @@ indexes:
 - kind: SubEntry
   ancestor: yes
   properties:
+  - name: Properties
+  - name: Published
+    direction: desc
+
+- kind: SubEntry
+  ancestor: yes
+  properties:
+  - name: Published
+    direction: desc
+
+- kind: SubEntry
+  ancestor: yes
+  properties:
   - name: Retrieved
     direction: desc
 

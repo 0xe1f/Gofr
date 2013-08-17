@@ -60,7 +60,7 @@ type rss2Entry struct {
   Content string `xml:"description"`
 }
 
-func (nativeFeed *rss2Feed) Marshal() (feed Feed_, err error) {
+func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
   updated := time.Time {}
   if nativeFeed.Updated != "" {
     updated, err = parseRSS2Time(nativeFeed.Updated)
@@ -73,7 +73,7 @@ func (nativeFeed *rss2Feed) Marshal() (feed Feed_, err error) {
     }
   }
 
-  feed = Feed_ {
+  feed = Feed {
     Title: nativeFeed.Title,
     Description: nativeFeed.Description,
     Updated: updated,
@@ -99,7 +99,7 @@ func (nativeFeed *rss2Feed) Marshal() (feed Feed_, err error) {
   }
 
   if nativeFeed.Entry != nil {
-    feed.Entries = make([]*Entry_, len(nativeFeed.Entry))
+    feed.Entries = make([]*Entry, len(nativeFeed.Entry))
     for i, v := range nativeFeed.Entry {
       var entryError error
       feed.Entries[i], entryError = v.Marshal()
@@ -113,7 +113,7 @@ func (nativeFeed *rss2Feed) Marshal() (feed Feed_, err error) {
   return feed, err
 }
 
-func (nativeEntry *rss2Entry) Marshal() (entry *Entry_, err error) {
+func (nativeEntry *rss2Entry) Marshal() (entry *Entry, err error) {
   guid := nativeEntry.Id
   content := nativeEntry.EncodedContent
   if content == "" {
@@ -125,7 +125,7 @@ func (nativeEntry *rss2Entry) Marshal() (entry *Entry_, err error) {
     published, err = parseRSS2Time(nativeEntry.Published)
   }
 
-  entry = &Entry_ {
+  entry = &Entry {
     GUID: guid,
     Author: nativeEntry.Author,
     Title: nativeEntry.EntryTitle,

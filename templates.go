@@ -37,6 +37,7 @@ const indexTemplateHTML = `
     <link href="content/reader.css" type="text/css" rel="stylesheet"/>
     <script src="content/sprintf.min.js" type="text/javascript"></script>
     <script src="content/jquery-1.9.1.min.js" type="text/javascript"></script>
+    <script src="content/jquery.scrollintoview.min.js" type="text/javascript"></script>
     <script src="content/reader.js" type="text/javascript"></script>
     <title>&gt;:(</title>
   </head>

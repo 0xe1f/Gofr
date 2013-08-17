@@ -30,40 +30,7 @@ import (
   "parser"
 )
 
-// FIXME: eliminate parser.Feed and parser.Entry
-
-func NewFeed(parsedFeed *parser.Feed_) (*Feed, error) {
-  feed := Feed {
-    URL: parsedFeed.URL,
-    Title: parsedFeed.Title,
-    Description: parsedFeed.Description,
-    Updated: parsedFeed.Updated,
-    Link: parsedFeed.WWWURL,
-    Format: parsedFeed.Format,
-    Retrieved: parsedFeed.Retrieved,
-    HourlyUpdateFrequency: parsedFeed.HourlyUpdateFrequency,
-  }
-
-  feed.Entries = make([]*Entry, len(parsedFeed.Entries))
-  feed.EntryMetas = make([]*EntryMeta, len(parsedFeed.Entries))
-
-  for i, parsedEntry := range parsedFeed.Entries {
-    feed.Entries[i] = &Entry {
-      GUID: parsedEntry.GUID,
-      Author: parsedEntry.Author,
-      Title: parsedEntry.Title,
-      Link: parsedEntry.WWWURL,
-      Published: parsedEntry.Published,
-      Updated: parsedEntry.Updated,
-      Content: parsedEntry.Content,
-    }
-    feed.EntryMetas[i] = &EntryMeta {
-      Retrieved: parsedFeed.Retrieved,
-    }
-  }
-
-  return &feed, nil
-}
+// FIXME: get rid of parser.Feed and parser.Entry
 
 type Feed struct {
   URL string
@@ -80,6 +47,7 @@ type Feed struct {
 }
 
 type EntryMeta struct {
+  Published time.Time
   Retrieved time.Time
   Entry *datastore.Key
 }
@@ -111,10 +79,45 @@ type Subscription struct {
 type SubEntry struct {
   ID string             `datastore:"-" json:"id"`
   Source string         `datastore:"-" json:"source"`
-  *Entry        `datastore:"-" json:"details"`
+  Details *Entry        `datastore:"-" json:"details"`
 
+  Published time.Time   `json:"-"`
   Retrieved time.Time   `json:"-"`
   Entry *datastore.Key  `json:"-"`
 
   Properties []string   `json:"properties"`
+}
+
+func NewFeed(parsedFeed *parser.Feed) (*Feed, error) {
+  feed := Feed {
+    URL: parsedFeed.URL,
+    Title: parsedFeed.Title,
+    Description: parsedFeed.Description,
+    Updated: parsedFeed.Updated,
+    Link: parsedFeed.WWWURL,
+    Format: parsedFeed.Format,
+    Retrieved: parsedFeed.Retrieved,
+    HourlyUpdateFrequency: parsedFeed.HourlyUpdateFrequency,
+  }
+
+  feed.Entries = make([]*Entry, len(parsedFeed.Entries))
+  feed.EntryMetas = make([]*EntryMeta, len(parsedFeed.Entries))
+
+  for i, parsedEntry := range parsedFeed.Entries {
+    feed.Entries[i] = &Entry {
+      GUID: parsedEntry.GUID,
+      Author: parsedEntry.Author,
+      Title: parsedEntry.Title,
+      Link: parsedEntry.WWWURL,
+      Published: parsedEntry.Published,
+      Updated: parsedEntry.Updated,
+      Content: parsedEntry.Content,
+    }
+    feed.EntryMetas[i] = &EntryMeta {
+      Published: parsedEntry.Published,
+      Retrieved: parsedFeed.Retrieved,
+    }
+  }
+
+  return &feed, nil
 }
