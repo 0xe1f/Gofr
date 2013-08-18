@@ -24,6 +24,8 @@
 $().ready(function()
 {
   var subscriptionMap = null;
+  var continueFrom = null;
+  var lastContinued = null;
 
   $('button.refresh').click(function()
   {
@@ -80,6 +82,22 @@ $().ready(function()
       return date.toLocaleDateString();
   };
 
+  // Automatic pager
+
+  $('.entries-container').scroll(function()
+  {
+    var pagerHeight = $('.next-page').outerHeight();
+    if (!pagerHeight)
+      return; // No pager
+
+    if (lastContinued == continueFrom)
+      return;
+
+    var offset = $('#entries').height() - ($('.entries-container').scrollTop() + $('.entries-container').height()) - pagerHeight;
+    if (offset < 36)
+      $('.next-page').click();
+  });
+
   // Default click handler
 
   $('html').click(function() 
@@ -125,98 +143,108 @@ $().ready(function()
     {
       return this.id == "";
     },
+    'addPage': function(entries)
+    {
+      var subscription = this;
+      var idCounter = $('#entries').find('.entry').length;
+
+      $.each(entries, function()
+      {
+        var entry = this;
+        var details = entry.details;
+
+        // Inject methods
+        for (var name in entryMethods)
+          entry[name] = entryMethods[name];
+
+        var entrySubscription = entry.getSubscription();
+
+        entry.domId = 'entry-' + idCounter++;
+        var entryDom = $('<div />', { 'class' : 'entry ' + entry.domId})
+          .data('entry', entry)
+          .append($('<div />', { 'class' : 'entry-item' })
+            .append($('<div />', { 'class' : 'action-star' })
+              .click(function(e)
+              {
+                entry.toggleProperty("star");
+                e.stopPropagation();
+              }))
+            .append($('<span />', { 'class' : 'entry-source' })
+              .text(entrySubscription.title))
+            .append($('<a />', { 'class' : 'entry-link', 'href' : details.link, 'target' : '_blank' })
+              .click(function(e)
+              {
+                e.stopPropagation();
+              }))
+            .append($('<span />', { 'class' : 'entry-pubDate' })
+              .text(getPublishedDate(details.published)))
+            .append($('<div />', { 'class' : 'entry-excerpt' })
+              .append($('<h2 />', { 'class' : 'entry-title' })
+                .text(details.title))))
+          .click(function() 
+          {
+            entry.select();
+            
+            var wasExpanded = entry.isExpanded();
+
+            collapseAllEntries();
+            if (!wasExpanded)
+            {
+              entry.expand();
+              entry.scrollIntoView();
+            }
+          });
+
+        if (details.summary)
+        {
+          entryDom.find('.entry-excerpt')
+            .append($('<span />', { 'class' : 'entry-spacer' }).text(' - '))
+            .append($('<span />', { 'class' : 'entry-summary' }).text(details.summary));
+        }
+
+        $('#entries').append(entryDom);
+
+        entry.syncView();
+      });
+
+      $('.next-page').remove();
+
+      if (continueFrom)
+      {
+        $('#entries')
+          .append($('<div />', { 'class' : 'next-page' })
+            .text(_l('Continue'))
+            .click(function(e)
+            {
+              subscription.loadEntries();
+            }));
+      }
+    },
     'loadEntries': function()
     {
+      lastContinued = continueFrom;
+
       var subscription = this;
       var selectedFilter = $('.group-filter.selected-menu-item').data('value');
 
       $.getJSON('entries', 
       {
-        subscription: subscription.id,
-        filter: selectedFilter,
+        'subscription': subscription.id,
+        'filter':       selectedFilter,
+        'continue':     continueFrom,
       })
-      .success(function(entries)
+      .success(function(response)
       {
-        $('#entries').empty();
-
-        // Set the entry header
-        var selectedSubscription = getSelectedSubscription();
-        if (selectedSubscription != null)
-        {
-          if (!selectedSubscription.link)
-            $('.entries-header').text(selectedSubscription.title);
-          else
-            $('.entries-header').html($('<a />', { 'href' : selectedSubscription.link, 'target' : '_blank' })
-              .text(selectedSubscription.title)
-              .append($('<span />')
-                .text(' »')));
-        }
-
-        // Set up individual entries
-        var idCounter = $('#entries').find('.entry').length;
-
-        $.each(entries, function()
-        {
-          var entry = this;
-          var details = entry.details;
-
-          // Inject methods
-          for (var name in entryMethods)
-            entry[name] = entryMethods[name];
-
-          var entrySubscription = entry.getSubscription();
-
-          entry.domId = 'entry-' + idCounter++;
-          var entryDom = $('<div />', { 'class' : 'entry ' + entry.domId})
-            .data('entry', entry)
-            .append($('<div />', { 'class' : 'entry-item' })
-              .append($('<div />', { 'class' : 'action-star' })
-                .click(function(e)
-                {
-                  entry.toggleProperty("star");
-                  e.stopPropagation();
-                }))
-              .append($('<span />', { 'class' : 'entry-source' })
-                .text(entrySubscription.title))
-              .append($('<a />', { 'class' : 'entry-link', 'href' : details.link, 'target' : '_blank' })
-                .click(function(e)
-                {
-                  e.stopPropagation();
-                }))
-              .append($('<span />', { 'class' : 'entry-pubDate' })
-                .text(getPublishedDate(details.published)))
-              .append($('<div />', { 'class' : 'entry-excerpt' })
-                .append($('<h2 />', { 'class' : 'entry-title' })
-                  .text(details.title))))
-            .click(function() 
-            {
-              entry.select();
-              
-              var wasExpanded = entry.isExpanded();
-
-              collapseAllEntries();
-              if (!wasExpanded)
-              {
-                entry.expand();
-                entry.scrollIntoView();
-              }
-            });
-
-          if (details.summary)
-          {
-            entryDom.find('.entry-excerpt')
-              .append($('<span />', { 'class' : 'entry-spacer' }).text(' - '))
-              .append($('<span />', { 'class' : 'entry-summary' }).text(details.summary));
-          }
-
-          $('#entries').append(entryDom);
-
-          entry.syncView();
-        });
+        continueFrom = response.continue;
+        subscription.addPage(response.entries, response.continue);
       });
     },
     'refresh': function() 
     {
+      continueFrom = null;
+      lastContinued = null;
+
+      $('#entries').empty();
       this.loadEntries();
     },
     'select': function()
@@ -226,7 +254,16 @@ $().ready(function()
       $('#subscriptions').find('.subscription.selected').removeClass('selected');
       this.getDom().addClass('selected');
 
-      this.loadEntries();
+      // Update the entry header
+      if (!this.link)
+        $('.entries-header').text(this.title);
+      else
+        $('.entries-header').html($('<a />', { 'href' : this.link, 'target' : '_blank' })
+          .text(this.title)
+          .append($('<span />')
+            .text(' »')));
+
+      this.refresh();
       updateUnreadCount();
     },
     'syncView': function()
@@ -495,7 +532,7 @@ $().ready(function()
       next.addClass('selected');
 
       if (next.next('.entry').length < 1)
-        loadNextPage(); // Load another page - this is the last item
+        $('.next-page').click(); // Load another page - this is the last item
     }
 
     scrollIntoView = (typeof scrollIntoView !== 'undefined') ? scrollIntoView : true;

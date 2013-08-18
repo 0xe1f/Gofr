@@ -128,33 +128,56 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
   writeObject(w, append([]*Subscription { &allItems }, subscriptions...))
 }
 
-func getEntries(c appengine.Context, ancestorKey *datastore.Key, filterProperty string) ([]SubEntry, error) {
-  var subEntries []SubEntry
-
-  q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Published").Limit(40)
+func getEntries(c appengine.Context, ancestorKey *datastore.Key, filterProperty string, continueFrom *string) ([]SubEntry, error) {
+  q := datastore.NewQuery("SubEntry").Ancestor(ancestorKey).Order("-Published")
   if filterProperty != "" {
     q = q.Filter("Properties = ", filterProperty)
   }
 
-  if _, err := q.GetAll(c, &subEntries); err != nil {
-    return nil, err
-  } else {
-    entries := make([]Entry, len(subEntries))
-
-    entryKeys := make([]*datastore.Key, len(subEntries))
-    for i, subEntry := range subEntries {
-      entryKeys[i] = subEntry.Entry
+  if *continueFrom != "" {
+    if cursor, err := datastore.DecodeCursor(*continueFrom); err == nil {
+      q = q.Start(cursor)
     }
+  }
 
-    if err := datastore.GetMulti(c, entryKeys, entries); err != nil {
+  subEntries := make([]SubEntry, 40)
+  entryKeys := make([]*datastore.Key, 40)
+
+  t := q.Run(c)
+
+  var readCount int
+  for readCount = 0; readCount < 40; readCount++ {
+    subEntry := &subEntries[readCount]
+
+    if _, err := t.Next(subEntry); err != nil && err == datastore.Done {
+      break
+    } else if err != nil {
       return nil, err
     }
 
-    for i, _ := range subEntries {
-      subEntries[i].ID = entryKeys[i].StringID()
-      subEntries[i].Source = entryKeys[i].Parent().StringID()
-      subEntries[i].Details = &entries[i]
+    entryKey := subEntries[readCount].Entry
+    entryKeys[readCount] = entryKey
+    subEntry.ID = entryKey.StringID()
+    subEntry.Source = entryKey.Parent().StringID()
+  }
+
+  *continueFrom = ""
+  if readCount >= 40 {
+    if cursor, err := t.Cursor(); err == nil {
+      *continueFrom = cursor.String()
     }
+  }
+
+  subEntries = subEntries[:readCount]
+  entryKeys = entryKeys[:readCount]
+
+  entries := make([]Entry, readCount)
+  if err := datastore.GetMulti(c, entryKeys, entries); err != nil {
+    return nil, err
+  }
+
+  for i, _ := range subEntries {
+    subEntries[i].Details = &entries[i]
   }
 
   return subEntries, nil
@@ -178,19 +201,25 @@ func entries(w http.ResponseWriter, r *http.Request) {
     ancestorKey = datastore.NewKey(c, "Subscription", subscriptionID, 0, userKey)
   }
 
+  continueFrom := r.FormValue("continue")
   filterProperty := r.FormValue("filter")
+
   if !validProperties[filterProperty] {
     filterProperty = ""
   }
 
-  if entries, err := getEntries(c, ancestorKey, filterProperty); err != nil {
+  response := make(map[string]interface{})
+  if entries, err := getEntries(c, ancestorKey, filterProperty, &continueFrom); err != nil {
     writeError(c, w, err)
     return
   } else {
-    w.Header().Set("Content-type", "application/json; charset=utf-8")
-    
-    writeObject(w, entries)
+    response["entries"] = entries
+    if continueFrom != "" {
+      response["continue"] = continueFrom
+    }
   }
+
+  writeObject(w, response)
 }
 
 func setProperty(w http.ResponseWriter, r *http.Request) {
