@@ -61,6 +61,7 @@ const indexTemplateHTML = `
         <ul id="subscriptions"></ul>
       </div>
       <div class="entries-container">
+        <div class="center-message"></div>
         <div class="entries-header"></div>
         <div id="entries"></div>
       </div>

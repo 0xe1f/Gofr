@@ -170,7 +170,7 @@ $().ready(function()
                 e.stopPropagation();
               }))
             .append($('<span />', { 'class' : 'entry-source' })
-              .text(entrySubscription.title))
+              .text(entrySubscription != null ? entrySubscription.title : null))
             .append($('<a />', { 'class' : 'entry-link', 'href' : details.link, 'target' : '_blank' })
               .click(function(e)
               {
@@ -208,6 +208,15 @@ $().ready(function()
       });
 
       $('.next-page').remove();
+
+      if (entries.length)
+        $('.center-message').hide();
+      else
+      {
+        $('.center-message')
+          .text(_l("No items are available for the current view."))
+          .show();
+      }
 
       if (continueFrom)
       {

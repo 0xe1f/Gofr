@@ -61,6 +61,17 @@ body
   float: right;
 }
 
+.center-message
+{
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13pt;
+  color: #777;
+}
+
 .feeds-container
 {
   position: absolute;
