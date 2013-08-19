@@ -26,37 +26,7 @@ $().ready(function()
   var subscriptionMap = null;
   var continueFrom = null;
   var lastContinued = null;
-
-  $('button.refresh').click(function()
-  {
-    refresh();
-  });
-  $('button.subscribe').click(function()
-  {
-    subscribe();
-  });
-  $('.select-article.up').click(function()
-  {
-    openArticle(-1);
-  });
-  $('.select-article.down').click(function()
-  {
-    openArticle(1);
-  });
-
-  var showToast = function(message, isError)
-  {
-    $('#toast span').text(message);
-    $('#toast').attr('class', isError ? 'error' : 'info');
-
-    if ($('#toast').is(':hidden'))
-    {
-      $('#toast')
-        .fadeIn()
-        .delay(8000)
-        .fadeOut('slow'); 
-    }
-  };
+  var lastGPressTime = 0;
 
   var _l = function(str, args)
   {
@@ -124,9 +94,9 @@ $().ready(function()
     }
 
     if (errorMessage != null)
-      showToast(errorMessage, true);
+      ui.showToast(errorMessage, true);
     else if (errorJson.infoMessage != null)
-      showToast(errorJson.infoMessage, false);
+      ui.showToast(errorJson.infoMessage, false);
   });
 
   var subscriptionMethods = 
@@ -166,7 +136,7 @@ $().ready(function()
             .append($('<div />', { 'class' : 'action-star' })
               .click(function(e)
               {
-                entry.toggleProperty("star");
+                entry.toggleStarred();
                 e.stopPropagation();
               }))
             .append($('<span />', { 'class' : 'entry-source' })
@@ -187,7 +157,7 @@ $().ready(function()
             
             var wasExpanded = entry.isExpanded();
 
-            collapseAllEntries();
+            ui.collapseAllEntries();
             if (!wasExpanded)
             {
               entry.expand();
@@ -214,8 +184,27 @@ $().ready(function()
       else
       {
         $('.center-message')
-          .text(_l("No items are available for the current view."))
-          .show();
+          .empty()
+          .append($('<span />')
+            .text(_l("No items are available for the current view.")));
+
+        if (!$('#menu-filter').isSelected('.menu-all-items'))
+          $('.center-message')
+            .append($('<a />', { 'href' : '#' })
+              .text(_l("Show all items"))
+              .click(function()
+              {
+                var selectedSubscription = getSelectedSubscription();
+                if (selectedSubscription != null)
+                {
+                  $('#menu-filter').selectItem('.menu-all-items');
+                  selectedSubscription.refresh();
+                }
+
+                return false;
+              }));
+
+        $('.center-message').show();
       }
 
       if (continueFrom)
@@ -273,7 +262,7 @@ $().ready(function()
             .text(' »')));
 
       this.refresh();
-      updateUnreadCount();
+      ui.updateUnreadCount();
     },
     'syncView': function()
     {
@@ -328,9 +317,17 @@ $().ready(function()
             subscription.unread += 1;
 
           subscription.syncView();
-          updateUnreadCount();
+          ui.updateUnreadCount();
         }
       });
+    },
+    'toggleStarred': function(propertyName)
+    {
+      this.toggleProperty("star");
+    },
+    'toggleUnread': function()
+    {
+      this.toggleProperty("read");
     },
     'toggleProperty': function(propertyName)
     {
@@ -377,13 +374,13 @@ $().ready(function()
             .append($('<span />', { 'class' : 'action-star' })
               .click(function(e)
               {
-                entry.toggleProperty("star");
+                entry.toggleStarred();
               }))
             .append($('<span />', { 'class' : 'action-unread entry-action'})
               .text(_l('Keep unread'))
               .click(function(e)
               {
-                entry.toggleProperty("read");
+                entry.toggleUnread();
               }))
             // .append($('<span />', { 'class' : 'action-tag entry-action'})
             //   .text(entry.tags.length ? _l('Edit tags: %s', [ entry.tags.join(', ') ]) : _l('Add tags'))
@@ -434,74 +431,6 @@ $().ready(function()
     },
   };
 
-  var initButtons = function()
-  {
-    $('button.filter').click(function(e)
-    {
-      var topOffset = 0;
-      var selected = $('#menu-filter').find('.selected-menu-item');
-
-      $('.menu').hide();
-      $('#menu-filter')
-        .show();
-
-      if (selected.length)
-        topOffset += selected.position().top;
-
-      $('#menu-filter')
-        .css(
-        {
-          top: $(this).offset().top - topOffset, 
-          left: $(this).offset().left,
-        });
-
-      e.stopPropagation();
-    });
-  };
-
-  var initMenus = function()
-  {
-    // Build the menus
-
-    $('body')
-      .append($('<ul />', { 'id': 'menu-filter', 'class': 'menu', 'data-dropdown': 'button.filter' })
-        .append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
-        .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
-        .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))));
-
-    $('.menu').click(function(event)
-    {
-      event.stopPropagation();
-    });
-
-    $('.menu li').click(function()
-    {
-      var item = $(this);
-      var menu = item.closest('ul');
-
-      var groupName = null;
-      $.each(item.attr('class').split(/\s+/), function()
-      {
-        if (this.indexOf('group-') == 0)
-        {
-          groupName = this;
-          return false;
-        }
-      });
-
-      if (groupName)
-      {
-        $('.' + groupName).removeClass('selected-menu-item');
-        item.addClass('selected-menu-item');
-      }
-
-      $(menu.data('dropdown')).text(item.text());
-
-      menu.hide();
-      onMenuItemClick(menu.data('object'), item);
-    });
-  };
-
   var onMenuItemClick = function(contextObject, menuItem)
   {
     if (menuItem.is('.menu-all-items, .menu-new-items, .menu-starred-items'))
@@ -512,52 +441,479 @@ $().ready(function()
     }
   };
 
-  var collapseAllEntries = function()
+  var ui = 
   {
-    $('.entry.open').removeClass('open');
-    $('.entry .entry-content').remove();
-  };
+    'init': function()
+    {
+      this.initHelp();
+      this.initButtons();
+      this.initMenus();
+      this.initShortcuts();
 
-  // which: < 0 to select previous; > 0 to select next
-  var selectArticle = function(which, scrollIntoView)
-  {
-    if (which < 0)
+      $('#menu-filter').selectItem('.menu-all-items');
+      if ($.cookie('floated-nav') === 'true')
+        this.toggleNavMode(true);
+    },
+    'initButtons': function()
     {
-      if ($('.entry.selected').prev('.entry').length > 0)
-        $('.entry.selected')
-          .removeClass('selected')
-          .prev('.entry')
-          .addClass('selected');
-    }
-    else if (which > 0)
+      $('button.refresh').click(function()
+      {
+        refresh();
+      });
+      $('button.subscribe').click(function()
+      {
+        ui.subscribe();
+      });
+      $('button.navigate').click(function(e)
+      {
+        $('#floating-nav')
+          .css( { top: $('button.navigate').offset().top, left: $('button.navigate').offset().left })
+          .show();
+
+        e.stopPropagation();
+      });
+      $('.select-article.up').click(function()
+      {
+        ui.openArticle(-1);
+      });
+      $('.select-article.down').click(function()
+      {
+        ui.openArticle(1);
+      });
+      $('button.filter').click(function(e)
+      {
+        var topOffset = 0;
+        var selected = $('#menu-filter').find('.selected-menu-item');
+
+        $('.menu').hide();
+        $('#menu-filter')
+          .show();
+
+        if (selected.length)
+          topOffset += selected.position().top;
+
+        $('#menu-filter')
+          .css(
+          {
+            top: $(this).offset().top - topOffset, 
+            left: $(this).offset().left,
+          });
+
+        e.stopPropagation();
+      });
+    },
+    'initMenus': function()
     {
-      var selected = $('.entry.selected');
-      if (selected.length < 1)
-        next = $('#entries .entry:first');
+      // Build the menus
+
+      $('body')
+        .append($('<ul />', { 'id': 'menu-filter', 'class': 'menu', 'data-dropdown': 'button.filter' })
+          .append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
+          .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
+          .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))));
+
+      $('.menu').click(function(event)
+      {
+        event.stopPropagation();
+      });
+
+      $('.menu li').click(function()
+      {
+        var item = $(this);
+        var menu = item.closest('ul');
+
+        var groupName = null;
+        $.each(item.attr('class').split(/\s+/), function()
+        {
+          if (this.indexOf('group-') == 0)
+          {
+            groupName = this;
+            return false;
+          }
+        });
+
+        if (groupName)
+        {
+          $('.' + groupName).removeClass('selected-menu-item');
+          item.addClass('selected-menu-item');
+        }
+
+        $(menu.data('dropdown')).text(item.text());
+
+        menu.hide();
+        onMenuItemClick(menu.data('object'), item);
+      });
+
+      $.fn.selectItem = function(itemSelector)
+      {
+        var menu = $(this);
+        menu.find('li').removeClass('selected-menu-item');
+
+        var selected = menu.find(itemSelector);
+        selected.addClass('selected-menu-item');
+
+        $(menu.data('dropdown')).text(selected.text());
+      };
+
+      $.fn.isSelected = function(itemSelector)
+      {
+        return $(this).find(itemSelector).hasClass('selected-menu-item');
+      };
+    },
+    'initHelp': function()
+    {
+      var categories = 
+      [
+        {
+          'title': _l('Navigation'),
+          'shortcuts': 
+          [
+            { keys: _l('j/k'),       action: _l('open next/previous article') },
+            { keys: _l('n/p'),       action: _l('scan next/previous article') },
+            { keys: _l('Shift+n/p'), action: _l('scan next/previous subscription') },
+            { keys: _l('Shift+o'),   action: _l('open subscription or folder') },
+            { keys: _l('g, then a'), action: _l('open subscriptions') },
+          ]
+        },
+        {
+          'title': _l('Application'),
+          'shortcuts': 
+          [
+            { keys: _l('r'), action: _l('refresh') },
+            { keys: _l('u'), action: _l('toggle navigation mode') },
+            { keys: _l('a'), action: _l('add subscription') },
+            { keys: _l('?'), action: _l('help') },
+          ]
+        },
+        {
+          'title': _l('Articles'),
+          'shortcuts': 
+          [
+            { keys: _l('m'),       action: _l('mark as read/unread') },
+            { keys: _l('s'),       action: _l('star article') },
+            { keys: _l('t'),       action: _l('tag article') },
+            { keys: _l('l'),       action: _l('like article') },
+            { keys: _l('v'),       action: _l('open link') },
+            { keys: _l('o'),       action: _l('open article') },
+            { keys: _l('Shift+a'), action: _l('mark all as read') },
+          ]
+        }
+      ];
+
+      var maxColumns = 2; // Number of columns in the resulting table
+
+      // Build the table
+      var table = $('<table/>');
+      for (var i = 0, n = categories.length; i < n; i += maxColumns)
+      {
+        var keepGoing = true;
+        for (var k = -1; keepGoing; k++)
+        {
+          var row = $('<tr/>');
+          table.append(row);
+          keepGoing = false;
+
+          for (var j = 0; j < maxColumns && i + j < n; j++)
+          {
+            var category = categories[i + j];
+
+            if (k < 0) // Header
+            {
+              row.append($('<th/>', { 'colspan': 2 })
+                .text(category.title));
+
+              keepGoing = true;
+            }
+            else if (k < category.shortcuts.length)
+            {
+              row.append($('<td/>', { 'class': 'sh-keys' })
+                .text(category.shortcuts[k].keys + ':'))
+              .append($('<td/>', { 'class': 'sh-action' })
+                .text(category.shortcuts[k].action));
+
+              keepGoing = true;
+            }
+            else // Empty cell
+            {
+              row.append($('<td/>', { 'colspan': 2 }));
+            }
+          }
+        }
+      }
+
+      $('body').append($('<div />', { 'class': 'shortcuts' }).append(table));
+    },
+    'initShortcuts': function()
+    {
+      $(document)
+        .bind('keypress', '', function()
+        {
+          $('.shortcuts').hide();
+          $('.menu').hide();
+          $('#floating-nav').hide();
+        })
+        .bind('keypress', 'n', function()
+        {
+          ui.selectArticle(1);
+        })
+        .bind('keypress', 'p', function()
+        {
+          ui.selectArticle(-1);
+        })
+        .bind('keypress', 'j', function()
+        {
+          ui.openArticle(1);
+        })
+        .bind('keypress', 'k', function()
+        {
+          ui.openArticle(-1);
+        })
+        .bind('keypress', 'o', function()
+        {
+          ui.openArticle(0);
+        })
+        .bind('keypress', 'r', function()
+        {
+          refresh();
+        })
+        .bind('keypress', 's', function()
+        {
+          if ($('.entry.selected').length)
+            $('.entry.selected').data('entry').toggleStarred();
+        })
+        .bind('keypress', 'm', function()
+        {
+          if ($('.entry.selected').length)
+            $('.entry.selected').data('entry').toggleUnread();
+        })
+        .bind('keypress', 'shift+n', function()
+        {
+          ui.highlightFeed(1);
+        })
+        .bind('keypress', 'shift+p', function()
+        {
+          ui.highlightFeed(-1);
+        })
+        .bind('keypress', 'shift+o', function()
+        {
+          if ($('.subscription.highlighted').length)
+          {
+            $('.subscription.highlighted')
+              .removeClass('highlighted')
+              .data('subscription').select();
+          }
+        })
+        .bind('keypress', 'g', function()
+        {
+          lastGPressTime = new Date().getTime();
+        })
+        .bind('keypress', 'a', function()
+        {
+          if (ui.isGModifierActive())
+            $('.subscription.root')
+              .data('subscription').select();
+          else
+            ui.subscribe();
+        })
+        .bind('keypress', 'u', function()
+        {
+          ui.toggleNavMode();
+        })
+        .bind('keypress', 'v', function()
+        {
+          if ($('.entry.selected').length)
+            $('.entry.selected').find('.entry-link')[0].click();
+        })
+        // .bind('keypress', 'l', function()
+        // {
+        //   if ($('.entry.selected').length)
+        //     toggleLiked($('.entry.selected'));
+        // })
+        // .bind('keypress', 't', function()
+        // {
+        //   editTags($('.entry.selected'));
+        // })
+        // .bind('keypress', 'shift+a', function()
+        // {
+        //   markAllAsRead();
+        // })
+        .bind('keypress', 'shift+?', function()
+        {
+          $('.shortcuts').show();
+        });
+    },
+    'isGModifierActive': function()
+    {
+      return new Date().getTime() - lastGPressTime < 1000;
+    },
+    'toggleNavMode': function(floatedNavEnabled)
+    {
+      $('body').toggleClass('floated-nav', floatedNavEnabled);
+
+      if ($('body').hasClass('floated-nav'))
+        $('#floating-nav')
+          .append($('.feeds-container'));
       else
-        next = selected.next('.entry');
+        $('#reader')
+          .prepend($('.feeds-container'));
 
-      $('.entry.selected').removeClass('selected');
-      next.addClass('selected');
+      $.cookie('floated-nav', 
+        $('body').hasClass('floated-nav'));
+    },
+    'updateUnreadCount': function()
+    {
+      // Update the 'new items' caption in the dropdown to reflect
+      // the unread count
 
-      if (next.next('.entry').length < 1)
-        $('.next-page').click(); // Load another page - this is the last item
-    }
+      var selectedSubscription = getSelectedSubscription();
+      var caption;
 
-    scrollIntoView = (typeof scrollIntoView !== 'undefined') ? scrollIntoView : true;
-    if (scrollIntoView)
-      $('.entry.selected').scrollintoview({ duration: 0});
-  };
+      if (!selectedSubscription || selectedSubscription.unread === null)
+        caption = _l("New items");
+      else if (selectedSubscription.unread == 0)
+        caption = _l("No new items");
+      else
+        caption = _l("%1$s new item(s)", [selectedSubscription.unread]);
 
-  // which: < 0 to open previous; > 0 to open next; 0 to toggle current
-  var openArticle = function(which)
-  {
-    selectArticle(which, false);
+      var newItems = $('.menu-new-items');
 
-    if (!$('.entry-content', $('.entry.selected')).length || which === 0)
-      $('.entry.selected')
-        .click()
-        .scrollintoview();
+      newItems.text(caption);
+      if (newItems.is('.selected-menu-item'))
+        $('.filter').text(caption);
+
+      var totalUnread = 0;
+      $(".subscription").each(function()
+      {
+        var subDom = $(this);
+        var subscription = subDom.data('subscription');
+
+        if (!subscription.isRoot())
+          totalUnread += subscription.unread;
+      });
+
+      var root = $(".root.subscription").data("subscription");
+      root.unread = totalUnread;
+      root.syncView();
+
+      $(".root.subscription").data("subscription").unread = totalUnread;
+
+      // Update the title bar
+
+      var title = '>:(';
+      if (root.unread > 0)
+        title += ' (' + root.unread + ')';
+
+      document.title = title;
+    },
+    'highlightFeed': function(which, scrollIntoView)
+    {
+      var highlighted = $('.subscription.highlighted');
+      var next;
+
+      if (which < 0)
+      {
+        var allFeeds = $('#subscriptions .subscription');
+        var highlightedIndex = allFeeds.index(highlighted);
+
+        if (highlightedIndex - 1 >= 0)
+          next = $(allFeeds[highlightedIndex - 1]);
+      }
+      else if (which > 0)
+      {
+        if (highlighted.length < 1)
+          next = $('#subscriptions .subscription:first');
+        else
+        {
+          var allFeeds = $('#subscriptions .subscription');
+          var highlightedIndex = allFeeds.index(highlighted);
+
+          if (highlightedIndex + 1 < allFeeds.length)
+            next = $(allFeeds[highlightedIndex + 1]);
+        }
+      }
+
+      if (next)
+      {
+        $('.subscription.highlighted').removeClass('highlighted');
+        next.addClass('highlighted');
+
+        scrollIntoView = (typeof scrollIntoView !== 'undefined') ? scrollIntoView : true;
+        if (scrollIntoView)
+          $('.subscription.highlighted').scrollintoview({ duration: 0});
+      }
+    },
+    'selectArticle': function(which, scrollIntoView)
+    {
+      if (which < 0)
+      {
+        if ($('.entry.selected').prev('.entry').length > 0)
+          $('.entry.selected')
+            .removeClass('selected')
+            .prev('.entry')
+            .addClass('selected');
+      }
+      else if (which > 0)
+      {
+        var selected = $('.entry.selected');
+        if (selected.length < 1)
+          next = $('#entries .entry:first');
+        else
+          next = selected.next('.entry');
+
+        $('.entry.selected').removeClass('selected');
+        next.addClass('selected');
+
+        if (next.next('.entry').length < 1)
+          $('.next-page').click(); // Load another page - this is the last item
+      }
+
+      scrollIntoView = (typeof scrollIntoView !== 'undefined') ? scrollIntoView : true;
+      if (scrollIntoView)
+        $('.entry.selected').scrollintoview({ duration: 0});
+    },
+    'openArticle': function(which)
+    {
+      this.selectArticle(which, false);
+
+      if (!$('.entry-content', $('.entry.selected')).length || which === 0)
+        $('.entry.selected')
+          .click()
+          .scrollintoview();
+    },
+    'collapseAllEntries': function()
+    {
+      $('.entry.open').removeClass('open');
+      $('.entry .entry-content').remove();
+    },
+    'showToast': function(message, isError)
+    {
+      $('#toast span').text(message);
+      $('#toast').attr('class', isError ? 'error' : 'info');
+
+      if ($('#toast').is(':hidden'))
+      {
+        $('#toast')
+          .fadeIn()
+          .delay(8000)
+          .fadeOut('slow'); 
+      }
+    },
+    'subscribe': function()
+    {
+      var feedUrl = prompt(_l("Enter the feed URL"));
+      if (feedUrl)
+      {
+        $.post('subscribe', 
+        {
+          'url' : feedUrl,
+        },
+        function(response)
+        {
+          if (response.message)
+            ui.showToast(response.message, false);
+        }, 'json');
+      }
+    },
   };
 
   var getSelectedSubscription = function()
@@ -566,52 +922,6 @@ $().ready(function()
       return $('.subscription.selected').data('subscription');
 
     return null;
-  };
-
-  var updateUnreadCount = function()
-  {
-    // Update the 'new items' caption in the dropdown to reflect
-    // the unread count
-
-    var selectedSubscription = getSelectedSubscription();
-    var caption;
-
-    if (!selectedSubscription || selectedSubscription.unread === null)
-      caption = _l("New items");
-    else if (selectedSubscription.unread == 0)
-      caption = _l("No new items");
-    else
-      caption = _l("%1$s new item(s)", [selectedSubscription.unread]);
-
-    var newItems = $('.menu-new-items');
-
-    newItems.text(caption);
-    if (newItems.is('.selected-menu-item'))
-      $('.filter').text(caption);
-
-    var totalUnread = 0;
-    $(".subscription").each(function()
-    {
-      var subDom = $(this);
-      var subscription = subDom.data('subscription');
-
-      if (!subscription.isRoot())
-        totalUnread += subscription.unread;
-    });
-
-    var root = $(".root.subscription").data("subscription");
-    root.unread = totalUnread;
-    root.syncView();
-
-    $(".root.subscription").data("subscription").unread = totalUnread;
-
-    // Update the title bar
-
-    var title = '>:(';
-    if (root.unread > 0)
-      title += ' (' + root.unread + ')';
-
-    document.title = title;
   };
 
   var loadSubscriptions = function()
@@ -683,30 +993,12 @@ $().ready(function()
     });
   };
 
-  var subscribe = function()
-  {
-    var feedUrl = prompt(_l('Enter the feed URL'));
-    if (feedUrl)
-    {
-      $.post('subscribe', 
-      {
-        'url' : feedUrl,
-      },
-      function(response)
-      {
-        if (response.message)
-          showToast(response.message, false);
-      }, 'json');
-    }
-  };
-
   var refresh = function()
   {
     loadSubscriptions();
   };
 
-  initMenus();
-  initButtons();
+  ui.init();
 
   loadSubscriptions();
 });

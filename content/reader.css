@@ -29,6 +29,13 @@ body
   margin: 0;
 }
 
+#header
+{
+  border-bottom: solid 1px #ccc;
+  background-color: #eee;
+  padding: 0.5em 1em;
+}
+
 #reader
 {
   position: absolute;
@@ -39,6 +46,12 @@ body
   border-top: solid 1px #aaa;
 }
 
+a
+{
+  color: #0276FD;
+  text-decoration: none;
+}
+
 .houmu-rogo
 {
   margin: 3px;
@@ -46,7 +59,6 @@ body
 
 .navbar a
 {
-  color: #0276FD;
   font-weight: bold;
   text-decoration: none;
 }
@@ -70,6 +82,12 @@ body
   text-align: center;
   font-size: 13pt;
   color: #777;
+}
+
+.center-message a 
+{
+  margin-top: 0.25em;
+  display: block;
 }
 
 .feeds-container

@@ -37,6 +37,8 @@ const indexTemplateHTML = `
     <link href="content/reader.css" type="text/css" rel="stylesheet"/>
     <script src="content/sprintf.min.js" type="text/javascript"></script>
     <script src="content/jquery-1.9.1.min.js" type="text/javascript"></script>
+    <script src="content/jquery.hotkeys.js" type="text/javascript"></script>
+    <script src="content/jquery.cookie.js" type="text/javascript"></script>
     <script src="content/jquery.scrollintoview.min.js" type="text/javascript"></script>
     <script src="content/reader.js" type="text/javascript"></script>
     <title>&gt;:(</title>
@@ -44,7 +46,10 @@ const indexTemplateHTML = `
   <body>
     <div id="toast"><span></span></div>
     <div id="header">
-      Houmu rogo, desu ne?
+      <img src="content/logo.png" class="houmu-rogo" />
+      <div class="navbar">
+        <a href="#">Import subscriptions</a>
+      </div>
     </div>
     <div id="navbar">
       <div class="right-aligned">
