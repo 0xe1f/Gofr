@@ -77,6 +77,11 @@ $().ready(function()
     $('#floating-nav').hide();
   });
 
+  $('.modal-blocker').click(function() 
+  {
+    $('.modal').showModal(false);
+  });
+
   // Default error handler
 
   $(document).ajaxError(function(event, jqxhr, settings, exception) 
@@ -449,6 +454,13 @@ $().ready(function()
       this.initButtons();
       this.initMenus();
       this.initShortcuts();
+      this.initModals();
+
+      $('a.import-subscriptions').click(function()
+      {
+        $('#import-subscriptions').showModal(true);
+        return false;
+      });
 
       $('#menu-filter').selectItem('.menu-all-items');
       if ($.cookie('floated-nav') === 'true')
@@ -742,6 +754,34 @@ $().ready(function()
           $('.shortcuts').show();
         });
     },
+    'initModals': function()
+    {
+      $('.modal-blocker').hide();
+      $('.modal').hide();
+
+      $.fn.showModal = function(show)
+      {
+        if (!$(this).hasClass('modal'))
+          return;
+
+        if (show)
+        {
+          $('.modal-blocker').show();
+          $(this).show();
+        }
+        else
+        {
+          $('.modal-blocker').hide();
+          $(this).hide();
+        }
+      };
+
+      $('.modal-cancel').click(function()
+      {
+        console.debug('hey');
+        $(this).closest('.modal').showModal(false);
+      });
+    },
     'isGModifierActive': function()
     {
       return new Date().getTime() - lastGPressTime < 1000;
@@ -808,7 +848,10 @@ $().ready(function()
     'highlightFeed': function(which, scrollIntoView)
     {
       var highlighted = $('.subscription.highlighted');
-      var next;
+      if (!highlighted.length)
+        highlighted = $('.subscription.selected');
+
+      var next = null;
 
       if (which < 0)
       {

@@ -6,8 +6,9 @@ api_version: go1
 handlers:
 - url: /content
   static_dir: content
-- url: /tasks/*
+- url: /tasks/.*
   script: _go_app
   login: admin
 - url: /.*
   script: _go_app
+  login: required

@@ -25,15 +25,18 @@ package frae
 
 import (
   "appengine"
+  "appengine/blobstore"
   "appengine/datastore"
   "appengine/urlfetch"
   "net/http"
   "time"
+  "opml"
   "parser"
 )
 
 func registerTasks() {
   http.HandleFunc("/tasks/subscribe", subscribeTask)
+  http.HandleFunc("/tasks/import", importOpmlTask)
 }
 
 func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, feedKey *datastore.Key, feed *Feed) error {
@@ -217,4 +220,113 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
     http.Error(w, err.Error(), http.StatusInternalServerError)
     return
   }
+}
+
+func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, subscription *opml.Subscription) {
+  c.Infof("'Importing' %s", subscription.Title)
+
+  url := subscription.URL
+  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+  feed := new(Feed)
+
+  var subscriptionKey *datastore.Key
+
+  if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
+    // FIXME: handle error
+    c.Errorf(err.Error())
+    goto done
+  } else if err == datastore.ErrNoSuchEntity {
+    // Add the feed first
+    client := urlfetch.Client(c)
+    if resp, err := client.Get(url); err != nil {
+      c.Errorf("Error fetching from URL %s: %s", url, err)
+      // FIXME: handle error
+      goto done
+    } else {
+      defer resp.Body.Close()
+      if loadedFeed, err := parser.UnmarshalStream(url, resp.Body); err != nil {
+        c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
+        // FIXME: handle error
+        goto done
+      } else {
+        feed, _ = NewFeed(loadedFeed)
+        if err := updateFeed(c, feedKey, feed); err != nil {
+          c.Errorf("Error updating feed for URL %s: %s", url, err)
+          // FIXME: handle error
+          goto done
+        }
+      }
+    }
+  }
+
+  subscriptionKey = datastore.NewKey(c, "Subscription", url, 0, userKey)
+  if err := datastore.Get(c, subscriptionKey, nil); err == nil {
+    // Already subscribed; success
+    c.Infof("Already subscribed to %s", url)
+    goto done
+  } else if err != datastore.ErrNoSuchEntity {
+    c.Errorf("Error reading subscription: %s", err)
+    // FIXME: handle error
+    goto done
+  }
+
+  if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
+    c.Errorf("Subscription update error: %s", err)
+    // FIXME: handle error
+    goto done
+  }
+
+done:
+  ch<- subscription
+}
+
+func importSubscriptions(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, subscriptions []*opml.Subscription) int {
+  count := 0
+  for _, subscription := range subscriptions {
+    if subscription.URL != "" {
+      go importSubscription(c, ch, userKey, subscription)
+      count++
+    }
+    if subscription.Subscriptions != nil {
+      count += importSubscriptions(c, ch, userKey, subscription.Subscriptions)
+    }
+  }
+
+  return count
+}
+
+func importOpmlTask(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  var userKey *datastore.Key
+  if userID := r.FormValue("userID"); userID == "" {
+    http.Error(w, "Missing userID", http.StatusInternalServerError)
+    return
+  } else {
+    userKey = datastore.NewKey(c, "User", userID, 0, nil)
+  }
+
+  var doc opml.Document
+  if blobKeyString := r.FormValue("opmlBlobKey"); blobKeyString == "" {
+    http.Error(w, "Missing blob key", http.StatusInternalServerError)
+    return
+  } else {
+    blobKey := appengine.BlobKey(blobKeyString)
+    reader := blobstore.NewReader(c, blobKey)
+
+    if err := opml.Parse(reader, &doc); err != nil {
+      http.Error(w, "Error reading OPML", http.StatusInternalServerError)
+      return
+    }
+  }
+
+  doneChannel := make(chan *opml.Subscription)
+  importing := importSubscriptions(c, doneChannel, userKey, doc.Subscriptions)
+
+  for i := 0; i < importing; i++ {
+    subscription := <-doneChannel;
+    c.Infof("completed %s", subscription.Title)
+  }
+
+  c.Infof("completed all")
 }

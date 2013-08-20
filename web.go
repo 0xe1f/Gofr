@@ -23,8 +23,16 @@
  
 package frae
 
-func init() {
-  registerJson()
-  registerTasks()
-  registerWeb()
+import (
+  "net/http"
+)
+
+func registerWeb() {
+  http.HandleFunc("/", index)
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+  if err := indexTemplate.Execute(w, nil); err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+  }
 }

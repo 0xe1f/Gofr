@@ -1,0 +1,10 @@
+TODO
+Mask the continue marker (currently sent in base-64)
+Add feed importing
+Add server-to-client 'refresh' notifications
+Add subscription updates
+Localization
+Don't create blob sessions unless necessary
+Delete blob after upload
+When subscribing, check URL's against known www links
+Add support for rel=alternate

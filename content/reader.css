@@ -36,6 +36,11 @@ body
   padding: 0.5em 1em;
 }
 
+#header h1
+{
+  margin: 0.25em 0;
+}
+
 #reader
 {
   position: absolute;
@@ -471,6 +476,7 @@ ul#subscriptions,
   float: right;
 }
 
+.button,
 button
 {
   height: 30px;
@@ -685,4 +691,49 @@ ul.menu
 {
   text-align: left;
   padding-right: 2em;
+}
+
+.modal-blocker
+{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  opacity: 0.6;
+  background-color: #fff;
+}
+
+.modal
+{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.modal-inner
+{
+  position: relative;
+  left: -50%;
+  top: -50%;
+  padding: 0.75em 2em;
+  border: solid 1px #bbb;
+  border-radius: 3px;
+  background-color: #fff;
+}
+
+.modal h1 {
+  font-size: 14pt;
+  margin: 0 0 1em 0;
+}
+
+.modal .buttons
+{
+  margin-top: 1em;
+  text-align: right;
+}
+
+iframe 
+{
+  border-style: none;
 }

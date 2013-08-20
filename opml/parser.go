@@ -20,11 +20,21 @@
  **
  ******************************************************************************
  */
- 
-package frae
 
-func init() {
-  registerJson()
-  registerTasks()
-  registerWeb()
+package opml
+
+import (
+  "encoding/xml"
+  "io"
+)
+
+func Parse(reader io.Reader, doc *Document) error {
+  var root opmlRoot
+  decoder := xml.NewDecoder(reader)
+  if err := decoder.Decode(&root); err != nil {
+    return err
+  }
+
+  doc.Subscriptions = root.Body.Subscriptions
+  return nil
 }

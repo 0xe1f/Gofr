@@ -48,7 +48,7 @@ const indexTemplateHTML = `
     <div id="header">
       <img src="content/logo.png" class="houmu-rogo" />
       <div class="navbar">
-        <a href="#">Import subscriptions</a>
+        <a class="import-subscriptions" href="#">Import subscriptions</a>
       </div>
     </div>
     <div id="navbar">
@@ -72,6 +72,19 @@ const indexTemplateHTML = `
       </div>
     </div>
     <div id="floating-nav"></div>
+    <div class="modal-blocker"></div>
+    <div id="import-subscriptions" class="modal">
+      <div class="modal-inner">
+        <h1>Upload OPML file</h1>
+        <form enctype="multipart/form-data" action="{{.}}" method="POST">
+          <input name="opml" type="file" />
+          <div class="buttons">
+            <input class="button modal-cancel" type="button" value="Cancel" />
+            <input class="button" type="submit" value="Upload" />
+          </div>
+        </form>
+      </div>
+    </div>
   </body>
 </html>
 `

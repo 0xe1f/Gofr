@@ -21,10 +21,31 @@
  ******************************************************************************
  */
  
-package frae
+package opml
 
-func init() {
-  registerJson()
-  registerTasks()
-  registerWeb()
+import (
+  "encoding/json"
+)
+
+type opmlRoot struct {
+  Body opmlBody `xml:"body"`
+}
+
+type opmlBody struct {
+  Subscriptions []*Subscription `xml:"outline"`
+}
+
+type Subscription struct {
+  Title string `xml:"title,attr"`
+  URL string `xml:"xmlUrl,attr"`
+  Subscriptions []*Subscription `xml:"outline"`
+}
+
+type Document struct {
+  Subscriptions []*Subscription
+}
+
+func (doc Document) String() string {
+  bf, _ := json.Marshal(doc)
+  return string(bf)
 }

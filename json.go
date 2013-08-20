@@ -25,6 +25,7 @@ package frae
 
 import (
   "appengine"
+  "appengine/blobstore"
   "appengine/datastore"
   "appengine/taskqueue"
   "appengine/urlfetch"
@@ -34,6 +35,7 @@ import (
   "net/http"
   "fmt"
   "parser"
+  "opml"
   "strings"
 )
 
@@ -49,6 +51,7 @@ func registerJson() {
   http.HandleFunc("/entries",       entries)
   http.HandleFunc("/setProperty",   setProperty)
   http.HandleFunc("/subscribe",     subscribe)
+  http.HandleFunc("/import",        importOpml)
 }
 
 func _l(format string, v ...interface {}) string {
@@ -394,4 +397,42 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
   }
 
   writeObject(w, map[string]string { "message": _l("Your subscription has been queued") })
+}
+
+func importOpml(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  blobs, _, err := blobstore.ParseUpload(r)
+  if err != nil {
+    writeError(c, w, NewReadableError(_l("Error receiving file"), &err))
+    return
+  }
+
+  var blobKey appengine.BlobKey
+  if blobInfos := blobs["opml"]; len(blobInfos) == 0 {
+    writeError(c, w, NewReadableError(_l("File not uploaded"), nil))
+    return
+  } else {
+    blobKey = blobInfos[0].BlobKey
+    reader := blobstore.NewReader(c, blobKey)
+
+    var doc opml.Document
+    if err := opml.Parse(reader, &doc); err != nil {
+      writeError(c, w, NewReadableError(_l("Error reading OPML file"), &err))
+      return
+    }
+  }
+
+  user := user.Current(c)
+  task := taskqueue.NewPOSTTask("/tasks/import", url.Values {
+    "opmlBlobKey": { string(blobKey) },
+    "userID": { user.ID },
+  })
+
+  if _, err := taskqueue.Add(c, task, ""); err != nil {
+    writeError(c, w, NewReadableError(_l("Error initiating import"), &err))
+    return
+  }
+
+  http.Redirect(w, r, "/serve/?blobKey="+string(blobKey), http.StatusFound)
 }
