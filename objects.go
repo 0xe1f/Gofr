@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** FRAE
- ** https://github.com/melllvar/frae
+ ** PerFeediem
+ ** https://github.com/melllvar/PerFeediem
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  ******************************************************************************
  */
  
-package frae
+package perfeediem
 
 import (
   "time"
@@ -53,7 +53,7 @@ type EntryMeta struct {
 }
 
 type Entry struct {
-  GUID string         `json:"-"`
+  UniqueID string     `json:"-"`
   Author string       `json:"author"`
   Title string        `json:"title"`
   Link string         `json:"link"`
@@ -105,7 +105,7 @@ func NewFeed(parsedFeed *parser.Feed) (*Feed, error) {
 
   for i, parsedEntry := range parsedFeed.Entries {
     feed.Entries[i] = &Entry {
-      GUID: parsedEntry.GUID,
+      UniqueID: parsedEntry.UniqueID(),
       Author: parsedEntry.Author,
       Title: parsedEntry.Title,
       Link: parsedEntry.WWWURL,

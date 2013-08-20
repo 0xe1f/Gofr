@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** FRAE
- ** https://github.com/melllvar/frae
+ ** PerFeediem
+ ** https://github.com/melllvar/PerFeediem
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,9 +21,11 @@
  ******************************************************************************
  */
  
-package frae
+package perfeediem
 
 import (
+  "appengine"
+  "appengine/blobstore"
   "net/http"
 )
 
@@ -32,7 +34,14 @@ func registerWeb() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-  if err := indexTemplate.Execute(w, nil); err != nil {
+  c := appengine.NewContext(r)
+  uploadURL, err := blobstore.UploadURL(c, "/import", nil)
+  if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  }
+
+  if err := indexTemplate.Execute(w, uploadURL); err != nil {
     http.Error(w, err.Error(), http.StatusInternalServerError)
   }
 }

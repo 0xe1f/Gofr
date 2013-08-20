@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** FRAE
- ** https://github.com/melllvar/frae
+ ** PerFeediem
+ ** https://github.com/melllvar/PerFeediem
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -115,6 +115,18 @@ func (entry *Entry)LatestModification() time.Time {
   }
 
   return entry.Published
+}
+
+func (entry *Entry)UniqueID() string {
+  if entry.GUID != "" {
+    return entry.GUID
+  }
+
+  if !entry.LatestModification().IsZero() {
+    return entry.WWWURL + "@" + entry.LatestModification().String()
+  }
+
+  return entry.WWWURL
 }
 
 type FeedMarshaler interface {

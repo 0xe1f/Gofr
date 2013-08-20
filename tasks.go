@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** FRAE
- ** https://github.com/melllvar/frae
+ ** PerFeediem
+ ** https://github.com/melllvar/PerFeediem
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  ******************************************************************************
  */
  
-package frae
+package perfeediem
 
 import (
   "appengine"
@@ -141,7 +141,11 @@ func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *Feed) error {
       }
     }
 
-    keyName := feed.Entries[i].GUID // FIXME: figure out a better guid scheme
+    keyName := feed.Entries[i].UniqueID
+    if keyName == "" {
+      c.Errorf("UniqueID for an entry (title '%s') is missing", feed.Entries[i].Title)
+      continue
+    }
 
     entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
     entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)

@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** FRAE
- ** https://github.com/melllvar/frae
+ ** PerFeediem
+ ** https://github.com/melllvar/PerFeediem
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  ******************************************************************************
  */
  
-package frae
+package perfeediem
 
 import (
   "html/template"
@@ -46,7 +46,7 @@ const indexTemplateHTML = `
   <body>
     <div id="toast"><span></span></div>
     <div id="header">
-      <img src="content/logo.png" class="houmu-rogo" />
+      <h1>PerFeediem</h1>
       <div class="navbar">
         <a class="import-subscriptions" href="#">Import subscriptions</a>
       </div>
