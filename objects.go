@@ -60,8 +60,8 @@ type Entry struct {
   Published time.Time `json:"published"`
   Updated time.Time   `json:"-"`
 
-  Content string `datastore:",noindex" json:"content"`
-  Summary string `datastore:",noindex" json:"summary"`
+  Content string `json:"content" datastore:",noindex"`
+  Summary string `json:"summary"`
 }
 
 type Subscription struct {

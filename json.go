@@ -31,11 +31,13 @@ import (
   "appengine/urlfetch"
   "appengine/user"
   "encoding/json"
+  "fmt"
+  "io/ioutil"
   "net/url"
   "net/http"
-  "fmt"
-  "parser"
   "opml"
+  "parser"
+  "regexp"
   "strings"
 )
 
@@ -65,6 +67,60 @@ func writeObject(w http.ResponseWriter, obj interface{}) {
 
   bf, _ := json.Marshal(obj)
   w.Write(bf)
+}
+
+func feedURLFromLink(c appengine.Context, url string) string {
+  q := datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
+
+  var feeds []*Feed
+  if _, err := q.GetAll(c, &feeds); err == nil && len(feeds) > 0 {
+    return feeds[0].URL
+  } else if err != nil && err != datastore.ErrNoSuchEntity {
+    c.Errorf("Error searching for feed (URL %s): %s", url, err)
+    return ""
+  }
+
+  // Add/remove 'www' and try again
+  re := regexp.MustCompile(`://www\.`)
+  if re.MatchString(url) {
+    url = re.ReplaceAllString(url, "://")
+  } else {
+    re = regexp.MustCompile(`://`)
+    url = re.ReplaceAllString(url, "://www.")
+  }
+
+  q = datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
+  if _, err := q.GetAll(c, &feeds); err == nil && len(feeds) > 0 {
+    return feeds[0].URL
+  } else if err != nil && err != datastore.ErrNoSuchEntity {
+    c.Errorf("Error searching for feed (URL %s): %s", url, err)
+    return ""
+  }
+
+  return ""
+}
+
+func feedURLFromHTML(html string) string {
+  tagRe := regexp.MustCompile(`<link(?:\s+\w+\s*=\s*(?:"[^"]*"|'[^']'))+\s*/?>`)
+  attrRe := regexp.MustCompile(`\b(?P<key>\w+)\s*=\s*(?:"(?P<value>[^"]*)"|'(?P<value>[^'])')`)
+
+  for _, linkTag := range tagRe.FindAllString(html, -1) {
+    link := make(map[string]string)
+    for _, attr := range attrRe.FindAllStringSubmatch(linkTag, -1) {
+      key := strings.ToLower(attr[1])
+      if attr[2] != "" {
+        link[key] = strings.ToLower(attr[2])
+      } else if attr[3] != "" {
+        link[key] = strings.ToLower(attr[3])
+      }
+    }
+
+    if link["rel"] == "alternate" && link["type"] == "application/rss+xml" {
+      return link["href"]
+    }
+  }
+
+  return ""
 }
 
 func authorize(c appengine.Context, r *http.Request, w http.ResponseWriter) (*datastore.Key, error) {
@@ -345,14 +401,20 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     userKey = u
   }
 
-  subscriptionUrl := strings.TrimSpace(r.PostFormValue("url"))
-
-  if subscriptionUrl == "" {
+  subscriptionURL := strings.TrimSpace(r.PostFormValue("url"))
+  if subscriptionURL == "" {
     writeError(c, w, NewReadableError(_l("Missing URL"), nil))
     return
   }
 
-  subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionUrl, 0, userKey)
+  var feedURL string
+  if url := feedURLFromLink(c, subscriptionURL); url != "" {
+    feedURL = url
+  } else {
+    feedURL = subscriptionURL
+  }
+
+  subscriptionKey := datastore.NewKey(c, "Subscription", feedURL, 0, userKey)
   subscription := new(Subscription)
 
   if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
@@ -363,18 +425,28 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  feedKey := datastore.NewKey(c, "Feed", subscriptionUrl, 0, nil)
+  feedKey := datastore.NewKey(c, "Feed", feedURL, 0, nil)
   if err := datastore.Get(c, feedKey, nil); err == nil {
     // Already have the feed
   } else if err == datastore.ErrNoSuchEntity {
     // Don't have the feed - fetch it
     client := urlfetch.Client(c)
-    if response, err := client.Get(subscriptionUrl); err != nil {
+    if response, err := client.Get(feedURL); err != nil {
       writeError(c, w, NewReadableError(_l("An error occurred while downloading the feed"), &err))
       return
     } else {
       defer response.Body.Close()
-      if _, err := parser.UnmarshalStream(subscriptionUrl, response.Body); err != nil {
+      
+      var body string
+      if bytes, err := ioutil.ReadAll(response.Body); err != nil {
+        writeError(c, w, NewReadableError(_l("An error occurred while downloading the feed"), &err))
+        return
+      } else {
+        body = string(bytes)
+      }
+
+      reader := strings.NewReader(body) // FIXME
+      if _, err := parser.UnmarshalStream(feedURL, reader); err != nil {
         writeError(c, w, NewReadableError(_l("An error occurred while parsing the feed"), &err))
         return
       }
@@ -387,10 +459,9 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
 
   user := user.Current(c)
   task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
-    "url": { subscriptionUrl },
+    "url": { feedURL },
     "userID": { user.ID },
   })
-  task.Name = "subscribe " + user.ID + "@" + subscriptionUrl
 
   if _, err := taskqueue.Add(c, task, ""); err != nil {
     writeError(c, w, NewReadableError(_l("Subscription may already have been queued"), &err))

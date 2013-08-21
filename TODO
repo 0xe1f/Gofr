@@ -3,7 +3,7 @@ Mask the continue marker (currently sent in base-64)
 Add server-to-client 'refresh' notifications
 Add subscription updates
 Localization
-When subscribing, check URL's against known www links
 Add support for rel=alternate
 Add transactions for feed importing and subscriptions
 When importing OPML, use the title specified in the XML file
+Build a summary
