@@ -24,8 +24,6 @@
 package perfeediem
 
 import (
-  "appengine"
-  "appengine/blobstore"
   "net/http"
 )
 
@@ -34,14 +32,7 @@ func registerWeb() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-  uploadURL, err := blobstore.UploadURL(c, "/import", nil)
-  if err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
-
-  if err := indexTemplate.Execute(w, uploadURL); err != nil {
+  if err := indexTemplate.Execute(w, nil); err != nil {
     http.Error(w, err.Error(), http.StatusInternalServerError)
   }
 }

@@ -52,6 +52,7 @@ func registerJson() {
   http.HandleFunc("/setProperty",   setProperty)
   http.HandleFunc("/subscribe",     subscribe)
   http.HandleFunc("/import",        importOpml)
+  http.HandleFunc("/authUpload",    authUpload)
 }
 
 func _l(format string, v ...interface {}) string {
@@ -396,7 +397,7 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  writeObject(w, map[string]string { "message": _l("Your subscription has been queued") })
+  writeObject(w, map[string]string { "message": _l("Your subscription has been queued for addition.") })
 }
 
 func importOpml(w http.ResponseWriter, r *http.Request) {
@@ -419,6 +420,11 @@ func importOpml(w http.ResponseWriter, r *http.Request) {
     var doc opml.Document
     if err := opml.Parse(reader, &doc); err != nil {
       writeError(c, w, NewReadableError(_l("Error reading OPML file"), &err))
+
+      // Remove the blob
+      if err := blobstore.Delete(c, blobKey); err != nil {
+        c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
+      }
       return
     }
   }
@@ -431,8 +437,26 @@ func importOpml(w http.ResponseWriter, r *http.Request) {
 
   if _, err := taskqueue.Add(c, task, ""); err != nil {
     writeError(c, w, NewReadableError(_l("Error initiating import"), &err))
+    
+    // Remove the blob
+    if err := blobstore.Delete(c, blobKey); err != nil {
+      c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
+    }
     return
   }
 
-  http.Redirect(w, r, "/serve/?blobKey="+string(blobKey), http.StatusFound)
+  writeObject(w, map[string]string { "message": _l("Your subscriptions have been queued for addition.") })
+}
+
+func authUpload(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+  uploadURL, err := blobstore.UploadURL(c, "/import", nil)
+  if err != nil {
+    writeError(c, w, NewReadableError(_l("Error initiating file upload"), &err))
+    return
+  }
+
+  writeObject(w, map[string]string { 
+    "uploadUrl": uploadURL.String(),
+  })
 }

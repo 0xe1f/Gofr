@@ -458,6 +458,7 @@ $().ready(function()
 
       $('a.import-subscriptions').click(function()
       {
+        $('#import-subscriptions').find('form')[0].reset();
         $('#import-subscriptions').showModal(true);
         return false;
       });
@@ -512,6 +513,40 @@ $().ready(function()
           });
 
         e.stopPropagation();
+      });
+
+      $('#import-subscriptions .modal-ok').click(function()
+      {
+        var modal = $(this).closest('.modal');
+        var form = $('#import-subscriptions form');
+
+        if (!form.find('input[type=file]').val())
+        {
+          // No file specified
+          return;
+        }
+
+        // Get upload URL
+        $.post('authUpload', 
+        {
+        },
+        function(response)
+        {
+          // Upload the file
+          form
+            .attr('action', response.uploadUrl)
+            .ajaxSubmit(
+            {
+              success: function(response)
+              {
+                ui.showToast(response.message, false);
+              },
+              dataType: 'json',
+            });
+
+          // Dismiss the modal
+          modal.showModal(false);
+        }, 'json');
       });
     },
     'initMenus': function()
@@ -778,8 +813,8 @@ $().ready(function()
 
       $('.modal-cancel').click(function()
       {
-        console.debug('hey');
         $(this).closest('.modal').showModal(false);
+        return false;
       });
     },
     'isGModifierActive': function()

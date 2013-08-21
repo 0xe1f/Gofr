@@ -211,7 +211,9 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
   }
 
   subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, userKey)
-  if err := datastore.Get(c, subscriptionKey, nil); err == nil {
+  subscription := new(Subscription)
+
+  if err := datastore.Get(c, subscriptionKey, &subscription); err == nil {
     // Already subscribed; success
     return
   } else if err != datastore.ErrNoSuchEntity {
@@ -226,14 +228,15 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, subscription *opml.Subscription) {
-  c.Infof("'Importing' %s", subscription.Title)
+func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, opmlSubscription *opml.Subscription) {
+  c.Infof("'Importing' %s", opmlSubscription.Title)
 
-  url := subscription.URL
+  url := opmlSubscription.URL
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
   feed := new(Feed)
 
   var subscriptionKey *datastore.Key
+  var subscription Subscription
 
   if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
     // FIXME: handle error
@@ -264,7 +267,8 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
   }
 
   subscriptionKey = datastore.NewKey(c, "Subscription", url, 0, userKey)
-  if err := datastore.Get(c, subscriptionKey, nil); err == nil {
+
+  if err := datastore.Get(c, subscriptionKey, &subscription); err == nil {
     // Already subscribed; success
     c.Infof("Already subscribed to %s", url)
     goto done
@@ -281,7 +285,7 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
   }
 
 done:
-  ch<- subscription
+  ch<- opmlSubscription
 }
 
 func importSubscriptions(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, subscriptions []*opml.Subscription) int {
@@ -311,17 +315,28 @@ func importOpmlTask(w http.ResponseWriter, r *http.Request) {
   }
 
   var doc opml.Document
+  var blobKey appengine.BlobKey
   if blobKeyString := r.FormValue("opmlBlobKey"); blobKeyString == "" {
     http.Error(w, "Missing blob key", http.StatusInternalServerError)
     return
   } else {
-    blobKey := appengine.BlobKey(blobKeyString)
-    reader := blobstore.NewReader(c, blobKey)
+    blobKey = appengine.BlobKey(blobKeyString)
+  }
 
-    if err := opml.Parse(reader, &doc); err != nil {
-      http.Error(w, "Error reading OPML", http.StatusInternalServerError)
-      return
+  reader := blobstore.NewReader(c, blobKey)
+  if err := opml.Parse(reader, &doc); err != nil {
+    http.Error(w, "Error reading OPML", http.StatusInternalServerError)
+
+    // Remove the blob
+    if err := blobstore.Delete(c, blobKey); err != nil {
+      c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
     }
+    return
+  }
+  
+  // Remove the blob
+  if err := blobstore.Delete(c, blobKey); err != nil {
+    c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
   }
 
   doneChannel := make(chan *opml.Subscription)

@@ -476,7 +476,6 @@ ul#subscriptions,
   float: right;
 }
 
-.button,
 button
 {
   height: 30px;
@@ -488,6 +487,19 @@ button
   font-family: arial, sans-serif;
   font-size: 8pt;
   font-weight: bold;
+  color: #555;
+}
+
+button:active
+{
+  box-shadow: none;
+  color: #000;
+}
+
+button:hover
+{
+  border-color: #777;
+  color: #000;
 }
 
 button.dropdown
@@ -537,16 +549,6 @@ button.dropdown
   width: 60px;
   padding: 0;
   background: url(sprites.png) no-repeat 0 -270px #eee;
-}
-
-#navbar button:active
-{
-  box-shadow: none;
-}
-
-#navbar button:hover
-{
-  border-color: #777;
 }
 
 button.subscribe

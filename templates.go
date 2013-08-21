@@ -39,9 +39,10 @@ const indexTemplateHTML = `
     <script src="content/jquery-1.9.1.min.js" type="text/javascript"></script>
     <script src="content/jquery.hotkeys.js" type="text/javascript"></script>
     <script src="content/jquery.cookie.js" type="text/javascript"></script>
+    <script src="content/jquery.form.min.js" type="text/javascript"></script>
     <script src="content/jquery.scrollintoview.min.js" type="text/javascript"></script>
     <script src="content/reader.js" type="text/javascript"></script>
-    <title>&gt;:(</title>
+    <title>PerFeediem</title>
   </head>
   <body>
     <div id="toast"><span></span></div>
@@ -76,13 +77,13 @@ const indexTemplateHTML = `
     <div id="import-subscriptions" class="modal">
       <div class="modal-inner">
         <h1>Upload OPML file</h1>
-        <form enctype="multipart/form-data" action="{{.}}" method="POST">
+        <form enctype="multipart/form-data" action="#" method="POST">
           <input name="opml" type="file" />
-          <div class="buttons">
-            <input class="button modal-cancel" type="button" value="Cancel" />
-            <input class="button" type="submit" value="Upload" />
-          </div>
         </form>
+        <div class="buttons">
+          <button class="modal-cancel">Cancel</button>
+          <button class="modal-ok">Upload</button>
+        </div>
       </div>
     </div>
   </body>
