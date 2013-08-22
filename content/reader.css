@@ -85,7 +85,8 @@ a
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 13pt;
+  font-size: 15pt;
+  font-weight: bold;
   color: #777;
 }
 
@@ -614,10 +615,12 @@ button.subscribe
   background-position: -90px -90px;
 }
 
+/*
 .subscription-item:hover .chevron
 {
   visibility: visible;
 }
+*/
 
 ul.menu
 {

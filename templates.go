@@ -59,7 +59,9 @@ const indexTemplateHTML = `
       <button class="navigate">Navigate</button>
       <button class="refresh" title="Refresh">&nbsp;</button>
       <button class="filter dropdown">All Items</button>
+      <!--
       <button class="mark-all-as-read">Mark all as read</button>
+      -->
     </div>
     <div id="reader">
       <div class="feeds-container">

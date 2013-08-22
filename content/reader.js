@@ -675,11 +675,11 @@ $().ready(function()
           [
             { keys: _l('m'),       action: _l('mark as read/unread') },
             { keys: _l('s'),       action: _l('star article') },
-            { keys: _l('t'),       action: _l('tag article') },
-            { keys: _l('l'),       action: _l('like article') },
             { keys: _l('v'),       action: _l('open link') },
             { keys: _l('o'),       action: _l('open article') },
-            { keys: _l('Shift+a'), action: _l('mark all as read') },
+            // { keys: _l('t'),       action: _l('tag article') },
+            // { keys: _l('l'),       action: _l('like article') },
+            // { keys: _l('Shift+a'), action: _l('mark all as read') },
           ]
         }
       ];
