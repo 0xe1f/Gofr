@@ -184,32 +184,69 @@ $().ready(function()
 
       $('.next-page').remove();
 
+      var centerMessage = $('.center-message');
+
       if (entries.length)
-        $('.center-message').hide();
+        centerMessage.hide();
       else
       {
-        $('.center-message')
-          .empty()
-          .append($('<span />')
-            .text(_l("No items are available for the current view.")));
+        // List of entries is empty
+        centerMessage.empty();
 
-        if (!$('#menu-filter').isSelected('.menu-all-items'))
-          $('.center-message')
-            .append($('<a />', { 'href' : '#' })
-              .text(_l("Show all items"))
-              .click(function()
-              {
-                var selectedSubscription = getSelectedSubscription();
-                if (selectedSubscription != null)
+        if ($('.subscription').length <= 1)
+        {
+          // User has no subscriptions (root node doesn't count)
+          centerMessage
+            .append($('<p />')
+              .text(_l("You are not subscribed to any feeds.")))
+            .append($('<p />')
+              .append($('<a />', { 'href': '#' })
+                .text(_l("Subscribe"))
+                .click(function()
                 {
-                  $('#menu-filter').selectItem('.menu-all-items');
-                  selectedSubscription.refresh();
-                }
+                  ui.subscribe();
+                  return false;
+                }))
+              .append($('<span />')
+                .text(_l(" or ")))
+              .append($('<a />', { 'href': '#' })
+                .text(_l("Import subscriptions"))
+                .click(function()
+                {
+                  ui.showImportSubscriptionsModal();
+                  return false;
+                })));
+        }
+        else
+        {
+          // User has at least one (non-root) subscription
+          centerMessage
+            .append($('<p />')
+              .text(_l("No items are available for the current view.")));
 
-                return false;
-              }));
+          if (!$('#menu-filter').isSelected('.menu-all-items'))
+          {
+            // Something other than 'All items' is selected
+            // Show a toggle link
+            centerMessage
+              .append($('<p />')
+                .append($('<a />', { 'href' : '#' })
+                  .text(_l("Show all items"))
+                  .click(function()
+                  {
+                    var selectedSubscription = getSelectedSubscription();
+                    if (selectedSubscription != null)
+                    {
+                      $('#menu-filter').selectItem('.menu-all-items');
+                      selectedSubscription.refresh();
+                    }
 
-        $('.center-message').show();
+                    return false;
+                  })));
+          }
+        }
+
+        centerMessage.show();
       }
 
       if (continueFrom)
@@ -458,8 +495,8 @@ $().ready(function()
 
       $('a.import-subscriptions').click(function()
       {
-        $('#import-subscriptions').find('form')[0].reset();
-        $('#import-subscriptions').showModal(true);
+        ui.showImportSubscriptionsModal();
+
         return false;
       });
 
@@ -816,6 +853,11 @@ $().ready(function()
         $(this).closest('.modal').showModal(false);
         return false;
       });
+    },
+    'showImportSubscriptionsModal': function()
+    {
+      $('#import-subscriptions').find('form')[0].reset();
+      $('#import-subscriptions').showModal(true);
     },
     'isGModifierActive': function()
     {

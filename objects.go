@@ -24,13 +24,15 @@
 package perfeediem
 
 import (
-  "time"
   "appengine/datastore"
-
-  "parser"
+  "rss"
+  "time"
 )
 
-// FIXME: get rid of parser.Feed and parser.Entry
+type PageMarker struct {
+  SessionID string
+  Cursor string
+}
 
 type Feed struct {
   URL string
@@ -88,7 +90,7 @@ type SubEntry struct {
   Properties []string   `json:"properties"`
 }
 
-func NewFeed(parsedFeed *parser.Feed) (*Feed, error) {
+func NewFeed(parsedFeed *rss.Feed) (*Feed, error) {
   feed := Feed {
     URL: parsedFeed.URL,
     Title: parsedFeed.Title,

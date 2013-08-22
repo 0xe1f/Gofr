@@ -36,8 +36,8 @@ import (
   "net/url"
   "net/http"
   "opml"
-  "parser"
   "regexp"
+  "rss"
   "strings"
 )
 
@@ -446,9 +446,14 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
       }
 
       reader := strings.NewReader(body) // FIXME
-      if _, err := parser.UnmarshalStream(feedURL, reader); err != nil {
-        writeError(c, w, NewReadableError(_l("An error occurred while parsing the feed"), &err))
-        return
+      if _, err := rss.UnmarshalStream(feedURL, reader); err != nil {
+        // Parse failed. Assume it's HTML and try to pull out an RSS link
+        if linkURL := feedURLFromHTML(body); linkURL == "" {
+          writeError(c, w, NewReadableError(_l("RSS content not found"), &err))
+          return
+        } else {
+          feedURL = linkURL
+        }
       }
     }
   } else {

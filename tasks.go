@@ -29,9 +29,9 @@ import (
   "appengine/datastore"
   "appengine/urlfetch"
   "net/http"
-  "time"
   "opml"
-  "parser"
+  "rss"
+  "time"
 )
 
 func registerTasks() {
@@ -58,40 +58,47 @@ func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, fee
     subscription.Feed = feedKey
   }
 
-  q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
-  for t := q.Run(c); ; entriesRead++ {
-    entryMeta := new(EntryMeta)
-    _, err := t.Next(entryMeta)
+  err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+    q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
+    for t := q.Run(c); ; entriesRead++ {
+      entryMeta := new(EntryMeta)
+      _, err := t.Next(entryMeta)
 
-    if err == datastore.Done || entriesRead + 1 >= batchSize {
-      c.Infof("Writing batch; %d elements out of %d", entriesRead, batchSize)
-      
-      // Write the batch
-      if entriesRead > 0 {
-        if _, err := datastore.PutMulti(c, subEntryKeys[:entriesRead], subEntries[:entriesRead]); err != nil {
-          c.Errorf("Error writing SubEntry batch: %s", err)
-          return err
+      if err == datastore.Done || entriesRead + 1 >= batchSize {
+        // Write the batch
+        if entriesRead > 0 {
+          if _, err := datastore.PutMulti(c, subEntryKeys[:entriesRead], subEntries[:entriesRead]); err != nil {
+            c.Errorf("Error writing SubEntry batch: %s", err)
+            return err
+          }
         }
+
+        entriesWritten += entriesRead
+        entriesRead = 0
+
+        if err == datastore.Done {
+          break
+        }
+      } else if err != nil {
+        c.Errorf("Error reading Entry: %s", err)
+        return err
       }
 
-      entriesWritten += entriesRead
-      entriesRead = 0
+      subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryMeta.Entry.StringID(), 0, subscriptionKey)
+      subEntries[entriesRead].Entry = entryMeta.Entry
+      subEntries[entriesRead].Retrieved = entryMeta.Retrieved
+      subEntries[entriesRead].Published = entryMeta.Published
+      subEntries[entriesRead].Properties = []string { "unread" }
 
-      if err == datastore.Done {
-        break
-      }
-    } else if err != nil {
-      c.Errorf("Error reading Entry: %s", err)
-      return err
+      mostRecentEntryTime = entryMeta.Retrieved
     }
 
-    subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryMeta.Entry.StringID(), 0, subscriptionKey)
-    subEntries[entriesRead].Entry = entryMeta.Entry
-    subEntries[entriesRead].Retrieved = entryMeta.Retrieved
-    subEntries[entriesRead].Published = entryMeta.Published
-    subEntries[entriesRead].Properties = []string { "unread" }
+    return nil
+  }, &datastore.TransactionOptions { XG: true })
 
-    mostRecentEntryTime = entryMeta.Retrieved
+  if err != nil {
+    c.Errorf("Entry transaction error (URL %s): %s", feed.URL, err)
+    return err
   }
 
   // Write the subscription
@@ -116,50 +123,54 @@ func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *Feed) error {
   pending := 0
   written := 0
 
-  // FIXME: transactions
-
-  for i := 0; ; i++ {
-    if i >= elements || pending + 1 >= batchSize {
-      c.Infof("Writing batch; %d elements out of %d", pending, batchSize)
-
-      if pending > 0 {
-        if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
-          c.Errorf("Error writing Entry batch: %s", err)
-          return err
+  err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+    for i := 0; ; i++ {
+      if i >= elements || pending + 1 >= batchSize {
+        if pending > 0 {
+          if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
+            c.Errorf("Error writing Entry batch: %s", err)
+            return err
+          }
+          if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
+            c.Errorf("Error writing EntryMetas batch: %s", err)
+            return err
+          }
         }
-        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
-          c.Errorf("Error writing EntryMetas batch: %s", err)
-          return err
+
+        written += pending
+        pending = 0
+
+        if i >= elements {
+          break
         }
       }
 
-      written += pending
-      pending = 0
-
-      if i >= elements {
-        break
+      keyName := feed.Entries[i].UniqueID
+      if keyName == "" {
+        c.Warningf("UniqueID for an entry (title '%s') is missing", feed.Entries[i].Title)
+        continue
       }
+
+      entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
+      entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
+      feed.EntryMetas[i].Entry = entryKeys[i]
+
+      pending++
     }
 
-    keyName := feed.Entries[i].UniqueID
-    if keyName == "" {
-      c.Errorf("UniqueID for an entry (title '%s') is missing", feed.Entries[i].Title)
-      continue
+    if _, err := datastore.Put(c, feedKey, feed); err != nil {
+      c.Errorf("Error writing feed: %s", err)
+      return err
     }
 
-    entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
-    entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
-    feed.EntryMetas[i].Entry = entryKeys[i]
+    return nil
+  }, nil)
 
-    pending++
+  if err != nil {
+    c.Errorf("Feed transaction error (URL %s): %s", feed.URL, err)
   }
 
-  if _, err := datastore.Put(c, feedKey, feed); err != nil {
-    c.Errorf("Error writing feed: %s", err)
-    return err
-  }
-
-  return nil
+  return err
 }
 
 func subscribeTask(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +206,7 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
       return
     } else {
       defer resp.Body.Close()
-      if loadedFeed, err := parser.UnmarshalStream(url, resp.Body); err != nil {
+      if loadedFeed, err := rss.UnmarshalStream(url, resp.Body); err != nil {
         c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -229,8 +240,6 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, opmlSubscription *opml.Subscription) {
-  c.Infof("'Importing' %s", opmlSubscription.Title)
-
   url := opmlSubscription.URL
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
   feed := new(Feed)
@@ -251,7 +260,7 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
       goto done
     } else {
       defer resp.Body.Close()
-      if loadedFeed, err := parser.UnmarshalStream(url, resp.Body); err != nil {
+      if loadedFeed, err := rss.UnmarshalStream(url, resp.Body); err != nil {
         c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
         // FIXME: handle error
         goto done
@@ -276,6 +285,11 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
     c.Errorf("Error reading subscription: %s", err)
     // FIXME: handle error
     goto done
+  }
+
+  // Override the title with the one specified in the OPML file
+  if opmlSubscription.Title != "" {
+    feed.Title = opmlSubscription.Title
   }
 
   if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
@@ -339,6 +353,8 @@ func importOpmlTask(w http.ResponseWriter, r *http.Request) {
     c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
   }
 
+  importStarted := time.Now()
+
   doneChannel := make(chan *opml.Subscription)
   importing := importSubscriptions(c, doneChannel, userKey, doc.Subscriptions)
 
@@ -347,5 +363,5 @@ func importOpmlTask(w http.ResponseWriter, r *http.Request) {
     c.Infof("completed %s", subscription.Title)
   }
 
-  c.Infof("completed all")
+  c.Infof("completed all (took %s)", time.Since(importStarted))
 }
