@@ -25,7 +25,10 @@ package perfeediem
 
 import (
   "appengine/datastore"
+  "html"
   "rss"
+  "regexp"
+  "sanitize"
   "time"
 )
 
@@ -90,6 +93,22 @@ type SubEntry struct {
   Properties []string   `json:"properties"`
 }
 
+var extraSpaceStripper *regexp.Regexp = regexp.MustCompile(`\s\s+`)
+
+func generateSummary(entry *rss.Entry) string {
+  // TODO: This process should be streamlined to do
+  // more things with fewer passes
+  sanitized := sanitize.StripTags(entry.Content)
+  unescaped := html.UnescapeString(sanitized)
+  stripped := extraSpaceStripper.ReplaceAllString(unescaped, "")
+
+  if runes := []rune(stripped); len(runes) > 400 {
+    return string(runes[:400])
+  } else {
+    return stripped
+  }
+}
+
 func NewFeed(parsedFeed *rss.Feed) (*Feed, error) {
   feed := Feed {
     URL: parsedFeed.URL,
@@ -108,12 +127,13 @@ func NewFeed(parsedFeed *rss.Feed) (*Feed, error) {
   for i, parsedEntry := range parsedFeed.Entries {
     feed.Entries[i] = &Entry {
       UniqueID: parsedEntry.UniqueID(),
-      Author: parsedEntry.Author,
-      Title: parsedEntry.Title,
+      Author: html.UnescapeString(parsedEntry.Author),
+      Title: html.UnescapeString(parsedEntry.Title),
       Link: parsedEntry.WWWURL,
       Published: parsedEntry.Published,
       Updated: parsedEntry.Updated,
       Content: parsedEntry.Content,
+      Summary: generateSummary(parsedEntry),
     }
     feed.EntryMetas[i] = &EntryMeta {
       Published: parsedEntry.Published,
