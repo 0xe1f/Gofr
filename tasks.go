@@ -58,47 +58,38 @@ func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, fee
     subscription.Feed = feedKey
   }
 
-  err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-    q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
-    for t := q.Run(c); ; entriesRead++ {
-      entryMeta := new(EntryMeta)
-      _, err := t.Next(entryMeta)
+  q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
+  for t := q.Run(c); ; entriesRead++ {
+    entryMeta := new(EntryMeta)
+    _, err := t.Next(entryMeta)
 
-      if err == datastore.Done || entriesRead + 1 >= batchSize {
-        // Write the batch
-        if entriesRead > 0 {
-          if _, err := datastore.PutMulti(c, subEntryKeys[:entriesRead], subEntries[:entriesRead]); err != nil {
-            c.Errorf("Error writing SubEntry batch: %s", err)
-            return err
-          }
+    if err == datastore.Done || entriesRead + 1 >= batchSize {
+      // Write the batch
+      if entriesRead > 0 {
+        if _, err := datastore.PutMulti(c, subEntryKeys[:entriesRead], subEntries[:entriesRead]); err != nil {
+          c.Errorf("Error writing SubEntry batch: %s", err)
+          return err
         }
-
-        entriesWritten += entriesRead
-        entriesRead = 0
-
-        if err == datastore.Done {
-          break
-        }
-      } else if err != nil {
-        c.Errorf("Error reading Entry: %s", err)
-        return err
       }
 
-      subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryMeta.Entry.StringID(), 0, subscriptionKey)
-      subEntries[entriesRead].Entry = entryMeta.Entry
-      subEntries[entriesRead].Retrieved = entryMeta.Retrieved
-      subEntries[entriesRead].Published = entryMeta.Published
-      subEntries[entriesRead].Properties = []string { "unread" }
+      entriesWritten += entriesRead
+      entriesRead = 0
 
-      mostRecentEntryTime = entryMeta.Retrieved
+      if err == datastore.Done {
+        break
+      }
+    } else if err != nil {
+      c.Errorf("Error reading Entry: %s", err)
+      return err
     }
 
-    return nil
-  }, &datastore.TransactionOptions { XG: true })
+    subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryMeta.Entry.StringID(), 0, subscriptionKey)
+    subEntries[entriesRead].Entry = entryMeta.Entry
+    subEntries[entriesRead].Retrieved = entryMeta.Retrieved
+    subEntries[entriesRead].Published = entryMeta.Published
+    subEntries[entriesRead].Properties = []string { "unread" }
 
-  if err != nil {
-    c.Errorf("Entry transaction error (URL %s): %s", feed.URL, err)
-    return err
+    mostRecentEntryTime = entryMeta.Retrieved
   }
 
   // Write the subscription
@@ -123,54 +114,46 @@ func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *Feed) error {
   pending := 0
   written := 0
 
-  err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-    for i := 0; ; i++ {
-      if i >= elements || pending + 1 >= batchSize {
-        if pending > 0 {
-          if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
-            c.Errorf("Error writing Entry batch: %s", err)
-            return err
-          }
-          if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
-            c.Errorf("Error writing EntryMetas batch: %s", err)
-            return err
-          }
+  for i := 0; ; i++ {
+    if i >= elements || pending + 1 >= batchSize {
+      if pending > 0 {
+        if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
+          c.Errorf("Error writing Entry batch: %s", err)
+          return err
         }
-
-        written += pending
-        pending = 0
-
-        if i >= elements {
-          break
+        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
+          c.Errorf("Error writing EntryMetas batch: %s", err)
+          return err
         }
       }
 
-      keyName := feed.Entries[i].UniqueID
-      if keyName == "" {
-        c.Warningf("UniqueID for an entry (title '%s') is missing", feed.Entries[i].Title)
-        continue
+      written += pending
+      pending = 0
+
+      if i >= elements {
+        break
       }
-
-      entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
-      entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
-      feed.EntryMetas[i].Entry = entryKeys[i]
-
-      pending++
     }
 
-    if _, err := datastore.Put(c, feedKey, feed); err != nil {
-      c.Errorf("Error writing feed: %s", err)
-      return err
+    keyName := feed.Entries[i].UniqueID
+    if keyName == "" {
+      c.Warningf("UniqueID for an entry (title '%s') is missing", feed.Entries[i].Title)
+      continue
     }
 
-    return nil
-  }, nil)
+    entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
+    entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
+    feed.EntryMetas[i].Entry = entryKeys[i]
 
-  if err != nil {
-    c.Errorf("Feed transaction error (URL %s): %s", feed.URL, err)
+    pending++
   }
 
-  return err
+  if _, err := datastore.Put(c, feedKey, feed); err != nil {
+    c.Errorf("Error writing feed: %s", err)
+    return err
+  }
+
+  return nil
 }
 
 func subscribeTask(w http.ResponseWriter, r *http.Request) {

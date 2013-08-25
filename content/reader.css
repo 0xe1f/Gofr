@@ -473,7 +473,14 @@ ul#subscriptions,
 
 #navbar .right-aligned
 {
-  float: right;
+  position: absolute;
+  right: 10px;
+}
+
+.settings
+{
+  position: absolute;
+  right: 90px;
 }
 
 button
@@ -544,11 +551,42 @@ button.dropdown
   background: url(sprites.png) no-repeat 5px -240px #eee;
 }
 
+.select-article.up:hover, 
+.select-article.up:active
+{
+  background: url(sprites.png) no-repeat -85px -240px #eee;
+}
+
+.select-article.down:hover, 
+.select-article.down:active
+{
+  background: url(sprites.png) no-repeat -55px -240px #eee;
+}
+
 .refresh
 {
   width: 60px;
   padding: 0;
   background: url(sprites.png) no-repeat 0 -270px #eee;
+}
+
+.refresh:hover, 
+.refresh:active
+{
+  background: url(sprites.png) no-repeat -60px -270px #eee;  
+}
+
+.settings.dropdown
+{
+  width: 65px;
+  padding: 0;
+  background: url(sprites.png) no-repeat 0 -210px #eee;
+}
+
+.settings.dropdown:hover, 
+.settings.dropdown:active
+{
+  background: url(sprites.png) no-repeat -60px -210px #eee;  
 }
 
 button.subscribe

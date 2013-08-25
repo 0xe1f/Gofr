@@ -481,6 +481,10 @@ $().ready(function()
       if (subscription != null)
         subscription.refresh();
     }
+    else if (menuItem.is('.menu-toggle-navmode'))
+    {
+      ui.toggleNavMode();
+    }
   };
 
   var ui = 
@@ -530,19 +534,23 @@ $().ready(function()
       {
         ui.openArticle(1);
       });
-      $('button.filter').click(function(e)
+      $('button.dropdown').click(function(e)
       {
+        var ddid = $(this).data('ddid');
         var topOffset = 0;
-        var selected = $('#menu-filter').find('.selected-menu-item');
 
         $('.menu').hide();
-        $('#menu-filter')
+        $('#menu-' + ddid)
           .show();
 
-        if (selected.length)
-          topOffset += selected.position().top;
+        if ($(this).hasClass('selectable'))
+        {
+          var selected = $('#menu-' + ddid).find('.selected-menu-item');
+          if (selected.length)
+            topOffset += selected.position().top;
+        }
 
-        $('#menu-filter')
+        $('#menu-' + ddid)
           .css(
           {
             top: $(this).offset().top - topOffset, 
@@ -595,6 +603,9 @@ $().ready(function()
           .append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
           .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
           .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))));
+      $('body')
+        .append($('<ul />', { 'id': 'menu-settings', 'class': 'menu', 'data-dropdown': 'button.settings' })
+          .append($('<li />', { 'class': 'menu-toggle-navmode' }).text(_l("Toggle navigation mode"))));
 
       $('.menu').click(function(event)
       {
@@ -622,7 +633,9 @@ $().ready(function()
           item.addClass('selected-menu-item');
         }
 
-        $(menu.data('dropdown')).text(item.text());
+        var dropdown = $(menu.data('dropdown'));
+        if (dropdown.hasClass('selectable'))
+          dropdown.text(item.text());
 
         menu.hide();
         onMenuItemClick(menu.data('object'), item);
