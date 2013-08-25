@@ -93,6 +93,10 @@ type SubEntry struct {
   Properties []string   `json:"properties"`
 }
 
+type SubFolder struct {
+  Name string
+}
+
 var extraSpaceStripper *regexp.Regexp = regexp.MustCompile(`\s\s+`)
 
 func generateSummary(entry *rss.Entry) string {

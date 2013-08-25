@@ -1,4 +1,5 @@
-Mask the continue marker (currently sent in base-64)
+Subscription folder support
 Add server-to-client 'refresh' notifications and messaging
 Add subscription refreshes
+Mask the continue marker (currently sent in base-64)
 Localization

@@ -198,7 +198,7 @@ $().ready(function()
           // User has no subscriptions (root node doesn't count)
           centerMessage
             .append($('<p />')
-              .text(_l("You are not subscribed to any feeds.")))
+              .text(_l("You have not subscribed to any feeds.")))
             .append($('<p />')
               .append($('<a />', { 'href': '#' })
                 .text(_l("Subscribe"))
@@ -485,6 +485,10 @@ $().ready(function()
     {
       ui.toggleNavMode();
     }
+    else if (menuItem.is('.menu-create-folder'))
+    {
+      ui.createFolder();
+    }
   };
 
   var ui = 
@@ -602,10 +606,12 @@ $().ready(function()
         .append($('<ul />', { 'id': 'menu-filter', 'class': 'menu', 'data-dropdown': 'button.filter' })
           .append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
           .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
-          .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))));
-      $('body')
+          .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
         .append($('<ul />', { 'id': 'menu-settings', 'class': 'menu', 'data-dropdown': 'button.settings' })
-          .append($('<li />', { 'class': 'menu-toggle-navmode' }).text(_l("Toggle navigation mode"))));
+          .append($('<li />', { 'class': 'menu-toggle-navmode' }).text(_l("Toggle navigation mode"))))
+        .append($('<ul />', { 'id': 'menu-root', 'class': 'menu' })
+          .append($('<li />', { 'class': 'menu-create-folder' }).text(_l("New folder…")))
+          .append($('<li />', { 'class': 'menu-sub' }).text(_l("Subscribe…"))))
 
       $('.menu').click(function(event)
       {
@@ -1047,6 +1053,25 @@ $().ready(function()
         }, 'json');
       }
     },
+    'createFolder': function()
+    {
+      var folderName = prompt(_l('Name of folder:'));
+      if (folderName)
+      {
+        $.post('createFolder', 
+        {
+          folderName : folderName,
+        },
+        function(response)
+        {
+          // FIXME
+          ui.showToast(_l('FIXME %s', [response.message]));
+
+          // updateFeedDom(response.allItems);
+          // showToast(l('"%s" successfully added', [response.folder.title]), false);
+        }, 'json');
+      }
+    },
   };
 
   var getSelectedSubscription = function()
@@ -1093,7 +1118,12 @@ $().ready(function()
             .append($('<span />', { 'class' : 'chevron' })
               .click(function(e)
               {
-                // FIXME: show the menu
+                $('.menu').hide();
+                $('#menu-root')
+                  .css( { top: e.pageY, left: e.pageX })
+                  // .data('object', feedCopy)
+                  .show();
+
                 e.stopPropagation();
               }))
             .append($('<div />', { 'class' : 'subscription-icon' }))

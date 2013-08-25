@@ -39,6 +39,7 @@ import (
   "regexp"
   "rss"
   "strings"
+  "unicode/utf8"
 )
 
 var validProperties = map[string]bool {
@@ -55,6 +56,7 @@ func registerJson() {
   http.HandleFunc("/subscribe",     subscribe)
   http.HandleFunc("/import",        importOpml)
   http.HandleFunc("/authUpload",    authUpload)
+  http.HandleFunc("/createFolder",  createFolder)
 }
 
 func _l(format string, v ...interface {}) string {
@@ -536,3 +538,50 @@ func authUpload(w http.ResponseWriter, r *http.Request) {
     "uploadUrl": uploadURL.String(),
   })
 }
+
+func createFolder(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  var userKey *datastore.Key
+  if u, err := authorize(c, r, w); err != nil {
+    writeError(c, w, err)
+    return
+  } else {
+    userKey = u
+  }
+
+  folderName := strings.TrimSpace(r.PostFormValue("folderName"))
+  if folderName == "" {
+    writeError(c, w, NewReadableError(_l("Missing folder name"), nil))
+    return
+  }
+
+  if utf8.RuneCountInString(folderName) > 200 {
+    writeError(c, w, NewReadableError(_l("Folder name is too long"), nil))
+    return
+  }
+
+  var subfolders []*SubFolder
+
+  q := datastore.NewQuery("SubFolder").Ancestor(userKey).Filter("Name =", folderName).Limit(1)
+  if _, err := q.GetAll(c, &subfolders); err == nil && len(subfolders) > 0 {
+    writeError(c, w, NewReadableError(_l("A folder with that name already exists"), nil))
+    return
+  } else if err != nil && err != datastore.ErrNoSuchEntity {
+    writeError(c, w, NewReadableError(_l("An error occurred while searching through existing folders"), &err))
+    return
+  }
+
+  subfolderKey := datastore.NewKey(c, "SubFolder", "", 0, userKey)
+  subfolder := new(SubFolder)
+
+  subfolder.Name = folderName
+  if _, err := datastore.Put(c, subfolderKey, subfolder); err != nil {
+    writeError(c, w, NewReadableError(_l("An error occurred while adding a new folder"), &err))
+    return
+  }
+
+  // FIXME
+  writeObject(w, map[string]string { "message": _l("FIXME Folder successfully created") })
+}
+

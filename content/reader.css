@@ -653,12 +653,10 @@ button.subscribe
   background-position: -90px -90px;
 }
 
-/*
 .subscription-item:hover .chevron
 {
   visibility: visible;
 }
-*/
 
 ul.menu
 {
