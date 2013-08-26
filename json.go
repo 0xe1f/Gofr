@@ -38,6 +38,7 @@ import (
   "opml"
   "regexp"
   "rss"
+  "strconv"
   "strings"
   "unicode/utf8"
 )
@@ -146,10 +147,11 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
     userKey = u
   }
 
+  var q *datastore.Query
   var subscriptions []*Subscription
   var subscriptionKeys []*datastore.Key
 
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Order("Title").Limit(1000)
+  q = datastore.NewQuery("Subscription").Ancestor(userKey).Limit(1000)
   if subKeys, err := q.GetAll(c, &subscriptions); err != nil {
     writeError(c, w, err)
     return
@@ -179,15 +181,34 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
     subscription.Link = feed.Link
   }
 
-  allItems := Subscription {
-    ID: "",
-    Link: "",
+  var subFolders []*SubFolder
+  var subFolderKeys []*datastore.Key
 
-    Title: _l("Subscriptions"),
-    UnreadCount: totalUnreadCount,
+  q = datastore.NewQuery("SubFolder").Ancestor(userKey).Limit(1000)
+  if k, err := q.GetAll(c, &subFolders); err != nil {
+    writeError(c, w, err)
+    return
+  } else if subFolders == nil {
+    subFolders = make([]*SubFolder, 0)
+  } else {
+    subFolderKeys = k
   }
 
-  writeObject(w, append([]*Subscription { &allItems }, subscriptions...))
+  for i, subFolder := range subFolders {
+    subFolder.ID = "folder://" + strconv.FormatInt(subFolderKeys[i].IntID(), 36)
+  }
+
+  allItems := &SubFolder {
+    ID: "",
+    Title: _l("All Items"),
+  }
+
+  response := UserSubscriptions {
+    Subscriptions: subscriptions,
+    Folders: append(subFolders, allItems),
+  }
+
+  writeObject(w, response)
 }
 
 func getEntries(c appengine.Context, ancestorKey *datastore.Key, filterProperty string, continueFrom *string) ([]SubEntry, error) {
@@ -575,7 +596,7 @@ func createFolder(w http.ResponseWriter, r *http.Request) {
   subfolderKey := datastore.NewKey(c, "SubFolder", "", 0, userKey)
   subfolder := new(SubFolder)
 
-  subfolder.Name = folderName
+  subfolder.Title = folderName
   if _, err := datastore.Put(c, subfolderKey, subfolder); err != nil {
     writeError(c, w, NewReadableError(_l("An error occurred while adding a new folder"), &err))
     return

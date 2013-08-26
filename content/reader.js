@@ -112,7 +112,7 @@ $().ready(function()
     },
     'isFolder': function()
     {
-      return this.link == "";
+      return this.link == null || this.link == "";
     },
     'isRoot': function()
     {
@@ -1082,12 +1082,49 @@ $().ready(function()
     return null;
   };
 
+  var generateSubscriptionList = function(userSubscriptions)
+  {
+    var idCounter = 0;
+    var list = Array();
+
+    $.each(userSubscriptions.subscriptions, function(index, subscription)
+    {
+      subscription.domId = 'sub-' + idCounter++;
+
+      for (var name in subscriptionMethods)
+        subscription[name] = subscriptionMethods[name];
+
+      list.push(subscription);
+    });
+    $.each(userSubscriptions.folders, function(index, folder)
+    {
+      folder.domId = 'folder-' + idCounter++;
+      folder.unread = 0;
+      folder.link = null;
+
+      for (var name in subscriptionMethods)
+        folder[name] = subscriptionMethods[name];
+
+      list.push(folder);
+    });
+
+    list.sort(function(a, b)
+    {
+      var aTitle = a.title.toLowerCase();
+      var bTitle = b.title.toLowerCase();
+
+      return aTitle < bTitle ? -1 : (aTitle > bTitle ? 1 : 0);
+    });
+
+    return list;
+  };
+
   var loadSubscriptions = function()
   {
     $.getJSON('subscriptions', 
     {
     })
-    .success(function(subscriptions)
+    .success(function(response)
     {
       var selectedSubscription = getSelectedSubscription();
       var selectedSubscriptionId = null;
@@ -1100,18 +1137,14 @@ $().ready(function()
       if (subscriptionMap != null)
         delete subscriptionMap;
 
-      var idCounter = 0;
       subscriptionMap = {};
 
-      $.each(subscriptions, function()
+      var subList = generateSubscriptionList(response);
+      $.each(subList, function()
       {
         var subscription = this;
-        subscription.domId = 'sub-' + idCounter++;
 
         // Inject methods
-        for (var name in subscriptionMethods)
-          subscription[name] = subscriptionMethods[name];
-
         var subDom = $('<li />', { 'class' : 'subscription ' + subscription.domId })
           .data('subscription', subscription)
           .append($('<div />', { 'class' : 'subscription-item' })
@@ -1136,10 +1169,10 @@ $().ready(function()
               subscription.select();
             }));
 
-        if (subscription.isFolder())
-          subDom.addClass('folder');
         if (subscription.isRoot())
           subDom.addClass('root');
+        else if (subscription.isFolder())
+          subDom.addClass('folder');
 
         $('#subscriptions').append(subDom);
 

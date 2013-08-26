@@ -420,14 +420,20 @@ ul#subscriptions,
   border: solid 1px transparent;
 }
 
+.subscription.root .subscription-item,
 .subscription.folder .subscription-item
 {
   padding-left: 1em;
 }
 
-.subscription.folder .subscription-icon 
+.subscription.root .subscription-icon 
 {
   background-position: -165px -165px;
+}
+
+.subscription.folder .subscription-icon 
+{
+  background-position: -135px -135px;
 }
 
 .subscription-item:hover

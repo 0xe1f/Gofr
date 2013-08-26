@@ -50,6 +50,11 @@ indexes:
   properties:
   - name: Title
 
+- kind: SubFolder
+  ancestor: yes
+  properties:
+  - name: Title
+
 - kind: Subscription
   properties:
   - name: UserId

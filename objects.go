@@ -93,8 +93,14 @@ type SubEntry struct {
   Properties []string   `json:"properties"`
 }
 
+type UserSubscriptions struct {
+  Subscriptions []*Subscription `json:"subscriptions"`
+  Folders []*SubFolder          `json:"folders"`
+}
+
 type SubFolder struct {
-  Name string
+  ID string    `datastore:"-" json:"id"`
+  Title string `json:"title"`
 }
 
 var extraSpaceStripper *regexp.Regexp = regexp.MustCompile(`\s\s+`)
