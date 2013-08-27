@@ -173,6 +173,29 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  var subFolderKey *datastore.Key
+
+  if folderId := r.PostFormValue("folderId"); folderId != "" {
+    if kind, id, err := unformatId(folderId); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+    } else if kind == "folder" {
+      subFolder := new(SubFolder)
+      subFolderKey = datastore.NewKey(c, "SubFolder", "", id, userKey)
+
+      if err := datastore.Get(c, subFolderKey, subFolder); err == datastore.ErrNoSuchEntity {
+        http.Error(w, "Folder not found", http.StatusInternalServerError)
+        return
+      } else if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+      }
+    } else {
+      http.Error(w, "Invalid ID kind", http.StatusInternalServerError)
+      return
+    }
+  }
+
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
   feed := new(Feed)
 
@@ -204,7 +227,14 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
     }
   }
 
-  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, userKey)
+  var ancestorKey *datastore.Key
+  if subFolderKey != nil {
+    ancestorKey = subFolderKey
+  } else {
+    ancestorKey = userKey
+  }
+
+  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, ancestorKey)
   subscription := new(Subscription)
 
   if err := datastore.Get(c, subscriptionKey, &subscription); err == nil {

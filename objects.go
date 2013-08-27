@@ -70,8 +70,9 @@ type Entry struct {
 }
 
 type Subscription struct {
-  ID string    `datastore:"-" json:"id"`
-  Link string  `datastore:"-" json:"link"`
+  ID string     `datastore:"-" json:"id"`
+  Link string   `datastore:"-" json:"link"`
+  Parent string `datastore:"-" json:"parent,omitempty"`
 
   Updated time.Time    `json:"-"`
   Subscribed time.Time `json:"-"`

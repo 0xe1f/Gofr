@@ -176,9 +176,14 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
 
   for i, subscription := range subscriptions {
     feed := feeds[i]
+    subscriptionKey := subscriptionKeys[i]
 
-    subscription.ID = subscriptionKeys[i].StringID()
+    subscription.ID = subscriptionKey.StringID()
     subscription.Link = feed.Link
+
+    if subscriptionKey.Parent().Kind() == "SubFolder" {
+      subscription.Parent = formatId("folder", subscriptionKey.Parent().IntID())
+    }
   }
 
   var subFolders []*SubFolder
@@ -195,7 +200,7 @@ func subscriptions(w http.ResponseWriter, r *http.Request) {
   }
 
   for i, subFolder := range subFolders {
-    subFolder.ID = "folder://" + strconv.FormatInt(subFolderKeys[i].IntID(), 36)
+    subFolder.ID = formatId("folder", subFolderKeys[i].IntID())
   }
 
   allItems := &SubFolder {
@@ -280,10 +285,26 @@ func entries(w http.ResponseWriter, r *http.Request) {
   var ancestorKey *datastore.Key
   if subscriptionID := r.FormValue("subscription"); subscriptionID == "" {
     ancestorKey = userKey
+  } else if kind, id, err := unformatId(subscriptionID); err == nil {
+    if kind == "folder" {
+      ancestorKey = datastore.NewKey(c, "SubFolder", "", id, userKey)
+    } else { // Assume it's a subscription ID
+      parentKey := userKey
+      if folderId := r.FormValue("folder"); folderId != "" {
+        if kind, id, err := unformatId(folderId); err == nil {
+          if kind == "folder" {
+            parentKey = datastore.NewKey(c, "SubFolder", "", id, userKey)
+          }
+        } else {
+          writeError(c, w, err)
+        }
+      }
+      ancestorKey = datastore.NewKey(c, "Subscription", subscriptionID, 0, parentKey)
+    }
   } else {
-    ancestorKey = datastore.NewKey(c, "Subscription", subscriptionID, 0, userKey)
+    writeError(c, w, err)
   }
-
+  
   continueFrom := r.FormValue("continue")
   filterProperty := r.FormValue("filter")
 
@@ -308,16 +329,16 @@ func entries(w http.ResponseWriter, r *http.Request) {
 func setProperty(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
-  subEntryID := r.FormValue("entry")
-  subscriptionID := r.FormValue("subscription")
+  subEntryID := r.PostFormValue("entry")
+  subscriptionID := r.PostFormValue("subscription")
 
   if subEntryID == "" || subscriptionID == "" {
     writeError(c, w, NewReadableError(_l("Article not found"), nil))
     return
   }
 
-  propertyName := r.FormValue("property")
-  setProp := r.FormValue("set") == "true"
+  propertyName := r.PostFormValue("property")
+  setProp := r.PostFormValue("set") == "true"
 
   if !validProperties[propertyName] {
     writeError(c, w, NewReadableError(_l("Property not valid"), nil))
@@ -332,7 +353,18 @@ func setProperty(w http.ResponseWriter, r *http.Request) {
     userKey = u
   }
 
-  subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionID, 0, userKey)
+  parentKey := userKey
+  if folderId := r.PostFormValue("folder"); folderId != "" {
+    if kind, id, err := unformatId(folderId); err == nil {
+      if kind == "folder" {
+        parentKey = datastore.NewKey(c, "SubFolder", "", id, userKey)
+      }
+    } else {
+      writeError(c, w, err)
+    }
+  }
+
+  subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionID, 0, parentKey)
   subEntryKey := datastore.NewKey(c, "SubEntry", subEntryID, 0, subscriptionKey)
 
   subEntry := new(SubEntry)
@@ -413,6 +445,22 @@ func setProperty(w http.ResponseWriter, r *http.Request) {
   writeObject(w, subEntry.Properties)
 }
 
+func formatId(kind string, intId int64) string {
+  return kind + "://" + strconv.FormatInt(intId, 36)
+}
+
+func unformatId(formattedId string) (string, int64, error) {
+  if parts := strings.SplitN(formattedId, "://", 2); len(parts) == 2 {
+    if id, err := strconv.ParseInt(parts[1], 36, 64); err == nil {
+      return parts[0], id, nil
+    } else {
+      return parts[0], 0, nil
+    }
+  }
+
+  return "", 0, NewReadableError(_l("Missing identifier"), nil)
+}
+
 func subscribe(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
@@ -424,17 +472,42 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
     userKey = u
   }
 
-  subscriptionURL := strings.TrimSpace(r.PostFormValue("url"))
-  if subscriptionURL == "" {
+  var feedURL string
+  if subscriptionURL := strings.TrimSpace(r.PostFormValue("url")); subscriptionURL == "" {
     writeError(c, w, NewReadableError(_l("Missing URL"), nil))
     return
+  } else {
+    if _, err := url.ParseRequestURI(subscriptionURL); err != nil {
+      writeError(c, w, NewReadableError(_l("Subscription URL is not valid"), &err))
+      return
+    }
+    if url := feedURLFromLink(c, subscriptionURL); url != "" {
+      feedURL = url
+    } else {
+      feedURL = subscriptionURL
+    }
   }
 
-  var feedURL string
-  if url := feedURLFromLink(c, subscriptionURL); url != "" {
-    feedURL = url
-  } else {
-    feedURL = subscriptionURL
+  folderId := r.PostFormValue("folderId")
+  if folderId != "" {
+    if kind, id, err := unformatId(folderId); err != nil {
+      writeError(c, w, err)
+      return
+    } else if kind == "folder" {
+      subFolder := new(SubFolder)
+      subFolderKey := datastore.NewKey(c, "SubFolder", "", id, userKey)
+
+      if err := datastore.Get(c, subFolderKey, subFolder); err == datastore.ErrNoSuchEntity {
+        writeError(c, w, NewReadableError(_l("Folder not found"), nil))
+        return
+      } else if err != nil {
+        writeError(c, w, err)
+        return
+      }
+    } else {
+      writeError(c, w, NewReadableError(_l("Folder is not valid"), nil))
+      return
+    }
   }
 
   subscriptionKey := datastore.NewKey(c, "Subscription", feedURL, 0, userKey)
@@ -488,6 +561,7 @@ func subscribe(w http.ResponseWriter, r *http.Request) {
   user := user.Current(c)
   task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
     "url": { feedURL },
+    "folderId": { folderId },
     "userID": { user.ID },
   })
 

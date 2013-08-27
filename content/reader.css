@@ -415,15 +415,19 @@ ul#subscriptions,
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: pointer;
-  padding: 0.35em 2em;
+  padding: 0.35em 0;
   margin-right: 1em;
   border: solid 1px transparent;
 }
 
-.subscription.root .subscription-item,
-.subscription.folder .subscription-item
+.subscription.folder > ul > .leaf > .subscription-item
 {
   padding-left: 1em;
+}
+
+.subscription.root .subscription-item
+{
+  margin-bottom: 1em;
 }
 
 .subscription.root .subscription-icon 
@@ -434,6 +438,11 @@ ul#subscriptions,
 .subscription.folder .subscription-icon 
 {
   background-position: -135px -135px;
+}
+
+.subscription.leaf .subscription-icon 
+{
+  background-position: -150px -150px;
 }
 
 .subscription-item:hover

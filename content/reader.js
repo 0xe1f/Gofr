@@ -112,11 +112,11 @@ $().ready(function()
     },
     'isFolder': function()
     {
-      return this.link == null || this.link == "";
+      return false;
     },
     'isRoot': function()
     {
-      return this.id == "";
+      return false;
     },
     'addPage': function(entries)
     {
@@ -269,9 +269,10 @@ $().ready(function()
 
       $.getJSON('entries', 
       {
-        'subscription': subscription.id,
+        'subscription': subscription.id ? subscription.id : undefined,
+        'folder':       subscription.parent ? subscription.parent : undefined,
+        'continue':     continueFrom ? continueFrom : undefined,
         'filter':       selectedFilter,
-        'continue':     continueFrom,
       })
       .success(function(response)
       {
@@ -310,10 +311,73 @@ $().ready(function()
     {
       var feedDom = this.getDom();
 
-      feedDom.find('.subscription-unread-count').text('(' + this.unread + ')');
-      feedDom.find('.subscription-item').toggleClass('has-unread', this.unread > 0);
+      feedDom.find('> .subscription-item .subscription-unread-count').text('(' + this.unread + ')');
+      feedDom.find('> .subscription-item').toggleClass('has-unread', this.unread > 0);
+
+      var parent = this.getParent();
+      if (parent)
+        parent.syncView();
+
+      if (!this.isRoot())
+        this.getRoot().syncView();
+    },
+    'getType': function()
+    {
+      return 'leaf';
+    },
+    'getParent': function()
+    {
+      if (!this.parent)
+        return null;
+
+      return subscriptionMap[this.parent];
+    },
+    'getRoot': function()
+    {
+      return subscriptionMap[''];
+    },
+    'updateUnreadCount': function(byHowMuch)
+    {
+      this.unread += byHowMuch;
+
+      var parent = this.getParent();
+      if (parent != null)
+        parent.unread += byHowMuch;
+
+      this.getRoot().unread += byHowMuch;
     },
   };
+
+  var folderMethods = $.extend({}, subscriptionMethods,
+  {
+    'subscribe': function(url)
+    {
+      var params = { 'url': url };
+      if (this.id)
+        params['folderId'] = this.id;
+
+      $.post('subscribe', params, function(response)
+      {
+        if (response.message)
+          ui.showToast(response.message, false);
+      }, 'json');
+    },
+    'isFolder': function()
+    {
+      return true;
+    },
+    'isRoot': function()
+    {
+      return this.id == "";
+    },
+    'getType': function()
+    {
+      if (this.isRoot())
+        return 'root';
+
+      return 'folder';
+    },
+  });
 
   var entryMethods = 
   {
@@ -336,14 +400,15 @@ $().ready(function()
 
       var entry = this;
 
-      $.getJSON('setProperty', 
+      $.post('setProperty', 
       {
-        entry:        this.id,
-        subscription: this.source,
-        property:     propertyName,
-        set:          propertyValue,
-      })
-      .success(function(properties)
+        'entry':        this.id,
+        'subscription': this.source,
+        'folder':       this.getSubscription().parent,
+        'property':     propertyName,
+        'set':          propertyValue,
+      },
+      function(properties)
       {
         delete entry.properties;
 
@@ -353,15 +418,12 @@ $().ready(function()
         if (propertyName == 'read')
         {
           var subscription = entry.getSubscription();
-          if (propertyValue)
-            subscription.unread -= 1;
-          else
-            subscription.unread += 1;
+          subscription.updateUnreadCount(propertyValue ? -1 : 1);
 
           subscription.syncView();
           ui.updateUnreadCount();
         }
-      });
+      }, 'json');
     },
     'toggleStarred': function(propertyName)
     {
@@ -489,6 +551,10 @@ $().ready(function()
     {
       ui.createFolder();
     }
+    else if (menuItem.is('.menu-subscribe'))
+    {
+      ui.subscribe(contextObject);
+    }
   };
 
   var ui = 
@@ -609,9 +675,11 @@ $().ready(function()
           .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
         .append($('<ul />', { 'id': 'menu-settings', 'class': 'menu', 'data-dropdown': 'button.settings' })
           .append($('<li />', { 'class': 'menu-toggle-navmode' }).text(_l("Toggle navigation mode"))))
+        .append($('<ul />', { 'id': 'menu-folder', 'class': 'menu' })
+          .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…"))))
         .append($('<ul />', { 'id': 'menu-root', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-create-folder' }).text(_l("New folder…")))
-          .append($('<li />', { 'class': 'menu-sub' }).text(_l("Subscribe…"))))
+          .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…"))));
 
       $('.menu').click(function(event)
       {
@@ -644,7 +712,7 @@ $().ready(function()
           dropdown.text(item.text());
 
         menu.hide();
-        onMenuItemClick(menu.data('object'), item);
+        onMenuItemClick(subscriptionMap[menu.data('subId')], item);
       });
 
       $.fn.selectItem = function(itemSelector)
@@ -917,25 +985,11 @@ $().ready(function()
       if (newItems.is('.selected-menu-item'))
         $('.filter').text(caption);
 
-      var totalUnread = 0;
-      $(".subscription").each(function()
-      {
-        var subDom = $(this);
-        var subscription = subDom.data('subscription');
-
-        if (!subscription.isRoot())
-          totalUnread += subscription.unread;
-      });
-
-      var root = $(".root.subscription").data("subscription");
-      root.unread = totalUnread;
-      root.syncView();
-
-      $(".root.subscription").data("subscription").unread = totalUnread;
-
       // Update the title bar
 
+      var root = subscriptionMap[""];
       var title = '>:(';
+
       if (root.unread > 0)
         title += ' (' + root.unread + ')';
 
@@ -1037,20 +1091,15 @@ $().ready(function()
           .fadeOut('slow'); 
       }
     },
-    'subscribe': function()
+    'subscribe': function(parentFolder)
     {
-      var feedUrl = prompt(_l("Enter the feed URL"));
-      if (feedUrl)
+      var url = prompt(_l("Site or feed URL:"));
+      if (url)
       {
-        $.post('subscribe', 
-        {
-          'url' : feedUrl,
-        },
-        function(response)
-        {
-          if (response.message)
-            ui.showToast(response.message, false);
-        }, 'json');
+        if (!parentFolder)
+          parentFolder = getRootSubscription();
+
+        parentFolder.subscribe(url);
       }
     },
     'createFolder': function()
@@ -1074,6 +1123,14 @@ $().ready(function()
     },
   };
 
+  var getRootSubscription = function()
+  {
+    if ($('.subscription.root').length > 0)
+      return $('.subscription.root').data('subscription');
+
+    return null;
+  };
+
   var getSelectedSubscription = function()
   {
     if ($('.subscription.selected').length > 0)
@@ -1087,9 +1144,21 @@ $().ready(function()
     var idCounter = 0;
     var list = Array();
 
+    var parentMap = { '': Array() };
+    var root = parentMap[''];
+
     $.each(userSubscriptions.subscriptions, function(index, subscription)
     {
       subscription.domId = 'sub-' + idCounter++;
+      if (subscription.parent)
+      {
+        var children = parentMap[subscription.parent];
+        if (children == null)
+          children = parentMap[subscription.parent] = Array();
+        children.push(subscription);
+      }
+
+      root.push(subscription);
 
       for (var name in subscriptionMethods)
         subscription[name] = subscriptionMethods[name];
@@ -1099,21 +1168,51 @@ $().ready(function()
     $.each(userSubscriptions.folders, function(index, folder)
     {
       folder.domId = 'folder-' + idCounter++;
-      folder.unread = 0;
       folder.link = null;
 
-      for (var name in subscriptionMethods)
-        folder[name] = subscriptionMethods[name];
+      var unreadCount = 0;
+      if (parentMap[folder.id])
+      {
+        $.each(parentMap[folder.id], function(index, subscription)
+        {
+          unreadCount += subscription.unread;
+        });
+      }
+
+      folder.unread = unreadCount;
+
+      for (var name in folderMethods)
+        folder[name] = folderMethods[name];
 
       list.push(folder);
     });
+
+    delete parentMap;
 
     list.sort(function(a, b)
     {
       var aTitle = a.title.toLowerCase();
       var bTitle = b.title.toLowerCase();
 
-      return aTitle < bTitle ? -1 : (aTitle > bTitle ? 1 : 0);
+      if (a.isRoot())
+        return -1;
+      else if (b.isRoot())
+        return 1;
+
+      if (a.isFolder() != b.isFolder())
+      {
+        if (a.isFolder())
+          return -1;
+        else if (b.isFolder())
+          return 1;
+      }
+
+      if (aTitle < bTitle)
+        return -1;
+      else if (aTitle > bTitle)
+        return 1;
+
+      return 0;
     });
 
     return list;
@@ -1143,8 +1242,6 @@ $().ready(function()
       $.each(subList, function()
       {
         var subscription = this;
-
-        // Inject methods
         var subDom = $('<li />', { 'class' : 'subscription ' + subscription.domId })
           .data('subscription', subscription)
           .append($('<div />', { 'class' : 'subscription-item' })
@@ -1152,9 +1249,9 @@ $().ready(function()
               .click(function(e)
               {
                 $('.menu').hide();
-                $('#menu-root')
+                $('#menu-' + subscription.getType())
                   .css( { top: e.pageY, left: e.pageX })
-                  // .data('object', feedCopy)
+                  .data('subId', subscription.id)
                   .show();
 
                 e.stopPropagation();
@@ -1169,20 +1266,40 @@ $().ready(function()
               subscription.select();
             }));
 
-        if (subscription.isRoot())
-          subDom.addClass('root');
-        else if (subscription.isFolder())
-          subDom.addClass('folder');
+        subDom.addClass(subscription.getType());
 
-        $('#subscriptions').append(subDom);
+        if (subscription.parent)
+        {
+          var parent = subscriptionMap[subscription.parent];
+          if (parent)
+          {
+            var parentDom = parent.getDom();
+            var parentUl = parentDom.find('ul');
+
+            if (!parentUl.length)
+            {
+              parentUl = $('<ul />');
+              parentDom.append(parentUl);
+            }
+
+            parentUl.append(subDom);
+          }
+        }
+        else
+        {
+          $('#subscriptions').append(subDom);
+        }
 
         subscriptionMap[subscription.id] = subscription;
         subscription.syncView();
 
         if (selectedSubscriptionId == subscription.id)
           selectedSubscription = subscription;
-        else if (selectedSubscriptionId == null && subscription.isRoot())
-          selectedSubscription = subscription;
+        else if (selectedSubscriptionId == null)
+        {
+          if (subscription.isFolder() && subscription.isRoot())
+            selectedSubscription = subscription;
+        }
       });
 
       selectedSubscription.select();
