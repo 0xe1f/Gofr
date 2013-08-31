@@ -31,23 +31,26 @@ import (
   "net/http"
   "opml"
   "rss"
+  "storage"
   "time"
 )
 
 func registerTasks() {
   http.HandleFunc("/tasks/subscribe", subscribeTask)
+  http.HandleFunc("/tasks/unsubscribe", unsubscribeTask)
   http.HandleFunc("/tasks/import", importOpmlTask)
+  http.HandleFunc("/tasks/markAllAsRead", markAllAsReadTask)
 }
 
-func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, feedKey *datastore.Key, feed *Feed) error {
+func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, feedKey *datastore.Key, feed *storage.Feed) error {
   batchSize := 1000
   mostRecentEntryTime := time.Time {}
-  subEntries := make([]SubEntry, batchSize)
-  subEntryKeys := make([]*datastore.Key, batchSize)
+  articles := make([]storage.Article, batchSize)
+  articleKeys := make([]*datastore.Key, batchSize)
   entriesRead := 0
   entriesWritten := 0
 
-  subscription := new(Subscription)
+  subscription := new(storage.Subscription)
   if err := datastore.Get(c, subscriptionKey, subscription); err != nil && err != datastore.ErrNoSuchEntity {
     c.Errorf("Error getting subscription: %s", err)
     return err
@@ -60,14 +63,14 @@ func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, fee
 
   q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
   for t := q.Run(c); ; entriesRead++ {
-    entryMeta := new(EntryMeta)
+    entryMeta := new(storage.EntryMeta)
     _, err := t.Next(entryMeta)
 
     if err == datastore.Done || entriesRead + 1 >= batchSize {
       // Write the batch
       if entriesRead > 0 {
-        if _, err := datastore.PutMulti(c, subEntryKeys[:entriesRead], subEntries[:entriesRead]); err != nil {
-          c.Errorf("Error writing SubEntry batch: %s", err)
+        if _, err := datastore.PutMulti(c, articleKeys[:entriesRead], articles[:entriesRead]); err != nil {
+          c.Errorf("Error writing Article batch: %s", err)
           return err
         }
       }
@@ -83,11 +86,11 @@ func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, fee
       return err
     }
 
-    subEntryKeys[entriesRead] = datastore.NewKey(c, "SubEntry", entryMeta.Entry.StringID(), 0, subscriptionKey)
-    subEntries[entriesRead].Entry = entryMeta.Entry
-    subEntries[entriesRead].Retrieved = entryMeta.Retrieved
-    subEntries[entriesRead].Published = entryMeta.Published
-    subEntries[entriesRead].Properties = []string { "unread" }
+    articleKeys[entriesRead] = datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
+    articles[entriesRead].Entry = entryMeta.Entry
+    articles[entriesRead].Retrieved = entryMeta.Retrieved
+    articles[entriesRead].Published = entryMeta.Published
+    articles[entriesRead].Properties = []string { "unread" }
 
     mostRecentEntryTime = entryMeta.Retrieved
   }
@@ -104,7 +107,7 @@ func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, fee
   return nil
 }
 
-func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *Feed) error {
+func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *storage.Feed) error {
   batchSize := 1000
   elements := len(feed.Entries)
 
@@ -156,110 +159,12 @@ func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *Feed) error {
   return nil
 }
 
-func subscribeTask(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-
-  var userKey *datastore.Key
-  if userID := r.FormValue("userID"); userID == "" {
-    http.Error(w, "Missing userID", http.StatusInternalServerError)
-    return
-  } else {
-    userKey = datastore.NewKey(c, "User", userID, 0, nil)
-  }
-
-  url := r.FormValue("url")
-  if url == "" {
-    http.Error(w, "Missing URL", http.StatusInternalServerError)
-    return
-  }
-
-  var subFolderKey *datastore.Key
-
-  if folderId := r.PostFormValue("folderId"); folderId != "" {
-    if kind, id, err := unformatId(folderId); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    } else if kind == "folder" {
-      subFolder := new(SubFolder)
-      subFolderKey = datastore.NewKey(c, "SubFolder", "", id, userKey)
-
-      if err := datastore.Get(c, subFolderKey, subFolder); err == datastore.ErrNoSuchEntity {
-        http.Error(w, "Folder not found", http.StatusInternalServerError)
-        return
-      } else if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-      }
-    } else {
-      http.Error(w, "Invalid ID kind", http.StatusInternalServerError)
-      return
-    }
-  }
-
-  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  feed := new(Feed)
-
-  if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
-    c.Errorf(err.Error())
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else if err == datastore.ErrNoSuchEntity {
-    // Add the feed first
-    client := urlfetch.Client(c)
-    if resp, err := client.Get(url); err != nil {
-      c.Errorf("Error fetching from URL %s: %s", url, err)
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    } else {
-      defer resp.Body.Close()
-      if loadedFeed, err := rss.UnmarshalStream(url, resp.Body); err != nil {
-        c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-      } else {
-        feed, _ = NewFeed(loadedFeed)
-        if err := updateFeed(c, feedKey, feed); err != nil {
-          c.Errorf("Error updating feed for URL %s: %s", url, err)
-          http.Error(w, err.Error(), http.StatusInternalServerError)
-          return
-        }
-      }
-    }
-  }
-
-  var ancestorKey *datastore.Key
-  if subFolderKey != nil {
-    ancestorKey = subFolderKey
-  } else {
-    ancestorKey = userKey
-  }
-
-  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, ancestorKey)
-  subscription := new(Subscription)
-
-  if err := datastore.Get(c, subscriptionKey, &subscription); err == nil {
-    // Already subscribed; success
-    return
-  } else if err != datastore.ErrNoSuchEntity {
-    c.Errorf("Error reading subscription: %s", err)
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
-
-  if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
-}
-
-func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, opmlSubscription *opml.Subscription) {
+func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, parentKey *datastore.Key, opmlSubscription *opml.Subscription) {
   url := opmlSubscription.URL
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  feed := new(Feed)
+  feed := new(storage.Feed)
 
   var subscriptionKey *datastore.Key
-  var subscription Subscription
-
   if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
     // FIXME: handle error
     c.Errorf(err.Error())
@@ -278,7 +183,7 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
         // FIXME: handle error
         goto done
       } else {
-        feed, _ = NewFeed(loadedFeed)
+        feed, _ = storage.NewFeed(loadedFeed)
         if err := updateFeed(c, feedKey, feed); err != nil {
           c.Errorf("Error updating feed for URL %s: %s", url, err)
           // FIXME: handle error
@@ -288,16 +193,16 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
     }
   }
 
-  subscriptionKey = datastore.NewKey(c, "Subscription", url, 0, userKey)
-
-  if err := datastore.Get(c, subscriptionKey, &subscription); err == nil {
-    // Already subscribed; success
-    c.Infof("Already subscribed to %s", url)
-    goto done
-  } else if err != datastore.ErrNoSuchEntity {
+  if subKey, err := subscriptionKeyForURL(c, url, userKey); err != nil {
     c.Errorf("Error reading subscription: %s", err)
     // FIXME: handle error
     goto done
+    return
+  } else {
+    if subKey != nil {
+      c.Infof("Already subscribed to %s", url)
+      goto done
+    }
   }
 
   // Override the title with the one specified in the OPML file
@@ -305,6 +210,7 @@ func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userK
     feed.Title = opmlSubscription.Title
   }
 
+  subscriptionKey = datastore.NewKey(c, "Subscription", url, 0, parentKey)
   if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
     c.Errorf("Subscription update error: %s", err)
     // FIXME: handle error
@@ -315,15 +221,43 @@ done:
   ch<- opmlSubscription
 }
 
-func importSubscriptions(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, subscriptions []*opml.Subscription) int {
+func importSubscriptions(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, parentKey *datastore.Key, subscriptions []*opml.Subscription) int {
   count := 0
   for _, subscription := range subscriptions {
     if subscription.URL != "" {
-      go importSubscription(c, ch, userKey, subscription)
+      go importSubscription(c, ch, userKey, parentKey, subscription)
       count++
     }
     if subscription.Subscriptions != nil {
-      count += importSubscriptions(c, ch, userKey, subscription.Subscriptions)
+      // Find or create a folder
+      var folderKey *datastore.Key
+
+      q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", subscription.Title).KeysOnly().Limit(1)
+      if folderKeys, err := q.GetAll(c, nil); err == nil {
+        if len(folderKeys) > 0 {
+          // Found an existing folder with that name
+          folderKey = folderKeys[0]
+        } else {
+          // Don't have a folder with that name - create a new one
+          folder := storage.Folder {
+            Title: subscription.Title,
+          }
+
+          folderKey = datastore.NewIncompleteKey(c, "Folder", userKey)
+          if completeKey, err := datastore.Put(c, folderKey, &folder); err != nil {
+            c.Errorf("Cannot write folder: %s", err)
+            continue
+          } else {
+            folderKey = completeKey
+          }
+        }
+      } else {
+        // Some unplanned error - just skip the node
+        c.Errorf("Cannot locate folder: %s", err)
+        continue
+      }
+
+      count += importSubscriptions(c, ch, userKey, folderKey, subscription.Subscriptions)
     }
   }
 
@@ -369,7 +303,7 @@ func importOpmlTask(w http.ResponseWriter, r *http.Request) {
   importStarted := time.Now()
 
   doneChannel := make(chan *opml.Subscription)
-  importing := importSubscriptions(c, doneChannel, userKey, doc.Subscriptions)
+  importing := importSubscriptions(c, doneChannel, userKey, userKey, doc.Subscriptions)
 
   for i := 0; i < importing; i++ {
     subscription := <-doneChannel;
@@ -377,4 +311,227 @@ func importOpmlTask(w http.ResponseWriter, r *http.Request) {
   }
 
   c.Infof("completed all (took %s)", time.Since(importStarted))
+}
+
+func subscribeTask(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  var userKey *datastore.Key
+  if userID := r.FormValue("userID"); userID == "" {
+    http.Error(w, "Missing userID", http.StatusInternalServerError)
+    return
+  } else {
+    userKey = datastore.NewKey(c, "User", userID, 0, nil)
+  }
+
+  url := r.FormValue("url")
+  if url == "" {
+    http.Error(w, "Missing URL", http.StatusInternalServerError)
+    return
+  }
+
+  var folderKey *datastore.Key
+
+  if folderId := r.PostFormValue("folderId"); folderId != "" {
+    if kind, id, err := unformatId(folderId); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+    } else if kind == "folder" {
+      folder := new(storage.Folder)
+      folderKey = datastore.NewKey(c, "Folder", "", id, userKey)
+
+      if err := datastore.Get(c, folderKey, folder); err == datastore.ErrNoSuchEntity {
+        http.Error(w, "Folder not found", http.StatusInternalServerError)
+        return
+      } else if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+      }
+    } else {
+      http.Error(w, "Invalid ID kind", http.StatusInternalServerError)
+      return
+    }
+  }
+
+  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+  feed := new(storage.Feed)
+
+  if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
+    c.Errorf(err.Error())
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  } else if err == datastore.ErrNoSuchEntity {
+    // Add the feed first
+    client := urlfetch.Client(c)
+    if resp, err := client.Get(url); err != nil {
+      c.Errorf("Error fetching from URL %s: %s", url, err)
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+    } else {
+      defer resp.Body.Close()
+      if loadedFeed, err := rss.UnmarshalStream(url, resp.Body); err != nil {
+        c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+      } else {
+        feed, _ = storage.NewFeed(loadedFeed)
+        if err := updateFeed(c, feedKey, feed); err != nil {
+          c.Errorf("Error updating feed for URL %s: %s", url, err)
+          http.Error(w, err.Error(), http.StatusInternalServerError)
+          return
+        }
+      }
+    }
+  }
+
+  var ancestorKey *datastore.Key
+  if folderKey != nil {
+    ancestorKey = folderKey
+  } else {
+    ancestorKey = userKey
+  }
+
+  if subscriptionKey, err := subscriptionKeyForURL(c, url, userKey); err != nil {
+    c.Errorf("Error reading subscription: %s", err)
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  } else {
+    if subscriptionKey != nil {
+      // Already subscribed; success
+      return
+    }
+  }
+
+  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, ancestorKey)
+  if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  }
+}
+
+func unsubscribeTask(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  var key *datastore.Key
+  if encodedKey := r.PostFormValue("key"); encodedKey == "" {
+    http.Error(w, "Missing key", http.StatusInternalServerError)
+    return
+  } else {
+    if decodedKey, err := datastore.DecodeKey(encodedKey); err == nil {
+      key = decodedKey
+    } else {
+      http.Error(w, "Error decoding key", http.StatusInternalServerError)
+      return
+    }
+  }
+
+  entriesRead := 0
+  batchSize := 1000
+  articleKeys := make([]*datastore.Key, batchSize)
+
+  q := datastore.NewQuery("Article").Ancestor(key).KeysOnly()
+  for t := q.Run(c); ; entriesRead++ {
+    articleKey, err := t.Next(nil)
+
+    if err == datastore.Done || entriesRead + 1 >= batchSize {
+      // Delete the batch
+      if entriesRead > 0 {
+        if err := datastore.DeleteMulti(c, articleKeys[:entriesRead]); err != nil {
+          http.Error(w, err.Error(), http.StatusInternalServerError)
+          return
+        }
+      }
+
+      entriesRead = 0
+
+      if err == datastore.Done {
+        break
+      }
+    } else if err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+    }
+
+    articleKeys[entriesRead] = articleKey
+  }
+
+  if key.Kind() == "Folder" {
+    // Remove subscriptions under the folder
+    q = datastore.NewQuery("Subscription").Ancestor(key).KeysOnly().Limit(1000)
+    if subscriptionKeys, err := q.GetAll(c, nil); err == nil {
+      if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+      }
+    }
+  }
+
+  if err := datastore.Delete(c, key); err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  }
+}
+
+func markAllAsReadTask(w http.ResponseWriter, r *http.Request) {
+  // c := appengine.NewContext(r)
+
+  // var key *datastore.Key
+  // if encodedKey := r.PostFormValue("key"); encodedKey == "" {
+  //   http.Error(w, "Missing key", http.StatusInternalServerError)
+  //   return
+  // } else {
+  //   if decodedKey, err := datastore.DecodeKey(encodedKey); err == nil {
+  //     key = decodedKey
+  //   } else {
+  //     http.Error(w, "Error decoding key", http.StatusInternalServerError)
+  //     return
+  //   }
+  // }
+
+  // entriesRead := 0
+  // batchSize := 1000
+  // articleKeys := make([]*datastore.Key, batchSize)
+
+  // FIXME
+  // q := datastore.NewQuery("Article").Ancestor(key).KeysOnly()
+  // for t := q.Run(c); ; entriesRead++ {
+  //   articleKey, err := t.Next(nil)
+
+  //   if err == datastore.Done || entriesRead + 1 >= batchSize {
+  //     // Delete the batch
+  //     if entriesRead > 0 {
+  //       if err := datastore.DeleteMulti(c, articleKeys[:entriesRead]); err != nil {
+  //         http.Error(w, err.Error(), http.StatusInternalServerError)
+  //         return
+  //       }
+  //     }
+
+  //     entriesRead = 0
+
+  //     if err == datastore.Done {
+  //       break
+  //     }
+  //   } else if err != nil {
+  //     http.Error(w, err.Error(), http.StatusInternalServerError)
+  //     return
+  //   }
+
+  //   articleKeys[entriesRead] = articleKey
+  // }
+
+  // if key.Kind() == "Folder" {
+  //   // Remove subscriptions under the folder
+  //   q = datastore.NewQuery("Subscription").Ancestor(key).KeysOnly().Limit(1000)
+  //   if subscriptionKeys, err := q.GetAll(c, nil); err == nil {
+  //     if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
+  //       http.Error(w, err.Error(), http.StatusInternalServerError)
+  //       return
+  //     }
+  //   }
+  // }
+
+  // if err := datastore.Delete(c, key); err != nil {
+  //   http.Error(w, err.Error(), http.StatusInternalServerError)
+  //   return
+  // }
 }

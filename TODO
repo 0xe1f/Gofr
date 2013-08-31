@@ -1,5 +1,5 @@
-Subscription folder support
 Add server-to-client 'refresh' notifications and messaging
 Add subscription refreshes
 Mask the continue marker (currently sent in base-64)
 Localization
+'Mark all as read' as a task

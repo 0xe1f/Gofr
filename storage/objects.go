@@ -21,7 +21,7 @@
  ******************************************************************************
  */
  
-package perfeediem
+package storage
 
 import (
   "appengine/datastore"
@@ -31,11 +31,6 @@ import (
   "sanitize"
   "time"
 )
-
-type PageMarker struct {
-  SessionID string
-  Cursor string
-}
 
 type Feed struct {
   URL string
@@ -69,6 +64,21 @@ type Entry struct {
   Summary string `json:"summary"`
 }
 
+type UserSubscriptions struct {
+  Subscriptions []Subscription `json:"subscriptions"`
+  Folders []Folder             `json:"folders"`
+}
+
+type FolderRef struct {
+  UserID UserID
+  FolderID string
+}
+
+type SubscriptionRef struct {
+  FolderRef
+  SubscriptionID string
+}
+
 type Subscription struct {
   ID string     `datastore:"-" json:"id"`
   Link string   `datastore:"-" json:"link"`
@@ -82,7 +92,24 @@ type Subscription struct {
   UnreadCount int      `json:"unread"`
 }
 
-type SubEntry struct {
+type ArticlePage struct {
+  Articles []Article `json:"articles"`
+  Continue string    `json:"continue,omitempty"`
+}
+
+type ArticleRef struct {
+  SubscriptionRef
+  ArticleID string
+}
+
+type ArticleFilter struct {
+  UserID UserID
+  FolderID string
+  SubscriptionID string
+  Property string
+}
+
+type Article struct {
   ID string             `datastore:"-" json:"id"`
   Source string         `datastore:"-" json:"source"`
   Details *Entry        `datastore:"-" json:"details"`
@@ -94,12 +121,7 @@ type SubEntry struct {
   Properties []string   `json:"properties"`
 }
 
-type UserSubscriptions struct {
-  Subscriptions []*Subscription `json:"subscriptions"`
-  Folders []*SubFolder          `json:"folders"`
-}
-
-type SubFolder struct {
+type Folder struct {
   ID string    `datastore:"-" json:"id"`
   Title string `json:"title"`
 }

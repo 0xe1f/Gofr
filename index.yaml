@@ -10,57 +10,13 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
-- kind: Entry
+- kind: Article
   ancestor: yes
   properties:
-  - name: Retrieved
+  - name: Published
+    direction: desc
 
 - kind: EntryMeta
   ancestor: yes
   properties:
   - name: Retrieved
-
-- kind: SubEntry
-  ancestor: yes
-  properties:
-  - name: Created
-    direction: desc
-
-- kind: SubEntry
-  ancestor: yes
-  properties:
-  - name: Properties
-  - name: Published
-    direction: desc
-
-- kind: SubEntry
-  ancestor: yes
-  properties:
-  - name: Published
-    direction: desc
-
-- kind: SubEntry
-  ancestor: yes
-  properties:
-  - name: Retrieved
-    direction: desc
-
-- kind: SubEntry
-  ancestor: yes
-  properties:
-  - name: Title
-
-- kind: SubFolder
-  ancestor: yes
-  properties:
-  - name: Title
-
-- kind: Subscription
-  properties:
-  - name: UserId
-  - name: Title
-
-- kind: Subscription
-  ancestor: yes
-  properties:
-  - name: Title
