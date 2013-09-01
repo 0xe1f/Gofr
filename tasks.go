@@ -412,6 +412,8 @@ func subscribeTask(w http.ResponseWriter, r *http.Request) {
 func unsubscribeTask(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
+  // FIXME: broken
+  
   var key *datastore.Key
   if encodedKey := r.PostFormValue("key"); encodedKey == "" {
     http.Error(w, "Missing key", http.StatusInternalServerError)

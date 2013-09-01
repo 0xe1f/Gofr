@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
  ** PerFeediem
- ** https://github.com/melllvar/PerFeediem
+ ** https://github.com/melllvar/perfeediem
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -24,23 +24,10 @@
 package perfeediem
 
 import (
-  "net/http"
+  "fmt"
 )
 
-type ReadableError struct {
-  message string
-  httpCode int
-  err *error
-}
-
-func NewReadableError(message string, err *error) ReadableError {
-  return ReadableError { message: message, httpCode: http.StatusInternalServerError, err: err }
-}
-
-func NewReadableErrorWithCode(message string, code int, err *error) ReadableError {
-  return ReadableError { message: message, httpCode: code, err: err }
-}
-
-func (e ReadableError) Error() string {
-  return e.message
+func _l(format string, v ...interface {}) string {
+  // FIXME
+  return fmt.Sprintf(format, v...)
 }

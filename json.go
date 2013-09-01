@@ -29,9 +29,6 @@ import (
   "appengine/datastore"
   "appengine/taskqueue"
   "appengine/urlfetch"
-  "appengine/user"
-  "encoding/json"
-  "fmt"
   "io/ioutil"
   "net/url"
   "net/http"
@@ -41,7 +38,6 @@ import (
   "storage"
   "strconv"
   "strings"
-  "time"
   "unicode/utf8"
 )
 
@@ -59,6 +55,10 @@ func registerJson() {
   RegisterRoute("/rename",        rename)
   RegisterRoute("/setProperty",   setProperty)
   RegisterRoute("/subscribe",     subscribe)
+  RegisterRoute("/unsubscribe",   unsubscribe)
+  RegisterRoute("/authUpload",    authUpload)
+  RegisterRoute("/import",        importOPML)
+  RegisterRoute("/markAllAsRead", markAllAsRead)
 
   // FIXME: switch to custom router
   http.HandleFunc("/subscriptions", Run)
@@ -67,11 +67,10 @@ func registerJson() {
   http.HandleFunc("/rename",        Run)
   http.HandleFunc("/setProperty",   Run)
   http.HandleFunc("/subscribe",     Run)
-
-  http.HandleFunc("/unsubscribe",   unsubscribe)
-  http.HandleFunc("/import",        importOpml)
-  http.HandleFunc("/authUpload",    authUpload)
-  http.HandleFunc("/markAllAsRead", markAllAsRead)
+  http.HandleFunc("/unsubscribe",   Run)
+  http.HandleFunc("/authUpload",    Run)
+  http.HandleFunc("/import",        Run)
+  http.HandleFunc("/markAllAsRead", Run)
 }
 
 func subscriptions(pfc *PFContext) (interface{}, error) {
@@ -110,7 +109,7 @@ func createFolder(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Folder name is too long"), nil)
   }
 
-  if exists, err := storage.IsFolderTitleDuplicate(pfc.Context, userID, title); err != nil {
+  if exists, err := storage.IsFolderDuplicate(pfc.Context, userID, title); err != nil {
     return nil, err
   } else if exists {
     return nil, NewReadableError(_l("A folder with that name already exists"), nil)
@@ -148,7 +147,7 @@ func rename(pfc *PFContext) (interface{}, error) {
     }
   } else if folderID != "" {
     // Rename folder
-    if exists, err := storage.IsFolderTitleDuplicate(pfc.Context, userID, title); err != nil {
+    if exists, err := storage.IsFolderDuplicate(pfc.Context, userID, title); err != nil {
       return nil, err
     } else if exists {
       return nil, NewReadableError(_l("A folder with that name already exists"), nil)
@@ -257,7 +256,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     }
   }
 
-  if subscribed, err := storage.IsSubscribed(pfc.Context, userID, subscriptionURL); err != nil {
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
     return nil, err
   } else if subscribed {
     return nil, NewReadableError(_l("You are already subscribed"), nil)
@@ -308,30 +307,157 @@ func subscribe(pfc *PFContext) (interface{}, error) {
   return _l("Your subscription has been queued for addition."), nil
 }
 
-func _l(format string, v ...interface {}) string {
-  // FIXME
-  return fmt.Sprintf(format, v...)
+func unsubscribe(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
+  r := pfc.R
+  userID := storage.UserID(pfc.User.ID)
+
+  subscriptionID := r.PostFormValue("subscription")
+  folderID := r.PostFormValue("folder")
+
+  var task *taskqueue.Task
+  if subscriptionID != "" {
+    // Remove a subscription
+    ref := storage.SubscriptionRef {
+      FolderRef: storage.FolderRef {
+        UserID: userID,
+        FolderID: folderID,
+      },
+      SubscriptionID: subscriptionID,
+    }
+
+    if exists, err := storage.SubscriptionExists(pfc.Context, ref); err != nil {
+      return nil, err
+    } else if !exists {
+      return nil, NewReadableError(_l("Subscription not found"), nil)
+    }
+  } else if folderID != "" {
+    // Remove a folder
+    ref := storage.FolderRef {
+      UserID: userID,
+      FolderID: folderID,
+    }
+
+    if exists, err := storage.FolderExists(pfc.Context, ref); err != nil {
+      return nil, err
+    } else if !exists {
+      return nil, NewReadableError(_l("Folder not found"), nil)
+    }
+  } else {
+    return nil, NewReadableError(_l("Item not found"), nil)
+  }
+
+  task = taskqueue.NewPOSTTask("/tasks/unsubscribe", url.Values {
+    "userID": { pfc.User.ID },
+    "subscriptionID": { subscriptionID },
+    "folderID": { folderID },
+  })
+
+  if _, err := taskqueue.Add(c, task, ""); err != nil {
+    return nil, NewReadableError(_l("Cannot unsubscribe at the moment - try again later"), &err)
+  }
+
+  return _l("Queued for deletion"), nil
 }
 
-func writeObject(w http.ResponseWriter, obj interface{}) {
-  w.Header().Set("Content-type", "application/json; charset=utf-8")
+func authUpload(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
 
-  bf, _ := json.Marshal(obj)
-  w.Write(bf)
+  if uploadURL, err := blobstore.UploadURL(c, "/import", nil); err != nil {
+    return nil, err
+  } else {
+    return map[string]string { "uploadUrl": uploadURL.String() }, nil
+  }
 }
 
-func authorize(c appengine.Context, r *http.Request, w http.ResponseWriter) (*datastore.Key, error) {
-  u := user.Current(c)
-  if u == nil {
-    err := NewReadableErrorWithCode(_l("Your session has expired. Please sign in."), http.StatusUnauthorized, nil)
+func importOPML(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
+  r := pfc.R
+
+  blobs, _, err := blobstore.ParseUpload(r)
+  if err != nil {
+    return nil, NewReadableError(_l("Error receiving file"), &err)
+  }
+
+  var blobKey appengine.BlobKey
+  if blobInfos := blobs["opml"]; len(blobInfos) == 0 {
+    return nil, NewReadableError(_l("File not uploaded"), nil)
+  } else {
+    blobKey = blobInfos[0].BlobKey
+    reader := blobstore.NewReader(c, blobKey)
+
+    var doc opml.Document
+    if err := opml.Parse(reader, &doc); err != nil {
+      if err := blobstore.Delete(c, blobKey); err != nil {
+        c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
+      }
+
+      return nil, NewReadableError(_l("Error reading OPML file"), &err)
+    }
+  }
+
+  task := taskqueue.NewPOSTTask("/tasks/import", url.Values {
+    "opmlBlobKey": { string(blobKey) },
+    "userID": { pfc.User.ID },
+  })
+
+  if _, err := taskqueue.Add(c, task, ""); err != nil {
+    // Remove the blob
+    if err := blobstore.Delete(c, blobKey); err != nil {
+      c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
+    }
+
+    return nil, NewReadableError(_l("Error initiating import"), &err)
+  }
+
+  return _l("Subscriptions are being imported"), nil
+}
+
+func markAllAsRead(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
+  r := pfc.R
+  userID := storage.UserID(pfc.User.ID)
+
+  subscriptionID := r.PostFormValue("subscription")
+  folderID := r.PostFormValue("folder")
+
+  if subscriptionID != "" {
+    ref := storage.SubscriptionRef {
+      FolderRef: storage.FolderRef {
+        UserID: userID,
+        FolderID: folderID,
+      },
+      SubscriptionID: subscriptionID,
+    }
+    if exists, err := storage.SubscriptionExists(pfc.Context, ref); err != nil {
+      return nil, err
+    } else if !exists {
+      return nil, NewReadableError(_l("Subscription not found"), nil)
+    }
+  } else if folderID != "" {
+    ref := storage.FolderRef {
+      UserID: userID,
+      FolderID: folderID,
+    }
+
+    if exists, err := storage.FolderExists(pfc.Context, ref); err != nil {
+      return nil, err
+    } else if !exists {
+      return nil, NewReadableError(_l("Folder not found"), nil)
+    }
+  }
+
+  task := taskqueue.NewPOSTTask("/tasks/markAllAsRead", url.Values {
+    "userID": { pfc.User.ID },
+    "subscriptionID": { subscriptionID },
+    "folderID": { folderID },
+  })
+
+  if _, err := taskqueue.Add(c, task, ""); err != nil {
     return nil, err
   }
 
-  return datastore.NewKey(c, "User", u.ID, 0, nil), nil
-}
-
-func formatId(kind string, intId int64) string {
-  return kind + "://" + strconv.FormatInt(intId, 36)
+  return _l("Marking items as unread…"), nil
 }
 
 func unformatId(formattedId string) (string, int64, error) {
@@ -346,283 +472,15 @@ func unformatId(formattedId string) (string, int64, error) {
   return "", 0, NewReadableError(_l("Missing identifier"), nil)
 }
 
-func unsubscribe(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
+func subscriptionKeyForURL(c appengine.Context, feedURL string, userKey *datastore.Key) (*datastore.Key, error) {
+  feedKey := datastore.NewKey(c, "Feed", feedURL, 0, nil)
+  q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
 
-  var userKey *datastore.Key
-  if u, err := authorize(c, r, w); err != nil {
-    writeError(c, w, err)
-    return
+  if subKeys, err := q.GetAll(c, nil); err != nil {
+    return nil, err
+  } else if len(subKeys) > 0 {
+    return subKeys[0], nil
   } else {
-    userKey = u
-  }
-
-  var task *taskqueue.Task
-  if subscriptionURL := r.PostFormValue("subscription"); subscriptionURL != "" {
-    // Remove a subscription
-    ancestorKey := userKey
-    if folder := r.PostFormValue("folder"); folder != "" {
-      if kind, id, err := unformatId(folder); err != nil {
-        writeError(c, w, err)
-        return
-      } else if kind == "folder" {
-        ancestorKey = datastore.NewKey(c, "Folder", "", id, userKey)
-      } else {
-        writeError(c, w, NewReadableError(_l("Folder not found"), nil))
-        return
-      }
-    }
-
-    subscriptionKey := datastore.NewKey(c, "Subscription", subscriptionURL, 0, ancestorKey)
-    subscription := new(storage.Subscription)
-
-    if err := datastore.Get(c, subscriptionKey, subscription); err == datastore.ErrNoSuchEntity {
-      writeError(c, w, NewReadableError(_l("Subscription not found"), nil))
-      return
-    } else if err != nil {
-      writeError(c, w, err)
-      return
-    }
-
-    task = taskqueue.NewPOSTTask("/tasks/unsubscribe", url.Values {
-      "key": { subscriptionKey.Encode() },
-    })
-  } else if folder := r.PostFormValue("folder"); folder != "" {
-    // Remove a folder
-    var folderKey *datastore.Key
-    if kind, id, err := unformatId(folder); err != nil {
-      writeError(c, w, err)
-      return
-    } else if kind == "folder" {
-      folderKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      writeError(c, w, NewReadableError(_l("Folder not found"), nil))
-      return
-    }
-
-    folder := new(storage.Folder)
-    if err := datastore.Get(c, folderKey, folder); err == datastore.ErrNoSuchEntity {
-      writeError(c, w, NewReadableError(_l("Folder not found"), nil))
-      return
-    } else if err != nil {
-      writeError(c, w, err)
-      return
-    }
-
-    task = taskqueue.NewPOSTTask("/tasks/unsubscribe", url.Values {
-      "key": { folderKey.Encode() },
-    })
-  } else {
-    writeError(c, w, NewReadableError(_l("Item not found"), nil))
-    return
-  }
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
-    writeError(c, w, NewReadableError(_l("Error queueing deletion"), &err))
-    return
-  } else {
-    writeObject(w, map[string]string { "message": _l("Queued for deletion") })
-  }
-}
-
-func importOpml(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-
-  blobs, _, err := blobstore.ParseUpload(r)
-  if err != nil {
-    writeError(c, w, NewReadableError(_l("Error receiving file"), &err))
-    return
-  }
-
-  var blobKey appengine.BlobKey
-  if blobInfos := blobs["opml"]; len(blobInfos) == 0 {
-    writeError(c, w, NewReadableError(_l("File not uploaded"), nil))
-    return
-  } else {
-    blobKey = blobInfos[0].BlobKey
-    reader := blobstore.NewReader(c, blobKey)
-
-    var doc opml.Document
-    if err := opml.Parse(reader, &doc); err != nil {
-      writeError(c, w, NewReadableError(_l("Error reading OPML file"), &err))
-
-      // Remove the blob
-      if err := blobstore.Delete(c, blobKey); err != nil {
-        c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
-      }
-      return
-    }
-  }
-
-  user := user.Current(c)
-  task := taskqueue.NewPOSTTask("/tasks/import", url.Values {
-    "opmlBlobKey": { string(blobKey) },
-    "userID": { user.ID },
-  })
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
-    writeError(c, w, NewReadableError(_l("Error initiating import"), &err))
-    
-    // Remove the blob
-    if err := blobstore.Delete(c, blobKey); err != nil {
-      c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
-    }
-    return
-  }
-
-  writeObject(w, map[string]string { "message": _l("Your subscriptions have been queued for addition.") })
-}
-
-func authUpload(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-  uploadURL, err := blobstore.UploadURL(c, "/import", nil)
-  if err != nil {
-    writeError(c, w, NewReadableError(_l("Error initiating file upload"), &err))
-    return
-  }
-
-  writeObject(w, map[string]string { 
-    "uploadUrl": uploadURL.String(),
-  })
-}
-
-func markAllAsRead(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-
-  var userKey *datastore.Key
-  if u, err := authorize(c, r, w); err != nil {
-    writeError(c, w, err)
-    return
-  } else {
-    userKey = u
-  }
-
-  var key *datastore.Key
-  if subscriptionURL := r.PostFormValue("subscription"); subscriptionURL != "" {
-    // Subscription
-    ancestorKey := userKey
-    if folder := r.PostFormValue("folder"); folder != "" {
-      if kind, id, err := unformatId(folder); err != nil {
-        writeError(c, w, err)
-        return
-      } else if kind == "folder" {
-        ancestorKey = datastore.NewKey(c, "Folder", "", id, userKey)
-      } else {
-        writeError(c, w, NewReadableError(_l("Folder not found"), nil))
-        return
-      }
-    }
-
-    key = datastore.NewKey(c, "Subscription", subscriptionURL, 0, ancestorKey)
-  } else if folder := r.PostFormValue("folder"); folder != "" {
-    // Folder
-    var folderKey *datastore.Key
-    if kind, id, err := unformatId(folder); err != nil {
-      writeError(c, w, err)
-      return
-    } else if kind == "folder" {
-      folderKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      writeError(c, w, NewReadableError(_l("Folder not found"), nil))
-      return
-    }
-
-    key = folderKey
-  } else {
-    key = userKey
-  }
-
-  q := datastore.NewQuery("Article").Ancestor(key).Filter("Properties =", "unread").Limit(1000)
-
-  var articles []*storage.Article
-  if articleKeys, err := q.GetAll(c, &articles); err != nil {
-    writeError(c, w, err)
-    return
-  } else {
-    if len(articleKeys) >= 1000 {
-      // Too many entries - delegate job to a background task
-      task := taskqueue.NewPOSTTask("/tasks/markAllAsRead", url.Values {
-        "key": { key.Encode() },
-      })
-      if _, err := taskqueue.Add(c, task, ""); err != nil {
-        writeError(c, w, err)
-        return
-      } else {
-        writeObject(w, map[string]interface{} { 
-          "message": _l("Queued for marking"),
-          "done": false,
-        })
-      }
-    } else {
-      started := time.Now()
-
-      for _, article := range articles {
-        propertyMap := make(map[string]bool)
-        for _, property := range article.Properties {
-          propertyMap[property] = true
-        }
-
-        delete(propertyMap, "unread")
-        propertyMap["read"] = true
-
-        article.Properties = make([]string, len(propertyMap))
-        i := 0
-        for key, _ := range propertyMap {
-          article.Properties[i] = key
-          i++
-        }
-      }
-
-      if _, err := datastore.PutMulti(c, articleKeys, articles); err != nil {
-        writeError(c, w, NewReadableError(_l("Error marking items as read"), &err))
-        // FIXME: deal with multi. errors
-        return
-      }
-
-      itemsMarked := 0
-
-      // Reset unread counter
-      if key.Kind() != "Subscription" {
-        var subscriptions []*storage.Subscription
-        q = datastore.NewQuery("Subscription").Ancestor(key).Limit(1000)
-        
-        if subscriptionKeys, err := q.GetAll(c, &subscriptions); err == nil {
-          for _, subscription := range subscriptions {
-            itemsMarked += subscription.UnreadCount
-            subscription.UnreadCount = 0
-          }
-
-          if _, err := datastore.PutMulti(c, subscriptionKeys, subscriptions); err != nil {
-            writeError(c, w, NewReadableError(_l("Error writing unread item count"), &err))
-            // FIXME: deal with multi. errors
-            return
-          }
-        } else {
-          writeError(c, w, NewReadableError(_l("Error reading unread item count"), &err))
-          return
-        }
-      } else {
-        subscription := new(storage.Subscription)
-        if err := datastore.Get(c, key, subscription); err != nil {
-          writeError(c, w, NewReadableError(_l("Error reading unread item count"), &err))
-          return
-        } else {
-          itemsMarked += subscription.UnreadCount
-          subscription.UnreadCount = 0
-
-          if _, err := datastore.Put(c, key, subscription); err != nil {
-            writeError(c, w, NewReadableError(_l("Error writing unread item count"), &err))
-            return
-          }
-        }
-      }
-
-      c.Infof("Inline marked %d items as read (took %s)", itemsMarked, time.Since(started))
-
-      writeObject(w, map[string]interface{} { 
-        "message": _l(`%d items marked as read`, itemsMarked),
-        "done": true,
-      })
-    }
+    return nil, nil
   }
 }

@@ -229,7 +229,7 @@ func NewUserSubscriptions(sc Context, userID UserID) (*UserSubscriptions, error)
   return &userSubscriptions, nil
 }
 
-func IsFolderTitleDuplicate(sc Context, userID UserID, title string) (bool, error) {
+func IsFolderDuplicate(sc Context, userID UserID, title string) (bool, error) {
   c := sc.(appengine.Context)
   userKey := newUserKey(c, userID)
 
@@ -239,6 +239,22 @@ func IsFolderTitleDuplicate(sc Context, userID UserID, title string) (bool, erro
     return true, nil
   } else if err != nil {
     return false, err
+  }
+
+  return false, nil
+}
+
+func IsSubscriptionDuplicate(sc Context, userID UserID, subscriptionURL string) (bool, error) {
+  c := sc.(appengine.Context)
+  userKey := newUserKey(c, userID)
+
+  feedKey := datastore.NewKey(c, "Feed", subscriptionURL, 0, nil)
+  q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
+
+  if subKeys, err := q.GetAll(c, nil); err != nil {
+    return false, err
+  } else if len(subKeys) > 0 {
+    return true, nil
   }
 
   return false, nil
@@ -261,6 +277,33 @@ func FolderExists(sc Context, ref FolderRef) (bool, error) {
     }
   } else {
     return false, errors.New("Expecting folder ID; found: " + kind)
+  }
+
+  return false, nil
+}
+
+func SubscriptionExists(sc Context, ref SubscriptionRef) (bool, error) {
+  c := sc.(appengine.Context)
+  userKey := newUserKey(c, ref.UserID)
+
+  parentKey := userKey
+  if ref.FolderID != "" {
+    if kind, id, err := unformatId(ref.FolderID); err != nil {
+      return false, err
+    } else if kind == "folder" {
+      parentKey = datastore.NewKey(c, "Folder", "", id, userKey)
+    } else {
+      return false, errors.New("Expecting folder ID; found: " + kind)
+    }
+  }
+
+  subscriptionKey := datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, parentKey)
+  subscription := new(Subscription)
+
+  if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
+    return true, nil
+  } else if err != datastore.ErrNoSuchEntity {
+    return false, err
   }
 
   return false, nil
@@ -432,6 +475,105 @@ func SetProperty(sc Context, ref ArticleRef, propertyName string, propertyValue 
   return article.Properties, nil
 }
 
+func MarkAllAsRead(sc Context, ref SubscriptionRef) error {
+  c := sc.(appengine.Context)
+  userKey := newUserKey(c, ref.UserID)
+
+  key := userKey
+  if ref.FolderID != "" {
+    if kind, id, err := unformatId(ref.FolderID); err != nil {
+      return err
+    } else if kind == "folder" {
+      key = datastore.NewKey(c, "Folder", "", id, userKey)
+    } else {
+      return errors.New("Expecting folder ID; found: " + kind)
+    }
+  }
+
+  if ref.SubscriptionID != "" {
+    // Further narrow to specific subscription
+    key = datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, key)
+  }
+
+  batchSize := 1000
+  entriesRead := 0
+
+  articles := make([]*Article, batchSize)
+  articleKeys := make([]*datastore.Key, batchSize)
+  
+  q := datastore.NewQuery("Article").Ancestor(key).Filter("Properties =", "unread")
+  for t := q.Run(c); ; entriesRead++ {
+    article := new(Article)
+    articleKey, err := t.Next(article)
+
+    if err != nil {
+      return err
+    } else if err == datastore.Done || entriesRead + 1 >= batchSize {
+      // Write the batch
+      if entriesRead > 0 {
+        if _, err := datastore.PutMulti(c, articleKeys[:entriesRead], articles[:entriesRead]); err != nil {
+          c.Errorf("Error writing Article batch: %s", err)
+          return err
+        }
+      }
+
+      entriesRead = 0
+
+      if err == datastore.Done {
+        break
+      }
+    }
+
+    propertyMap := make(map[string]bool)
+    for _, property := range article.Properties {
+      propertyMap[property] = true
+    }
+
+    delete(propertyMap, "unread")
+    propertyMap["read"] = true
+
+    article.Properties = make([]string, len(propertyMap))
+    i := 0
+    for key, _ := range propertyMap {
+      article.Properties[i] = key
+      i++
+    }
+
+    articleKeys[entriesRead] = articleKey
+    articles[entriesRead] = article
+  }
+
+  // Reset unread counters
+  if key.Kind() != "Subscription" {
+    var subscriptions []*Subscription
+    q = datastore.NewQuery("Subscription").Ancestor(key).Limit(1000)
+    
+    if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
+      return err
+    } else {
+      for _, subscription := range subscriptions {
+        subscription.UnreadCount = 0
+      }
+
+      if _, err := datastore.PutMulti(c, subscriptionKeys, subscriptions); err != nil {
+        return err
+      }
+    }
+  } else {
+    subscription := new(Subscription)
+    if err := datastore.Get(c, key, subscription); err != nil {
+      return err
+    }
+
+    subscription.UnreadCount = 0
+    if _, err := datastore.Put(c, key, subscription); err != nil {
+      return err
+    }
+  }
+
+  return nil
+}
+
 func IsFeedAvailable(sc Context, url string) (bool, error) {
   c := sc.(appengine.Context)
 
@@ -442,22 +584,6 @@ func IsFeedAvailable(sc Context, url string) (bool, error) {
     return true, nil
   } else if err != datastore.ErrNoSuchEntity {
     return false, err
-  }
-
-  return false, nil
-}
-
-func IsSubscribed(sc Context, userID UserID, subscriptionURL string) (bool, error) {
-  c := sc.(appengine.Context)
-  userKey := newUserKey(c, userID)
-
-  feedKey := datastore.NewKey(c, "Feed", subscriptionURL, 0, nil)
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
-
-  if subKeys, err := q.GetAll(c, nil); err != nil {
-    return false, err
-  } else if len(subKeys) > 0 {
-    return true, nil
   }
 
   return false, nil
@@ -478,110 +604,3 @@ func WebToFeedURL(sc Context, url string) (string, error) {
 
   return "", nil
 }
-
-/*
-func Subscribe(sc Context, ref FolderRef, subscriptionURL string) error {
-  c := sc.(appengine.Context)
-  userKey := newUserKey(c, ref.UserID)
-
-  if subscriptionURL := strings.TrimSpace(r.PostFormValue("url")); subscriptionURL == "" {
-    writeError(c, w, NewReadableError(_l("Missing URL"), nil))
-    return
-  } else {
-    if _, err := url.ParseRequestURI(subscriptionURL); err != nil {
-      writeError(c, w, NewReadableError(_l("Subscription URL is not valid"), &err))
-      return
-    }
-    if url := feedURLFromLink(c, subscriptionURL); url != "" {
-      feedURL = url
-    } else {
-      feedURL = subscriptionURL
-    }
-  }
-
-  if subscriptionKey, err := subscriptionKeyForURL(c, feedURL, userKey); err != nil {
-    writeError(c, w, err)
-    return
-  } else {
-    if subscriptionKey != nil {
-      writeObject(w, map[string]string { "message": _l(`You are already subscribed to this feed`) })
-      return
-    }
-  }
-
-  folderId := r.PostFormValue("folder")
-  if folderId != "" {
-    if kind, id, err := unformatId(folderId); err != nil {
-      writeError(c, w, err)
-      return
-    } else if kind == "folder" {
-      folder := new(storage.Folder)
-      folderKey := datastore.NewKey(c, "Folder", "", id, userKey)
-
-      if err := datastore.Get(c, folderKey, folder); err == datastore.ErrNoSuchEntity {
-        writeError(c, w, NewReadableError(_l("Folder not found"), nil))
-        return
-      } else if err != nil {
-        writeError(c, w, err)
-        return
-      }
-    } else {
-      writeError(c, w, NewReadableError(_l("Folder is not valid"), nil))
-      return
-    }
-  }
-
-  feedKey := datastore.NewKey(c, "Feed", feedURL, 0, nil)
-  feed := new(storage.Feed)
-
-  if err := datastore.Get(c, feedKey, feed); err == nil {
-    // Already have the feed
-  } else if err == datastore.ErrNoSuchEntity {
-    // Don't have the feed - fetch it
-    client := urlfetch.Client(c)
-    if response, err := client.Get(feedURL); err != nil {
-      writeError(c, w, NewReadableError(_l("An error occurred while downloading the feed"), &err))
-      return
-    } else {
-      defer response.Body.Close()
-      
-      var body string
-      if bytes, err := ioutil.ReadAll(response.Body); err != nil {
-        writeError(c, w, NewReadableError(_l("An error occurred while downloading the feed"), &err))
-        return
-      } else {
-        body = string(bytes)
-      }
-
-      reader := strings.NewReader(body) // FIXME
-      if _, err := rss.UnmarshalStream(feedURL, reader); err != nil {
-        // Parse failed. Assume it's HTML and try to pull out an RSS link
-        if linkURL := feedURLFromHTML(body); linkURL == "" {
-          writeError(c, w, NewReadableError(_l("RSS content not found"), &err))
-          return
-        } else {
-          feedURL = linkURL
-        }
-      }
-    }
-  } else {
-    // Some other error
-    writeError(c, w, err)
-    return
-  }
-
-  user := user.Current(c)
-  task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
-    "url": { feedURL },
-    "folderId": { folderId },
-    "userID": { user.ID },
-  })
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
-    writeError(c, w, NewReadableError(_l("Cannot subscribe - too busy"), &err))
-    return
-  }
-
-  writeObject(w, map[string]string { "message": _l("Your subscription has been queued for addition.") })
-}
-*/
