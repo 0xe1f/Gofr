@@ -25,9 +25,7 @@ package perfeediem
 
 import (
  "appengine"
- "appengine/datastore"
  "appengine/user"
- "encoding/json"
  "net/http"
  "storage"
 )
@@ -35,70 +33,31 @@ import (
 type PFContext struct {
   R *http.Request
   C appengine.Context
+  W http.ResponseWriter
   Context storage.Context
   User *user.User
-  UserKey *datastore.Key
+  LoginURL string
 }
 
 func Run(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
-  user := user.Current(c)
 
-  // FIXME: fancy pattern-match
-  var matchingRoute *route
-  if route := routeFromRequest(r); route == nil {
-    // FIXME: routing error
-    return
-  } else if route.LoginRequired && user == nil {
-    // FIXME: authorization error
+  loginURL := ""
+  if url, err := user.LoginURL(c, r.URL.String()); err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
     return
   } else {
-    matchingRoute = route
-  }
-
-  var userKey *datastore.Key
-  if user != nil {
-    userKey = datastore.NewKey(c, "User", user.ID, 0, nil)
+    loginURL = url
   }
 
   pfc := PFContext {
     R: r,
     C: c,
+    W: w,
     Context: c,
-    User: user,
-    UserKey: userKey,
+    User: user.Current(c),
+    LoginURL: loginURL,
   }
 
-  if returnValue, err := matchingRoute.Handler(&pfc); err == nil {
-    var jsonObj interface{}
-    if message, ok := returnValue.(string); ok {
-      jsonObj = map[string]string { "message": message }
-    } else {
-      jsonObj = returnValue
-    }
-
-    bf, _ := json.Marshal(jsonObj)
-    w.Header().Set("Content-type", "application/json; charset=utf-8")
-    w.Write(bf)
-  } else {
-    message := _l("An unexpected error has occurred")
-    httpCode := http.StatusInternalServerError
-
-    c.Errorf("Error: %s", err)
-
-    if readableError, ok := err.(ReadableError); ok {
-      message = err.Error() 
-      httpCode = readableError.httpCode
-
-      if readableError.err != nil {
-        c.Errorf("Source: %s", *readableError.err)
-      }
-    }
-
-    jsonObj := map[string]string { "errorMessage": message }
-    bf, _ := json.Marshal(jsonObj)
-
-    w.Header().Set("Content-type", "application/json; charset=utf-8")
-    http.Error(w, string(bf), httpCode)
-  }
+  routeRequest(&pfc)
 }

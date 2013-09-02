@@ -31,7 +31,6 @@ import (
   "appengine/urlfetch"
   "io/ioutil"
   "net/url"
-  "net/http"
   "opml"
   "regexp"
   "rss"
@@ -49,28 +48,16 @@ var validProperties = map[string]bool {
 }
 
 func registerJson() {
-  RegisterRoute("/subscriptions", subscriptions)
-  RegisterRoute("/articles",      articles)
-  RegisterRoute("/createFolder",  createFolder)
-  RegisterRoute("/rename",        rename)
-  RegisterRoute("/setProperty",   setProperty)
-  RegisterRoute("/subscribe",     subscribe)
-  RegisterRoute("/unsubscribe",   unsubscribe)
-  RegisterRoute("/authUpload",    authUpload)
-  RegisterRoute("/import",        importOPML)
-  RegisterRoute("/markAllAsRead", markAllAsRead)
-
-  // FIXME: switch to custom router
-  http.HandleFunc("/subscriptions", Run)
-  http.HandleFunc("/articles",      Run)
-  http.HandleFunc("/createFolder",  Run)
-  http.HandleFunc("/rename",        Run)
-  http.HandleFunc("/setProperty",   Run)
-  http.HandleFunc("/subscribe",     Run)
-  http.HandleFunc("/unsubscribe",   Run)
-  http.HandleFunc("/authUpload",    Run)
-  http.HandleFunc("/import",        Run)
-  http.HandleFunc("/markAllAsRead", Run)
+  RegisterJSONRoute("/subscriptions", subscriptions)
+  RegisterJSONRoute("/articles",      articles)
+  RegisterJSONRoute("/createFolder",  createFolder)
+  RegisterJSONRoute("/rename",        rename)
+  RegisterJSONRoute("/setProperty",   setProperty)
+  RegisterJSONRoute("/subscribe",     subscribe)
+  RegisterJSONRoute("/unsubscribe",   unsubscribe)
+  RegisterJSONRoute("/authUpload",    authUpload)
+  RegisterJSONRoute("/import",        importOPML)
+  RegisterJSONRoute("/markAllAsRead", markAllAsRead)
 }
 
 func subscriptions(pfc *PFContext) (interface{}, error) {

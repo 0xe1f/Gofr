@@ -23,7 +23,13 @@
  
 package perfeediem
 
+import (
+  "net/http"
+)
+
 func init() {
+  http.HandleFunc("/", Run)
+
   registerJson()
   registerTasks()
   registerWeb()

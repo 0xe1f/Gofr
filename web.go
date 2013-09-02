@@ -28,11 +28,11 @@ import (
 )
 
 func registerWeb() {
-  http.HandleFunc("/", index)
+  RegisterHTMLRoute("/", index)
 }
 
-func index(w http.ResponseWriter, r *http.Request) {
-  if err := indexTemplate.Execute(w, nil); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
+func index(pfc *PFContext) {
+  if err := indexTemplate.Execute(pfc.W, nil); err != nil {
+    http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
   }
 }

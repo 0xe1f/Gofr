@@ -38,7 +38,7 @@ import (
 func registerTasks() {
   http.HandleFunc("/tasks/subscribe", subscribeTask)
   http.HandleFunc("/tasks/unsubscribe", unsubscribeTask)
-  http.HandleFunc("/tasks/import", importOpmlTask)
+  http.HandleFunc("/tasks/import", importOPMLTask)
   http.HandleFunc("/tasks/markAllAsRead", markAllAsReadTask)
 }
 
@@ -264,7 +264,7 @@ func importSubscriptions(c appengine.Context, ch chan<- *opml.Subscription, user
   return count
 }
 
-func importOpmlTask(w http.ResponseWriter, r *http.Request) {
+func importOPMLTask(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
   var userKey *datastore.Key
@@ -413,7 +413,7 @@ func unsubscribeTask(w http.ResponseWriter, r *http.Request) {
   c := appengine.NewContext(r)
 
   // FIXME: broken
-  
+
   var key *datastore.Key
   if encodedKey := r.PostFormValue("key"); encodedKey == "" {
     http.Error(w, "Missing key", http.StatusInternalServerError)
