@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** PerFeediem
- ** https://github.com/melllvar/perfeediem
+ ** Gofr
+ ** https://github.com/melllvar/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify

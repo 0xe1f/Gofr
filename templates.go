@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** PerFeediem
- ** https://github.com/melllvar/PerFeediem
+ ** Gofr
+ ** https://github.com/melllvar/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  ******************************************************************************
  */
  
-package perfeediem
+package gofr
 
 import (
   "html/template"
@@ -42,12 +42,12 @@ const indexTemplateHTML = `
     <script src="content/jquery.form.min.js" type="text/javascript"></script>
     <script src="content/jquery.scrollintoview.min.js" type="text/javascript"></script>
     <script src="content/reader.js" type="text/javascript"></script>
-    <title>PerFeediem</title>
+    <title>Gofr</title>
   </head>
   <body>
     <div id="toast"><span></span></div>
     <div id="header">
-      <h1>PerFeediem</h1>
+      <h1>Gofr</h1>
       <div class="navbar">
         <a class="import-subscriptions" href="#">Import subscriptions</a>
       </div>

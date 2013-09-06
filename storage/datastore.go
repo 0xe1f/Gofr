@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** PerFeediem
- ** https://github.com/melllvar/perfeediem
+ ** Gofr
+ ** https://github.com/melllvar/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -26,9 +26,9 @@ package storage
 import (
   "appengine"
   "appengine/datastore"
+  "rss"
   "errors"
-  "strconv"
-  "strings"
+  "time"
 )
 
 const (
@@ -37,26 +37,6 @@ const (
 
 type UserID string
 type Context interface {}
-
-func newUserKey(c appengine.Context, userId UserID) *datastore.Key {
-  return datastore.NewKey(c, "User", string(userId), 0, nil)
-}
-
-func formatId(kind string, intId int64) string {
-  return kind + "://" + strconv.FormatInt(intId, 36)
-}
-
-func unformatId(formattedId string) (string, int64, error) {
-  if parts := strings.SplitN(formattedId, "://", 2); len(parts) == 2 {
-    if id, err := strconv.ParseInt(parts[1], 36, 64); err == nil {
-      return parts[0], id, nil
-    } else {
-      return parts[0], 0, nil
-    }
-  }
-
-  return "", 0, errors.New("Missing valid identifier")
-}
 
 func (filter ArticleFilter)NewQuery(c appengine.Context, start string) (*datastore.Query, error) {
   userKey := newUserKey(c, filter.UserID)
@@ -98,6 +78,47 @@ func (filter ArticleFilter)NewQuery(c appengine.Context, start string) (*datasto
   }
 
   return q, nil
+}
+
+func (ref FolderRef)IsZero() bool {
+  return ref.UserID == "" && ref.FolderID == ""
+}
+
+func (ref FolderRef)key(c appengine.Context) (*datastore.Key, error) {
+  userKey := newUserKey(c, ref.UserID)
+
+  if ref.FolderID != "" {
+    if kind, id, err := unformatId(ref.FolderID); err != nil {
+      return nil, err
+    } else if kind == "folder" {
+      return datastore.NewKey(c, "Folder", "", id, userKey), nil
+    } else {
+      return nil, errors.New("Expecting folder ID; found: " + kind)
+    }
+  }
+
+  return userKey, nil
+}
+
+func (ref SubscriptionRef)key(c appengine.Context) (*datastore.Key, error) {
+  userKey := newUserKey(c, ref.UserID)
+
+  ancestorKey := userKey
+  if ref.FolderID != "" {
+    if kind, id, err := unformatId(ref.FolderID); err != nil {
+      return nil, err
+    } else if kind == "folder" {
+      ancestorKey = datastore.NewKey(c, "Folder", "", id, userKey)
+    } else {
+      return nil, errors.New("Expecting folder ID; found: " + kind)
+    }
+  }
+
+  if ref.SubscriptionID == "" {
+    return ancestorKey, nil
+  }
+
+  return datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey), nil
 }
 
 func NewArticlePage(sc Context, filter ArticleFilter, start string) (*ArticlePage, error) {
@@ -260,9 +281,27 @@ func IsSubscriptionDuplicate(sc Context, userID UserID, subscriptionURL string) 
   return false, nil
 }
 
+func FolderByTitle(sc Context, userID UserID, title string) (FolderRef, error) {
+  c := sc.(appengine.Context)
+  userKey := newUserKey(c, userID)
+
+  q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).KeysOnly().Limit(1)
+  if folderKeys, err := q.GetAll(c, nil); err != nil {
+    return FolderRef{}, err
+  } else if len(folderKeys) > 0 {
+    return newFolderRef(userID, folderKeys[0]), nil
+  }
+
+  return FolderRef{}, nil
+}
+
 func FolderExists(sc Context, ref FolderRef) (bool, error) {
   c := sc.(appengine.Context)
   userKey := newUserKey(c, ref.UserID)
+
+  if ref.FolderID == "" && ref.UserID != "" {
+    return true, nil
+  }
 
   if kind, id, err := unformatId(ref.FolderID); err != nil {
     return false, err
@@ -309,7 +348,7 @@ func SubscriptionExists(sc Context, ref SubscriptionRef) (bool, error) {
   return false, nil
 }
 
-func CreateFolder(sc Context, userID UserID, title string) error {
+func CreateFolder(sc Context, userID UserID, title string) (FolderRef, error) {
   c := sc.(appengine.Context)
   userKey := newUserKey(c, userID)
 
@@ -318,11 +357,11 @@ func CreateFolder(sc Context, userID UserID, title string) error {
     Title: title,
   }
 
-  if _, err := datastore.Put(c, folderKey, &folder); err != nil {
-    return err
+  if completeKey, err := datastore.Put(c, folderKey, &folder); err != nil {
+    return FolderRef{}, err
+  } else {
+    return newFolderRef(userID, completeKey), nil
   }
-
-  return nil
 }
 
 func RenameSubscription(sc Context, ref SubscriptionRef, title string) error {
@@ -475,24 +514,12 @@ func SetProperty(sc Context, ref ArticleRef, propertyName string, propertyValue 
   return article.Properties, nil
 }
 
-func MarkAllAsRead(sc Context, ref SubscriptionRef) error {
+func MarkAllAsRead(sc Context, ref SubscriptionRef, filter string) error {
   c := sc.(appengine.Context)
-  userKey := newUserKey(c, ref.UserID)
 
-  key := userKey
-  if ref.FolderID != "" {
-    if kind, id, err := unformatId(ref.FolderID); err != nil {
-      return err
-    } else if kind == "folder" {
-      key = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      return errors.New("Expecting folder ID; found: " + kind)
-    }
-  }
-
-  if ref.SubscriptionID != "" {
-    // Further narrow to specific subscription
-    key = datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, key)
+  key, err := ref.key(c)
+  if err != nil {
+    return err
   }
 
   batchSize := 1000
@@ -506,9 +533,7 @@ func MarkAllAsRead(sc Context, ref SubscriptionRef) error {
     article := new(Article)
     articleKey, err := t.Next(article)
 
-    if err != nil {
-      return err
-    } else if err == datastore.Done || entriesRead + 1 >= batchSize {
+    if err == datastore.Done || entriesRead + 1 >= batchSize {
       // Write the batch
       if entriesRead > 0 {
         if _, err := datastore.PutMulti(c, articleKeys[:entriesRead], articles[:entriesRead]); err != nil {
@@ -522,6 +547,8 @@ func MarkAllAsRead(sc Context, ref SubscriptionRef) error {
       if err == datastore.Done {
         break
       }
+    } else if err != nil {
+      return err
     }
 
     propertyMap := make(map[string]bool)
@@ -574,6 +601,21 @@ func MarkAllAsRead(sc Context, ref SubscriptionRef) error {
   return nil
 }
 
+func FeedByURL(sc Context, url string) (*Feed, error) {
+  c := sc.(appengine.Context)
+
+  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+  feed := new(Feed)
+
+  if err := datastore.Get(c, feedKey, feed); err == nil {
+    return feed, nil
+  } else if err != datastore.ErrNoSuchEntity {
+    return nil, err
+  }
+
+  return nil, nil
+}
+
 func IsFeedAvailable(sc Context, url string) (bool, error) {
   c := sc.(appengine.Context)
 
@@ -603,4 +645,189 @@ func WebToFeedURL(sc Context, url string) (string, error) {
   }
 
   return "", nil
+}
+
+func Subscribe(sc Context, ref FolderRef, url string, title string) (SubscriptionRef, error) {
+  c := sc.(appengine.Context)
+
+  folderKey, err := ref.key(c)
+  if err != nil {
+    return SubscriptionRef{}, err
+  }
+
+  subscription := new(Subscription)
+  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, folderKey)
+
+  if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
+    return SubscriptionRef{
+      FolderRef: ref,
+      SubscriptionID: url,
+    }, nil // Already subscribed
+  } else if err == datastore.ErrNoSuchEntity {
+    subscription.Updated = time.Time {}
+    subscription.Subscribed = time.Now()
+    subscription.Title = title
+    subscription.UnreadCount = 0
+    subscription.Feed = datastore.NewKey(c, "Feed", url, 0, nil)
+  } else {
+    return SubscriptionRef{}, err
+  }
+
+  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+    return SubscriptionRef{}, err
+  }
+
+  return SubscriptionRef{
+    FolderRef: ref,
+    SubscriptionID: url,
+  }, nil
+}
+
+func Unsubscribe(sc Context, ref SubscriptionRef) error {
+  c := sc.(appengine.Context)
+
+  if key, err := ref.key(c); err != nil {
+    return err
+  } else {
+    return unsubscribe(c, key)
+  }
+}
+
+func UnsubscribeAllInFolder(sc Context, ref FolderRef) error {
+  c := sc.(appengine.Context)
+  
+  if key, err := ref.key(c); err != nil {
+    return err
+  } else {
+    return unsubscribe(c, key)
+  }
+}
+
+func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
+  c := sc.(appengine.Context)
+
+  feed, err := NewFeed(parsedFeed)
+  if err != nil {
+    return err
+  }
+
+  feedKey := datastore.NewKey(c, "Feed", feed.URL, 0, nil)
+
+  batchSize := 1000
+  elements := len(feed.Entries)
+
+  entryKeys := make([]*datastore.Key, batchSize)
+  entryMetaKeys := make([]*datastore.Key, batchSize)
+
+  pending := 0
+  written := 0
+
+  for i := 0; ; i++ {
+    if i >= elements || pending + 1 >= batchSize {
+      if pending > 0 {
+        if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
+          c.Errorf("Error writing Entry batch: %s", err)
+          return err
+        }
+        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
+          c.Errorf("Error writing EntryMetas batch: %s", err)
+          return err
+        }
+      }
+
+      written += pending
+      pending = 0
+
+      if i >= elements {
+        break
+      }
+    }
+
+    keyName := feed.Entries[i].UniqueID
+    if keyName == "" {
+      c.Warningf("UniqueID for an entry (titled '%s') is missing", feed.Entries[i].Title)
+      continue
+    }
+
+    entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
+    entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
+    feed.EntryMetas[i].Entry = entryKeys[i]
+
+    pending++
+  }
+
+  if _, err := datastore.Put(c, feedKey, feed); err != nil {
+    c.Errorf("Error writing feed: %s", err)
+    return err
+  }
+
+  return nil
+}
+
+func UpdateSubscription(sc Context, url string, ref SubscriptionRef) error {
+  c := sc.(appengine.Context)
+
+  batchSize := 1000
+  mostRecentEntryTime := time.Time {}
+  articles := make([]Article, batchSize)
+  articleKeys := make([]*datastore.Key, batchSize)
+
+  pending, written := 0, 0
+
+  subscriptionKey, err := ref.key(c)
+  if err != nil {
+    return err
+  }
+
+  subscription := new(Subscription)
+  if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
+    c.Errorf("Error getting subscription: %s", err)
+    return err
+  }
+
+  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+  q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
+  for t := q.Run(c); ; pending++ {
+    entryMeta := new(EntryMeta)
+    _, err := t.Next(entryMeta)
+
+    if err == datastore.Done || pending + 1 >= batchSize {
+      // Write the batch
+      if pending > 0 {
+        if _, err := datastore.PutMulti(c, articleKeys[:pending], articles[:pending]); err != nil {
+          c.Errorf("Error writing Article batch: %s", err)
+          return err
+        }
+      }
+
+      written += pending
+      pending = 0
+
+      if err == datastore.Done {
+        break
+      }
+    } else if err != nil {
+      c.Errorf("Error reading Entry: %s", err)
+      return err
+    }
+
+    articleKeys[pending] = datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
+    articles[pending].Entry = entryMeta.Entry
+    articles[pending].Retrieved = entryMeta.Retrieved
+    articles[pending].Published = entryMeta.Published
+    articles[pending].Properties = []string { "unread" }
+
+    mostRecentEntryTime = entryMeta.Retrieved
+  }
+
+  // Write the subscription
+  subscription.Updated = mostRecentEntryTime
+  subscription.UnreadCount += written
+
+  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+    c.Errorf("Error writing subscription: %s", err)
+    return err
+  }
+
+  return nil
 }

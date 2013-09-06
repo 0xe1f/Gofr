@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** PerFeediem
- ** https://github.com/melllvar/PerFeediem
+ ** Gofr
+ ** https://github.com/melllvar/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,14 +21,13 @@
  ******************************************************************************
  */
  
-package perfeediem
+package gofr
 
 import (
   "appengine"
   "appengine/blobstore"
-  "appengine/datastore"
   "appengine/urlfetch"
-  "net/http"
+  "errors"
   "opml"
   "rss"
   "storage"
@@ -36,263 +35,113 @@ import (
 )
 
 func registerTasks() {
-  http.HandleFunc("/tasks/subscribe", subscribeTask)
-  http.HandleFunc("/tasks/unsubscribe", unsubscribeTask)
-  http.HandleFunc("/tasks/import", importOPMLTask)
-  http.HandleFunc("/tasks/markAllAsRead", markAllAsReadTask)
+  RegisterTaskRoute("/tasks/subscribe",     subscribeTask)
+  RegisterTaskRoute("/tasks/import",        importOPMLTask)
+  RegisterTaskRoute("/tasks/unsubscribe",   unsubscribeTask)
+  RegisterTaskRoute("/tasks/markAllAsRead", markAllAsReadTask)
 }
 
-func updateSubscription(c appengine.Context, subscriptionKey *datastore.Key, feedKey *datastore.Key, feed *storage.Feed) error {
-  batchSize := 1000
-  mostRecentEntryTime := time.Time {}
-  articles := make([]storage.Article, batchSize)
-  articleKeys := make([]*datastore.Key, batchSize)
-  entriesRead := 0
-  entriesWritten := 0
+func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, folderRef storage.FolderRef, opmlSubscription *opml.Subscription) {
+  c := pfc.C
+  subscriptionURL := opmlSubscription.URL
 
-  subscription := new(storage.Subscription)
-  if err := datastore.Get(c, subscriptionKey, subscription); err != nil && err != datastore.ErrNoSuchEntity {
-    c.Errorf("Error getting subscription: %s", err)
-    return err
-  } else if err == datastore.ErrNoSuchEntity {
-    // Set defaults
-    subscription.Title = feed.Title
-    subscription.Subscribed = time.Now().UTC()
-    subscription.Feed = feedKey
-  }
-
-  q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
-  for t := q.Run(c); ; entriesRead++ {
-    entryMeta := new(storage.EntryMeta)
-    _, err := t.Next(entryMeta)
-
-    if err == datastore.Done || entriesRead + 1 >= batchSize {
-      // Write the batch
-      if entriesRead > 0 {
-        if _, err := datastore.PutMulti(c, articleKeys[:entriesRead], articles[:entriesRead]); err != nil {
-          c.Errorf("Error writing Article batch: %s", err)
-          return err
-        }
-      }
-
-      entriesWritten += entriesRead
-      entriesRead = 0
-
-      if err == datastore.Done {
-        break
-      }
-    } else if err != nil {
-      c.Errorf("Error reading Entry: %s", err)
-      return err
-    }
-
-    articleKeys[entriesRead] = datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
-    articles[entriesRead].Entry = entryMeta.Entry
-    articles[entriesRead].Retrieved = entryMeta.Retrieved
-    articles[entriesRead].Published = entryMeta.Published
-    articles[entriesRead].Properties = []string { "unread" }
-
-    mostRecentEntryTime = entryMeta.Retrieved
-  }
-
-  // Write the subscription
-  subscription.Updated = mostRecentEntryTime
-  subscription.UnreadCount += entriesWritten
-
-  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
-    c.Errorf("Error writing subscription: %s", err)
-    return err
-  }
-
-  return nil
-}
-
-func updateFeed(c appengine.Context, feedKey *datastore.Key, feed *storage.Feed) error {
-  batchSize := 1000
-  elements := len(feed.Entries)
-
-  entryKeys := make([]*datastore.Key, batchSize)
-  entryMetaKeys := make([]*datastore.Key, batchSize)
-
-  pending := 0
-  written := 0
-
-  for i := 0; ; i++ {
-    if i >= elements || pending + 1 >= batchSize {
-      if pending > 0 {
-        if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
-          c.Errorf("Error writing Entry batch: %s", err)
-          return err
-        }
-        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
-          c.Errorf("Error writing EntryMetas batch: %s", err)
-          return err
-        }
-      }
-
-      written += pending
-      pending = 0
-
-      if i >= elements {
-        break
-      }
-    }
-
-    keyName := feed.Entries[i].UniqueID
-    if keyName == "" {
-      c.Warningf("UniqueID for an entry (title '%s') is missing", feed.Entries[i].Title)
-      continue
-    }
-
-    entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
-    entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
-    feed.EntryMetas[i].Entry = entryKeys[i]
-
-    pending++
-  }
-
-  if _, err := datastore.Put(c, feedKey, feed); err != nil {
-    c.Errorf("Error writing feed: %s", err)
-    return err
-  }
-
-  return nil
-}
-
-func importSubscription(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, parentKey *datastore.Key, opmlSubscription *opml.Subscription) {
-  url := opmlSubscription.URL
-  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  feed := new(storage.Feed)
-
-  var subscriptionKey *datastore.Key
-  if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
-    // FIXME: handle error
-    c.Errorf(err.Error())
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
+    c.Errorf("Cannot determine if '%s' is duplicate: %s", subscriptionURL, err)
     goto done
-  } else if err == datastore.ErrNoSuchEntity {
-    // Add the feed first
-    client := urlfetch.Client(c)
-    if resp, err := client.Get(url); err != nil {
-      c.Errorf("Error fetching from URL %s: %s", url, err)
-      // FIXME: handle error
+  } else if subscribed {
+    c.Infof("Already subscribed to %s", subscriptionURL)
+    goto done // Already subscribed
+  }
+
+  if feed, err := storage.FeedByURL(pfc.Context, subscriptionURL); err != nil {
+    c.Errorf("Error locating feed %s: %s", subscriptionURL, err.Error())
+    goto done
+  } else if feed == nil {
+    // Feed not available locally - fetch it
+    client := urlfetch.Client(pfc.C)
+    if response, err := client.Get(subscriptionURL); err != nil {
+      c.Errorf("Error downloading feed %s: %s", subscriptionURL, err)
       goto done
     } else {
-      defer resp.Body.Close()
-      if loadedFeed, err := rss.UnmarshalStream(url, resp.Body); err != nil {
-        c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
-        // FIXME: handle error
+      defer response.Body.Close()
+      if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
+        c.Errorf("Error reading RSS content: %s", err)
         goto done
-      } else {
-        feed, _ = storage.NewFeed(loadedFeed)
-        if err := updateFeed(c, feedKey, feed); err != nil {
-          c.Errorf("Error updating feed for URL %s: %s", url, err)
-          // FIXME: handle error
-          goto done
-        }
+      } else if err := storage.UpdateFeed(pfc.Context, parsedFeed); err != nil {
+        c.Errorf("Error updating feed: %s", err)
+        goto done
       }
     }
   }
 
-  if subKey, err := subscriptionKeyForURL(c, url, userKey); err != nil {
-    c.Errorf("Error reading subscription: %s", err)
-    // FIXME: handle error
+  if subscriptionRef, err := storage.Subscribe(pfc.Context, folderRef, subscriptionURL, opmlSubscription.Title); err != nil {
+    c.Errorf("Error subscribing to feed %s: %s", subscriptionURL, err)
     goto done
-    return
   } else {
-    if subKey != nil {
-      c.Infof("Already subscribed to %s", url)
+    if err := storage.UpdateSubscription(pfc.Context, subscriptionURL, subscriptionRef); err != nil {
+      c.Errorf("Error updating subscription %s: %s", subscriptionURL, err)
       goto done
     }
-  }
-
-  // Override the title with the one specified in the OPML file
-  if opmlSubscription.Title != "" {
-    feed.Title = opmlSubscription.Title
-  }
-
-  subscriptionKey = datastore.NewKey(c, "Subscription", url, 0, parentKey)
-  if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
-    c.Errorf("Subscription update error: %s", err)
-    // FIXME: handle error
-    goto done
   }
 
 done:
   ch<- opmlSubscription
 }
 
-func importSubscriptions(c appengine.Context, ch chan<- *opml.Subscription, userKey *datastore.Key, parentKey *datastore.Key, subscriptions []*opml.Subscription) int {
+func importSubscriptions(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, parentRef storage.FolderRef, subscriptions []*opml.Subscription) int {
+  c := pfc.C
+
   count := 0
   for _, subscription := range subscriptions {
     if subscription.URL != "" {
-      go importSubscription(c, ch, userKey, parentKey, subscription)
+      go importSubscription(pfc, ch, userID, parentRef, subscription)
       count++
     }
+
     if subscription.Subscriptions != nil {
-      // Find or create a folder
-      var folderKey *datastore.Key
-
-      q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", subscription.Title).KeysOnly().Limit(1)
-      if folderKeys, err := q.GetAll(c, nil); err == nil {
-        if len(folderKeys) > 0 {
-          // Found an existing folder with that name
-          folderKey = folderKeys[0]
-        } else {
-          // Don't have a folder with that name - create a new one
-          folder := storage.Folder {
-            Title: subscription.Title,
-          }
-
-          folderKey = datastore.NewIncompleteKey(c, "Folder", userKey)
-          if completeKey, err := datastore.Put(c, folderKey, &folder); err != nil {
-            c.Errorf("Cannot write folder: %s", err)
-            continue
-          } else {
-            folderKey = completeKey
-          }
-        }
-      } else {
-        // Some unplanned error - just skip the node
-        c.Errorf("Cannot locate folder: %s", err)
+      folderRef, err := storage.FolderByTitle(pfc.Context, userID, subscription.Title)
+      if err != nil {
+        c.Warningf("Error locating folder: %s", err)
         continue
+      } else if folderRef.IsZero() {
+        if folderRef, err = storage.CreateFolder(pfc.Context, userID, subscription.Title); err != nil {
+          c.Warningf("Error locating folder: %s", err)
+          continue
+        }
       }
 
-      count += importSubscriptions(c, ch, userKey, folderKey, subscription.Subscriptions)
+      count += importSubscriptions(pfc, ch, userID, folderRef, subscription.Subscriptions)
     }
   }
 
   return count
 }
 
-func importOPMLTask(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
+func importOPMLTask(pfc *PFContext) error {
+  c := pfc.C
 
-  var userKey *datastore.Key
-  if userID := r.FormValue("userID"); userID == "" {
-    http.Error(w, "Missing userID", http.StatusInternalServerError)
-    return
-  } else {
-    userKey = datastore.NewKey(c, "User", userID, 0, nil)
+  if pfc.R.PostFormValue("userID") == "" {
+    return errors.New("Missing User ID")
   }
+
+  userID := storage.UserID(pfc.R.PostFormValue("userID"))
 
   var doc opml.Document
   var blobKey appengine.BlobKey
-  if blobKeyString := r.FormValue("opmlBlobKey"); blobKeyString == "" {
-    http.Error(w, "Missing blob key", http.StatusInternalServerError)
-    return
+  if blobKeyString := pfc.R.PostFormValue("opmlBlobKey"); blobKeyString == "" {
+    return errors.New("Missing blob key")
   } else {
     blobKey = appengine.BlobKey(blobKeyString)
   }
 
   reader := blobstore.NewReader(c, blobKey)
   if err := opml.Parse(reader, &doc); err != nil {
-    http.Error(w, "Error reading OPML", http.StatusInternalServerError)
-
     // Remove the blob
     if err := blobstore.Delete(c, blobKey); err != nil {
       c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
     }
-    return
+
+    return err
   }
   
   // Remove the blob
@@ -302,238 +151,131 @@ func importOPMLTask(w http.ResponseWriter, r *http.Request) {
 
   importStarted := time.Now()
 
+  parentRef := storage.FolderRef {
+    UserID: userID,
+  }
+
   doneChannel := make(chan *opml.Subscription)
-  importing := importSubscriptions(c, doneChannel, userKey, userKey, doc.Subscriptions)
+  importing := importSubscriptions(pfc, doneChannel, userID, parentRef, doc.Subscriptions)
 
   for i := 0; i < importing; i++ {
     subscription := <-doneChannel;
-    c.Infof("completed %s", subscription.Title)
+    c.Infof("Completed %s", subscription.Title)
   }
 
-  c.Infof("completed all (took %s)", time.Since(importStarted))
+  c.Infof("All completed in %s", time.Since(importStarted))
+
+  return nil
 }
 
-func subscribeTask(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-
-  var userKey *datastore.Key
-  if userID := r.FormValue("userID"); userID == "" {
-    http.Error(w, "Missing userID", http.StatusInternalServerError)
-    return
-  } else {
-    userKey = datastore.NewKey(c, "User", userID, 0, nil)
+func subscribeTask(pfc *PFContext) error {
+  if pfc.R.PostFormValue("userID") == "" {
+    return errors.New("Missing User ID")
   }
 
-  url := r.FormValue("url")
-  if url == "" {
-    http.Error(w, "Missing URL", http.StatusInternalServerError)
-    return
+  subscriptionURL := pfc.R.PostFormValue("url")
+  userID := storage.UserID(pfc.R.PostFormValue("userID"))
+  folderID := pfc.R.PostFormValue("folderID")
+
+  if subscriptionURL == "" {
+    return errors.New("Missing subscription URL")
   }
 
-  var folderKey *datastore.Key
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
+    return err
+  } else if subscribed {
+    return nil // Already subscribed
+  }
 
-  if folderId := r.PostFormValue("folderId"); folderId != "" {
-    if kind, id, err := unformatId(folderId); err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    } else if kind == "folder" {
-      folder := new(storage.Folder)
-      folderKey = datastore.NewKey(c, "Folder", "", id, userKey)
+  folderRef := storage.FolderRef {
+    UserID: userID,
+    FolderID: folderID,
+  }
 
-      if err := datastore.Get(c, folderKey, folder); err == datastore.ErrNoSuchEntity {
-        http.Error(w, "Folder not found", http.StatusInternalServerError)
-        return
-      } else if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-      }
+  feedTitle := ""
+  if feed, err := storage.FeedByURL(pfc.Context, subscriptionURL); err != nil {
+    return err
+  } else if feed == nil {
+    // Feed not available locally - fetch it
+    client := urlfetch.Client(pfc.C)
+    if response, err := client.Get(subscriptionURL); err != nil {
+      return NewReadableError(_l("An error occurred while downloading the feed"), &err)
     } else {
-      http.Error(w, "Invalid ID kind", http.StatusInternalServerError)
-      return
-    }
-  }
-
-  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  feed := new(storage.Feed)
-
-  if err := datastore.Get(c, feedKey, feed); err != nil && err != datastore.ErrNoSuchEntity {
-    c.Errorf(err.Error())
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else if err == datastore.ErrNoSuchEntity {
-    // Add the feed first
-    client := urlfetch.Client(c)
-    if resp, err := client.Get(url); err != nil {
-      c.Errorf("Error fetching from URL %s: %s", url, err)
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    } else {
-      defer resp.Body.Close()
-      if loadedFeed, err := rss.UnmarshalStream(url, resp.Body); err != nil {
-        c.Errorf("Error parsing the feed stream for URL %s: %s", url, err)
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
+      defer response.Body.Close()
+      if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
+        return NewReadableError(_l("Error reading RSS content"), &err)
+      } else if err := storage.UpdateFeed(pfc.Context, parsedFeed); err != nil {
+        return err
       } else {
-        feed, _ = storage.NewFeed(loadedFeed)
-        if err := updateFeed(c, feedKey, feed); err != nil {
-          c.Errorf("Error updating feed for URL %s: %s", url, err)
-          http.Error(w, err.Error(), http.StatusInternalServerError)
-          return
-        }
+        feedTitle = parsedFeed.Title
       }
     }
+  } else {
+    feedTitle = feed.Title
   }
 
-  var ancestorKey *datastore.Key
-  if folderKey != nil {
-    ancestorKey = folderKey
+  if subscriptionRef, err := storage.Subscribe(pfc.Context, folderRef, subscriptionURL, feedTitle); err != nil {
+    return err
   } else {
-    ancestorKey = userKey
-  }
-
-  if subscriptionKey, err := subscriptionKeyForURL(c, url, userKey); err != nil {
-    c.Errorf("Error reading subscription: %s", err)
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else {
-    if subscriptionKey != nil {
-      // Already subscribed; success
-      return
+    if err := storage.UpdateSubscription(pfc.Context, subscriptionURL, subscriptionRef); err != nil {
+      return err
     }
   }
 
-  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, ancestorKey)
-  if err := updateSubscription(c, subscriptionKey, feedKey, feed); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
+  return nil
 }
 
-func unsubscribeTask(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
+func unsubscribeTask(pfc *PFContext) error {
+  userID := storage.UserID(pfc.R.PostFormValue("userID"))
+  folderID := pfc.R.PostFormValue("folderID")
+  subscriptionID := pfc.R.PostFormValue("subscriptionID")
 
-  // FIXME: broken
+  if userID == "" {
+    return errors.New("Missing user ID")
+  }
 
-  var key *datastore.Key
-  if encodedKey := r.PostFormValue("key"); encodedKey == "" {
-    http.Error(w, "Missing key", http.StatusInternalServerError)
-    return
+  folderRef := storage.FolderRef {
+    UserID: userID,
+    FolderID: folderID,
+  }
+
+  if subscriptionID != "" {
+    ref := storage.SubscriptionRef {
+      FolderRef: folderRef,
+      SubscriptionID: subscriptionID,
+    }
+
+    if err := storage.Unsubscribe(pfc.Context, ref); err != nil {
+      return err
+    }
+  } else if folderID != "" {
+    if err := storage.UnsubscribeAllInFolder(pfc.Context, folderRef); err != nil {
+      return err
+    }
   } else {
-    if decodedKey, err := datastore.DecodeKey(encodedKey); err == nil {
-      key = decodedKey
-    } else {
-      http.Error(w, "Error decoding key", http.StatusInternalServerError)
-      return
-    }
+    return errors.New("Missing subscription constraint")
   }
 
-  entriesRead := 0
-  batchSize := 1000
-  articleKeys := make([]*datastore.Key, batchSize)
-
-  q := datastore.NewQuery("Article").Ancestor(key).KeysOnly()
-  for t := q.Run(c); ; entriesRead++ {
-    articleKey, err := t.Next(nil)
-
-    if err == datastore.Done || entriesRead + 1 >= batchSize {
-      // Delete the batch
-      if entriesRead > 0 {
-        if err := datastore.DeleteMulti(c, articleKeys[:entriesRead]); err != nil {
-          http.Error(w, err.Error(), http.StatusInternalServerError)
-          return
-        }
-      }
-
-      entriesRead = 0
-
-      if err == datastore.Done {
-        break
-      }
-    } else if err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
-
-    articleKeys[entriesRead] = articleKey
-  }
-
-  if key.Kind() == "Folder" {
-    // Remove subscriptions under the folder
-    q = datastore.NewQuery("Subscription").Ancestor(key).KeysOnly().Limit(1000)
-    if subscriptionKeys, err := q.GetAll(c, nil); err == nil {
-      if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-      }
-    }
-  }
-
-  if err := datastore.Delete(c, key); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  }
+  return nil
 }
 
-func markAllAsReadTask(w http.ResponseWriter, r *http.Request) {
-  // c := appengine.NewContext(r)
+func markAllAsReadTask(pfc *PFContext) error {
+  userID := storage.UserID(pfc.R.PostFormValue("userID"))
+  folderID := pfc.R.PostFormValue("folderID")
+  subscriptionID := pfc.R.PostFormValue("subscriptionID")
+  filter := pfc.R.PostFormValue("filter")
 
-  // var key *datastore.Key
-  // if encodedKey := r.PostFormValue("key"); encodedKey == "" {
-  //   http.Error(w, "Missing key", http.StatusInternalServerError)
-  //   return
-  // } else {
-  //   if decodedKey, err := datastore.DecodeKey(encodedKey); err == nil {
-  //     key = decodedKey
-  //   } else {
-  //     http.Error(w, "Error decoding key", http.StatusInternalServerError)
-  //     return
-  //   }
-  // }
+  if userID == "" {
+    return errors.New("Missing user ID")
+  }
 
-  // entriesRead := 0
-  // batchSize := 1000
-  // articleKeys := make([]*datastore.Key, batchSize)
+  ref := storage.SubscriptionRef {
+    FolderRef: storage.FolderRef {
+      UserID: userID,
+      FolderID: folderID,
+    },
+    SubscriptionID: subscriptionID,
+  }
 
-  // FIXME
-  // q := datastore.NewQuery("Article").Ancestor(key).KeysOnly()
-  // for t := q.Run(c); ; entriesRead++ {
-  //   articleKey, err := t.Next(nil)
-
-  //   if err == datastore.Done || entriesRead + 1 >= batchSize {
-  //     // Delete the batch
-  //     if entriesRead > 0 {
-  //       if err := datastore.DeleteMulti(c, articleKeys[:entriesRead]); err != nil {
-  //         http.Error(w, err.Error(), http.StatusInternalServerError)
-  //         return
-  //       }
-  //     }
-
-  //     entriesRead = 0
-
-  //     if err == datastore.Done {
-  //       break
-  //     }
-  //   } else if err != nil {
-  //     http.Error(w, err.Error(), http.StatusInternalServerError)
-  //     return
-  //   }
-
-  //   articleKeys[entriesRead] = articleKey
-  // }
-
-  // if key.Kind() == "Folder" {
-  //   // Remove subscriptions under the folder
-  //   q = datastore.NewQuery("Subscription").Ancestor(key).KeysOnly().Limit(1000)
-  //   if subscriptionKeys, err := q.GetAll(c, nil); err == nil {
-  //     if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
-  //       http.Error(w, err.Error(), http.StatusInternalServerError)
-  //       return
-  //     }
-  //   }
-  // }
-
-  // if err := datastore.Delete(c, key); err != nil {
-  //   http.Error(w, err.Error(), http.StatusInternalServerError)
-  //   return
-  // }
+  return storage.MarkAllAsRead(pfc.Context, ref, filter)
 }

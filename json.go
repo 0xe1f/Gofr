@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
- ** PerFeediem
- ** https://github.com/melllvar/perfeediem
+ ** Gofr
+ ** https://github.com/melllvar/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -21,12 +21,11 @@
  ******************************************************************************
  */
  
-package perfeediem
+package gofr
 
 import (
   "appengine"
   "appengine/blobstore"
-  "appengine/datastore"
   "appengine/taskqueue"
   "appengine/urlfetch"
   "io/ioutil"
@@ -35,7 +34,6 @@ import (
   "regexp"
   "rss"
   "storage"
-  "strconv"
   "strings"
   "unicode/utf8"
 )
@@ -102,7 +100,7 @@ func createFolder(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("A folder with that name already exists"), nil)
   }
 
-  if err := storage.CreateFolder(pfc.Context, userID, title); err != nil {
+  if _, err := storage.CreateFolder(pfc.Context, userID, title); err != nil {
     return nil, NewReadableError(_l("An error occurred while adding the new folder"), &err)
   }
 
@@ -297,19 +295,25 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 func unsubscribe(pfc *PFContext) (interface{}, error) {
   c := pfc.C
   r := pfc.R
+
   userID := storage.UserID(pfc.User.ID)
+  if userID == "" {
+    return nil, NewReadableError(_l("Missing User ID"), nil)
+  }
 
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
+
+  folderRef := storage.FolderRef {
+    UserID: userID,
+    FolderID: folderID,
+  }
 
   var task *taskqueue.Task
   if subscriptionID != "" {
     // Remove a subscription
     ref := storage.SubscriptionRef {
-      FolderRef: storage.FolderRef {
-        UserID: userID,
-        FolderID: folderID,
-      },
+      FolderRef: folderRef,
       SubscriptionID: subscriptionID,
     }
 
@@ -320,12 +324,7 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
     }
   } else if folderID != "" {
     // Remove a folder
-    ref := storage.FolderRef {
-      UserID: userID,
-      FolderID: folderID,
-    }
-
-    if exists, err := storage.FolderExists(pfc.Context, ref); err != nil {
+    if exists, err := storage.FolderExists(pfc.Context, folderRef); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Folder not found"), nil)
@@ -407,6 +406,10 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
 
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
+  filter := r.PostFormValue("folder")
+  if filter != "" && !validProperties[filter] {
+    return nil, NewReadableError(_l("Invalid filter"), nil)
+  }
 
   if subscriptionID != "" {
     ref := storage.SubscriptionRef {
@@ -438,6 +441,7 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
     "userID": { pfc.User.ID },
     "subscriptionID": { subscriptionID },
     "folderID": { folderID },
+    "filter": { filter },
   })
 
   if _, err := taskqueue.Add(c, task, ""); err != nil {
@@ -445,29 +449,4 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
   }
 
   return _l("Marking items as unread…"), nil
-}
-
-func unformatId(formattedId string) (string, int64, error) {
-  if parts := strings.SplitN(formattedId, "://", 2); len(parts) == 2 {
-    if id, err := strconv.ParseInt(parts[1], 36, 64); err == nil {
-      return parts[0], id, nil
-    } else {
-      return parts[0], 0, nil
-    }
-  }
-
-  return "", 0, NewReadableError(_l("Missing identifier"), nil)
-}
-
-func subscriptionKeyForURL(c appengine.Context, feedURL string, userKey *datastore.Key) (*datastore.Key, error) {
-  feedKey := datastore.NewKey(c, "Feed", feedURL, 0, nil)
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
-
-  if subKeys, err := q.GetAll(c, nil); err != nil {
-    return nil, err
-  } else if len(subKeys) > 0 {
-    return subKeys[0], nil
-  } else {
-    return nil, nil
-  }
 }
