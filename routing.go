@@ -24,6 +24,7 @@
 package gofr
 
 import (
+ "appengine/channel"
  "encoding/json"
  "net/http"
 )
@@ -51,9 +52,17 @@ type taskRequestHandler struct {
   RouteHandler TaskRouteHandler
 }
 
+type TaskMessage struct {
+  Message string   `json:"message"`
+  Refresh bool     `json:"refresh"`
+  Silent bool      `json:"-"`
+  Code int         `json:"code"`
+  Data interface{} `json:"data"`
+}
+
 type HTMLRouteHandler func(pfc *PFContext)
 type JSONRouteHandler func(pfc *PFContext) (interface{}, error)
-type TaskRouteHandler func(pfc *PFContext) error
+type TaskRouteHandler func(pfc *PFContext) (TaskMessage, error)
 
 var routes []route = make([]route, 0, 100)
 
@@ -117,9 +126,24 @@ func (handler jsonRequestHandler)handleRequest(pfc *PFContext) {
 }
 
 func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
-  if err := handler.RouteHandler(pfc); err != nil {
+  var response interface{}
+  taskMessage, err := handler.RouteHandler(pfc)
+  if err != nil {
     pfc.C.Errorf("Task failed: %s", err.Error())
     http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
+    response = map[string] string { "error": err.Error() }
+  } else {
+    response = taskMessage
+  }
+
+  if !taskMessage.Silent {
+    if channelID := pfc.R.PostFormValue("channelID"); channelID != "" {
+      if err := channel.SendJSON(pfc.C, channelID, response); err != nil {
+        pfc.C.Criticalf("Error writing to channel: %s", err)
+      }
+    } else {
+      pfc.C.Criticalf("Channel ID is empty!")
+    }
   }
 }
 

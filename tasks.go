@@ -26,19 +26,25 @@ package gofr
 import (
   "appengine"
   "appengine/blobstore"
+  "appengine/taskqueue"
   "appengine/urlfetch"
   "errors"
+  "net/url"
   "opml"
   "rss"
   "storage"
   "time"
 )
 
+type taskParams map[string]string
+
 func registerTasks() {
   RegisterTaskRoute("/tasks/subscribe",     subscribeTask)
   RegisterTaskRoute("/tasks/import",        importOPMLTask)
   RegisterTaskRoute("/tasks/unsubscribe",   unsubscribeTask)
   RegisterTaskRoute("/tasks/markAllAsRead", markAllAsReadTask)
+  RegisterTaskRoute("/_ah/channel/connected",    channelConnectedTask)
+  RegisterTaskRoute("/_ah/channel/disconnected", channelDisconnectedTask)
 }
 
 func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, folderRef storage.FolderRef, opmlSubscription *opml.Subscription) {
@@ -117,11 +123,11 @@ func importSubscriptions(pfc *PFContext, ch chan<- *opml.Subscription, userID st
   return count
 }
 
-func importOPMLTask(pfc *PFContext) error {
+func importOPMLTask(pfc *PFContext) (TaskMessage, error) {
   c := pfc.C
 
   if pfc.R.PostFormValue("userID") == "" {
-    return errors.New("Missing User ID")
+    return TaskMessage{}, errors.New("Missing User ID")
   }
 
   userID := storage.UserID(pfc.R.PostFormValue("userID"))
@@ -129,7 +135,7 @@ func importOPMLTask(pfc *PFContext) error {
   var doc opml.Document
   var blobKey appengine.BlobKey
   if blobKeyString := pfc.R.PostFormValue("opmlBlobKey"); blobKeyString == "" {
-    return errors.New("Missing blob key")
+    return TaskMessage{}, errors.New("Missing blob key")
   } else {
     blobKey = appengine.BlobKey(blobKeyString)
   }
@@ -141,7 +147,7 @@ func importOPMLTask(pfc *PFContext) error {
       c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
     }
 
-    return err
+    return TaskMessage{}, err
   }
   
   // Remove the blob
@@ -165,12 +171,15 @@ func importOPMLTask(pfc *PFContext) error {
 
   c.Infof("All completed in %s", time.Since(importStarted))
 
-  return nil
+  return TaskMessage{
+    Message: _l("Subscriptions imported successfully"),
+    Refresh: true,
+    }, nil
 }
 
-func subscribeTask(pfc *PFContext) error {
+func subscribeTask(pfc *PFContext) (TaskMessage, error) {
   if pfc.R.PostFormValue("userID") == "" {
-    return errors.New("Missing User ID")
+    return TaskMessage{}, errors.New("Missing User ID")
   }
 
   subscriptionURL := pfc.R.PostFormValue("url")
@@ -178,13 +187,16 @@ func subscribeTask(pfc *PFContext) error {
   folderID := pfc.R.PostFormValue("folderID")
 
   if subscriptionURL == "" {
-    return errors.New("Missing subscription URL")
+    return TaskMessage{}, errors.New("Missing subscription URL")
   }
 
   if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
-    return err
+    return TaskMessage{}, err
   } else if subscribed {
-    return nil // Already subscribed
+    return TaskMessage{
+      Message: _l("You are already subscribed"),
+      Refresh: true,
+    }, nil
   }
 
   folderRef := storage.FolderRef {
@@ -194,18 +206,18 @@ func subscribeTask(pfc *PFContext) error {
 
   feedTitle := ""
   if feed, err := storage.FeedByURL(pfc.Context, subscriptionURL); err != nil {
-    return err
+    return TaskMessage{}, err
   } else if feed == nil {
     // Feed not available locally - fetch it
     client := urlfetch.Client(pfc.C)
     if response, err := client.Get(subscriptionURL); err != nil {
-      return NewReadableError(_l("An error occurred while downloading the feed"), &err)
+      return TaskMessage{}, NewReadableError(_l("An error occurred while downloading the feed"), &err)
     } else {
       defer response.Body.Close()
       if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
-        return NewReadableError(_l("Error reading RSS content"), &err)
+        return TaskMessage{}, NewReadableError(_l("Error reading RSS content"), &err)
       } else if err := storage.UpdateFeed(pfc.Context, parsedFeed); err != nil {
-        return err
+        return TaskMessage{}, err
       } else {
         feedTitle = parsedFeed.Title
       }
@@ -215,23 +227,26 @@ func subscribeTask(pfc *PFContext) error {
   }
 
   if subscriptionRef, err := storage.Subscribe(pfc.Context, folderRef, subscriptionURL, feedTitle); err != nil {
-    return err
+    return TaskMessage{}, err
   } else {
     if err := storage.UpdateSubscription(pfc.Context, subscriptionURL, subscriptionRef); err != nil {
-      return err
+      return TaskMessage{}, err
     }
   }
 
-  return nil
+  return TaskMessage{
+    Message: _l("You are now subscribed to '%s'", feedTitle),
+    Refresh: true,
+    }, nil
 }
 
-func unsubscribeTask(pfc *PFContext) error {
+func unsubscribeTask(pfc *PFContext) (TaskMessage, error) {
   userID := storage.UserID(pfc.R.PostFormValue("userID"))
   folderID := pfc.R.PostFormValue("folderID")
   subscriptionID := pfc.R.PostFormValue("subscriptionID")
 
   if userID == "" {
-    return errors.New("Missing user ID")
+    return TaskMessage{}, errors.New("Missing user ID")
   }
 
   folderRef := storage.FolderRef {
@@ -246,27 +261,28 @@ func unsubscribeTask(pfc *PFContext) error {
     }
 
     if err := storage.Unsubscribe(pfc.Context, ref); err != nil {
-      return err
+      return TaskMessage{}, err
     }
   } else if folderID != "" {
     if err := storage.UnsubscribeAllInFolder(pfc.Context, folderRef); err != nil {
-      return err
+      return TaskMessage{}, err
     }
   } else {
-    return errors.New("Missing subscription constraint")
+    return TaskMessage{}, errors.New("Missing subscription constraint")
   }
 
-  return nil
+  return TaskMessage{
+    Refresh: true,
+    }, nil
 }
 
-func markAllAsReadTask(pfc *PFContext) error {
+func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {
   userID := storage.UserID(pfc.R.PostFormValue("userID"))
   folderID := pfc.R.PostFormValue("folderID")
   subscriptionID := pfc.R.PostFormValue("subscriptionID")
-  filter := pfc.R.PostFormValue("filter")
 
   if userID == "" {
-    return errors.New("Missing user ID")
+    return TaskMessage{}, errors.New("Missing user ID")
   }
 
   ref := storage.SubscriptionRef {
@@ -277,5 +293,48 @@ func markAllAsReadTask(pfc *PFContext) error {
     SubscriptionID: subscriptionID,
   }
 
-  return storage.MarkAllAsRead(pfc.Context, ref, filter)
+  if marked, err := storage.MarkAllAsRead(pfc.Context, ref); err != nil {
+    return TaskMessage{}, err
+  } else {
+    return TaskMessage {
+      Message: _l("%d items marked as read", marked),
+      Refresh: true,
+    }, nil
+  }
+}
+
+func startTask(pfc *PFContext, taskName string, params taskParams) error {
+  taskValues := url.Values {
+    "userID": { pfc.User.ID },
+    "channelID": { pfc.ChannelID() },
+  }
+
+  for k, v := range params {
+    taskValues.Add(k, v)
+  }
+
+  task := taskqueue.NewPOSTTask("/tasks/" + taskName, taskValues)
+  if _, err := taskqueue.Add(pfc.C, task, ""); err != nil {
+    return err
+  }
+
+  return nil
+}
+
+func channelConnectedTask(pfc *PFContext) (TaskMessage, error) {
+  r := pfc.R
+  pfc.C.Infof("connected: %s", r.PostForm)
+
+  return TaskMessage {
+    Silent: true,
+  }, nil
+}
+
+func channelDisconnectedTask(pfc *PFContext) (TaskMessage, error) {
+  r := pfc.R
+  pfc.C.Infof("disconnected: %s", r.PostForm)
+
+  return TaskMessage {
+    Silent: true,
+  }, nil
 }

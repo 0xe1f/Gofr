@@ -35,6 +35,7 @@ const indexTemplateHTML = `
   <head profile="http://www.w3.org/2005/10/profile">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <link href="content/reader.css" type="text/css" rel="stylesheet"/>
+    <script type="text/javascript" src="/_ah/channel/jsapi"></script>
     <script src="content/sprintf.min.js" type="text/javascript"></script>
     <script src="content/jquery-1.9.1.min.js" type="text/javascript"></script>
     <script src="content/jquery.hotkeys.js" type="text/javascript"></script>

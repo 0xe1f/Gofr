@@ -26,7 +26,7 @@ package gofr
 import (
   "appengine"
   "appengine/blobstore"
-  "appengine/taskqueue"
+  "appengine/channel"
   "appengine/urlfetch"
   "io/ioutil"
   "net/url"
@@ -53,9 +53,11 @@ func registerJson() {
   RegisterJSONRoute("/setProperty",   setProperty)
   RegisterJSONRoute("/subscribe",     subscribe)
   RegisterJSONRoute("/unsubscribe",   unsubscribe)
-  RegisterJSONRoute("/authUpload",    authUpload)
   RegisterJSONRoute("/import",        importOPML)
   RegisterJSONRoute("/markAllAsRead", markAllAsRead)
+
+  RegisterJSONRoute("/authUpload",    authUpload)
+  RegisterJSONRoute("/initChannel",   initChannel)
 }
 
 func subscriptions(pfc *PFContext) (interface{}, error) {
@@ -279,21 +281,18 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     }
   }
 
-  task := taskqueue.NewPOSTTask("/tasks/subscribe", url.Values {
-    "url": { subscriptionURL },
-    "folderId": { folderId },
-    "userID": { pfc.User.ID },
-  })
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
+  params := taskParams {
+    "url":      subscriptionURL,
+    "folderId": folderId,
+  }
+  if err := startTask(pfc, "subscribe", params); err != nil {
     return nil, NewReadableError(_l("Cannot subscribe - too busy"), &err)
   }
 
-  return _l("Your subscription has been queued for addition."), nil
+  return _l("Subscribing, please wait…"), nil
 }
 
 func unsubscribe(pfc *PFContext) (interface{}, error) {
-  c := pfc.C
   r := pfc.R
 
   userID := storage.UserID(pfc.User.ID)
@@ -309,7 +308,6 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
     FolderID: folderID,
   }
 
-  var task *taskqueue.Task
   if subscriptionID != "" {
     // Remove a subscription
     ref := storage.SubscriptionRef {
@@ -333,27 +331,15 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Item not found"), nil)
   }
 
-  task = taskqueue.NewPOSTTask("/tasks/unsubscribe", url.Values {
-    "userID": { pfc.User.ID },
-    "subscriptionID": { subscriptionID },
-    "folderID": { folderID },
-  })
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
-    return nil, NewReadableError(_l("Cannot unsubscribe at the moment - try again later"), &err)
+  params := taskParams {
+    "subscriptionID": subscriptionID,
+    "folderID": folderID,
+  }
+  if err := startTask(pfc, "unsubscribe", params); err != nil {
+    return nil, NewReadableError(_l("Cannot unsubscribe - too busy"), &err)
   }
 
-  return _l("Queued for deletion"), nil
-}
-
-func authUpload(pfc *PFContext) (interface{}, error) {
-  c := pfc.C
-
-  if uploadURL, err := blobstore.UploadURL(c, "/import", nil); err != nil {
-    return nil, err
-  } else {
-    return map[string]string { "uploadUrl": uploadURL.String() }, nil
-  }
+  return _l("Please wait…"), nil
 }
 
 func importOPML(pfc *PFContext) (interface{}, error) {
@@ -382,34 +368,27 @@ func importOPML(pfc *PFContext) (interface{}, error) {
     }
   }
 
-  task := taskqueue.NewPOSTTask("/tasks/import", url.Values {
-    "opmlBlobKey": { string(blobKey) },
-    "userID": { pfc.User.ID },
-  })
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
+  params := taskParams {
+    "opmlBlobKey": string(blobKey),
+  }
+  if err := startTask(pfc, "import", params); err != nil {
     // Remove the blob
     if err := blobstore.Delete(c, blobKey); err != nil {
       c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
     }
 
-    return nil, NewReadableError(_l("Error initiating import"), &err)
+    return nil, NewReadableError(_l("Cannot import - too busy"), &err)
   }
 
-  return _l("Subscriptions are being imported"), nil
+  return _l("Importing, please wait…"), nil
 }
 
 func markAllAsRead(pfc *PFContext) (interface{}, error) {
-  c := pfc.C
   r := pfc.R
   userID := storage.UserID(pfc.User.ID)
 
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
-  filter := r.PostFormValue("folder")
-  if filter != "" && !validProperties[filter] {
-    return nil, NewReadableError(_l("Invalid filter"), nil)
-  }
 
   if subscriptionID != "" {
     ref := storage.SubscriptionRef {
@@ -437,16 +416,31 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
     }
   }
 
-  task := taskqueue.NewPOSTTask("/tasks/markAllAsRead", url.Values {
-    "userID": { pfc.User.ID },
-    "subscriptionID": { subscriptionID },
-    "folderID": { folderID },
-    "filter": { filter },
-  })
-
-  if _, err := taskqueue.Add(c, task, ""); err != nil {
+  params := taskParams {
+    "subscriptionID": subscriptionID,
+    "folderID":       folderID,
+  }
+  if err := startTask(pfc, "markAllAsRead", params); err != nil {
     return nil, err
   }
 
-  return _l("Marking items as unread…"), nil
+  return _l("Please wait…"), nil
+}
+
+func authUpload(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
+
+  if uploadURL, err := blobstore.UploadURL(c, "/import", nil); err != nil {
+    return nil, err
+  } else {
+    return map[string]string { "uploadUrl": uploadURL.String() }, nil
+  }
+}
+
+func initChannel(pfc *PFContext) (interface{}, error) {
+  if token, err := channel.Create(pfc.C, pfc.ChannelID()); err != nil {
+    return nil, NewReadableError("Error initializing channel", &err)
+  } else {
+    return map[string]string { "token": token }, nil
+  }
 }

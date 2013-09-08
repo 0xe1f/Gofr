@@ -514,41 +514,43 @@ func SetProperty(sc Context, ref ArticleRef, propertyName string, propertyValue 
   return article.Properties, nil
 }
 
-func MarkAllAsRead(sc Context, ref SubscriptionRef, filter string) error {
+func MarkAllAsRead(sc Context, ref SubscriptionRef) (int, error) {
   c := sc.(appengine.Context)
 
   key, err := ref.key(c)
   if err != nil {
-    return err
+    return 0, err
   }
 
   batchSize := 1000
-  entriesRead := 0
+  pending := 0
+  markedAsRead := 0
 
   articles := make([]*Article, batchSize)
   articleKeys := make([]*datastore.Key, batchSize)
   
   q := datastore.NewQuery("Article").Ancestor(key).Filter("Properties =", "unread")
-  for t := q.Run(c); ; entriesRead++ {
+  for t := q.Run(c); ; pending++ {
     article := new(Article)
     articleKey, err := t.Next(article)
 
-    if err == datastore.Done || entriesRead + 1 >= batchSize {
+    if err == datastore.Done || pending + 1 >= batchSize {
       // Write the batch
-      if entriesRead > 0 {
-        if _, err := datastore.PutMulti(c, articleKeys[:entriesRead], articles[:entriesRead]); err != nil {
+      if pending > 0 {
+        if _, err := datastore.PutMulti(c, articleKeys[:pending], articles[:pending]); err != nil {
           c.Errorf("Error writing Article batch: %s", err)
-          return err
+          return 0, err
         }
       }
 
-      entriesRead = 0
+      markedAsRead += pending
+      pending = 0
 
       if err == datastore.Done {
         break
       }
     } else if err != nil {
-      return err
+      return 0, err
     }
 
     propertyMap := make(map[string]bool)
@@ -566,8 +568,8 @@ func MarkAllAsRead(sc Context, ref SubscriptionRef, filter string) error {
       i++
     }
 
-    articleKeys[entriesRead] = articleKey
-    articles[entriesRead] = article
+    articleKeys[pending] = articleKey
+    articles[pending] = article
   }
 
   // Reset unread counters
@@ -576,29 +578,29 @@ func MarkAllAsRead(sc Context, ref SubscriptionRef, filter string) error {
     q = datastore.NewQuery("Subscription").Ancestor(key).Limit(1000)
     
     if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
-      return err
+      return 0, err
     } else {
       for _, subscription := range subscriptions {
         subscription.UnreadCount = 0
       }
 
       if _, err := datastore.PutMulti(c, subscriptionKeys, subscriptions); err != nil {
-        return err
+        return 0, err
       }
     }
   } else {
     subscription := new(Subscription)
     if err := datastore.Get(c, key, subscription); err != nil {
-      return err
+      return 0, err
     }
 
     subscription.UnreadCount = 0
     if _, err := datastore.Put(c, key, subscription); err != nil {
-      return err
+      return 0, err
     }
   }
 
-  return nil
+  return markedAsRead, nil
 }
 
 func FeedByURL(sc Context, url string) (*Feed, error) {

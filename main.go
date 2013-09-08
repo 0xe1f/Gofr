@@ -24,13 +24,81 @@
 package gofr
 
 import (
+  "appengine"
+  "appengine/user"
+  crand "crypto/rand"
+  "github.com/gorilla/sessions"
+  "io"
+  mrand "math/rand"
   "net/http"
+  "storage"
+  "strconv"
 )
 
+var cookieStore *sessions.CookieStore
+
 func init() {
+  // Initialize cookie store
+  bytes := make([]byte, 20)
+  if n, err := io.ReadFull(crand.Reader, bytes); n != len(bytes) || err != nil {
+  	// FIXME: Critical, failed to initialize random array of bytes
+  	return
+  }
+  cookieStore = sessions.NewCookieStore(bytes)
+
+  // Initialize handlers
   http.HandleFunc("/", Run)
 
   registerJson()
   registerTasks()
   registerWeb()
+}
+
+type PFContext struct {
+  R *http.Request
+  C appengine.Context
+  W http.ResponseWriter
+  ClientID string
+  Context storage.Context
+  User *user.User
+  LoginURL string
+}
+
+func (context PFContext)ChannelID() string {
+  return context.User.ID + "," + context.ClientID
+}
+
+func Run(w http.ResponseWriter, r *http.Request) {
+  c := appengine.NewContext(r)
+
+  loginURL := ""
+  if url, err := user.LoginURL(c, r.URL.String()); err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+  } else {
+    loginURL = url
+  }
+
+  var clientID string
+
+  session, _ := cookieStore.Get(r, "main")
+  if id, ok := session.Values["clientID"].(string); !ok || id == "" {
+    clientID = strconv.Itoa(mrand.Int())
+    session.Values["clientID"] = clientID
+    session.Save(r, w)
+  } else {
+    clientID = id
+  }
+
+  pfc := PFContext {
+    R: r,
+    C: c,
+    W: w,
+    ClientID: clientID,
+    Context: c,
+    User: user.Current(c),
+    LoginURL: loginURL,
+  }
+
+  routeRequest(&pfc)
 }

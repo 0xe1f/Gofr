@@ -27,6 +27,7 @@ $().ready(function()
   var continueFrom = null;
   var lastContinued = null;
   var lastGPressTime = 0;
+  var channel;
 
   var _l = function(str, args)
   {
@@ -1077,7 +1078,7 @@ $().ready(function()
       // Update the title bar
 
       var root = subscriptionMap[""];
-      var title = '>:(';
+      var title = 'Gofr';
 
       if (root.unread > 0)
         title += ' (' + root.unread + ')';
@@ -1421,7 +1422,52 @@ $().ready(function()
     loadSubscriptions();
   };
 
+  var initChannels = function()
+  {
+      $.post('initChannel', {},
+      function(response)
+      {
+        channel = new goog.appengine.Channel(response.token);
+        socket = channel.open();
+
+        // FIXME
+        socket.onopen = function()
+        {
+          if (console && console.debug)
+            console.debug("Channel open");
+        };
+        socket.onclose = function()
+        {
+          // Reconnect
+          if (console && console.debug)
+          {
+            console.debug("Channel closed");
+            initChannels();
+          }
+        };
+        socket.onmessage = function(m)
+        {
+          var obj = $.parseJSON(m.data);
+          if (obj.error)
+            ui.showToast(obj.error, true);
+          else
+          {
+            if (obj.message)
+              ui.showToast(obj.message, false);
+            if (obj.refresh)
+              refresh();
+          }
+        };
+        socket.onerror = function(error)
+        {
+          if (console && console.debug)
+            console.debug("Received an error: " + error);
+        };
+      }, 'json');
+  };
+
   ui.init();
+  initChannels();
 
   loadSubscriptions();
 });
