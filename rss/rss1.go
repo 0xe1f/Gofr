@@ -115,6 +115,7 @@ func (nativeEntry *rss1Entry) Marshal() (entry *Entry, err error) {
     Title: nativeEntry.EntryTitle,
     Content: content,
     Published: published,
+    Updated: published,
     WWWURL: nativeEntry.Link,
   }
 

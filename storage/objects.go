@@ -41,14 +41,14 @@ type Feed struct {
   Format string
   Retrieved time.Time
   HourlyUpdateFrequency float32
-
-  EntryMetas []*EntryMeta `datastore:"-"`
-  Entries []*Entry        `datastore:"-"`
+  UpdateCounter int64
 }
 
 type EntryMeta struct {
   Published time.Time
   Retrieved time.Time
+  Updated time.Time
+  UpdateOffset int64
   Entry *datastore.Key
 }
 
@@ -140,39 +140,4 @@ func generateSummary(entry *rss.Entry) string {
   } else {
     return stripped
   }
-}
-
-func NewFeed(parsedFeed *rss.Feed) (*Feed, error) {
-  feed := Feed {
-    URL: parsedFeed.URL,
-    Title: parsedFeed.Title,
-    Description: parsedFeed.Description,
-    Updated: parsedFeed.Updated,
-    Link: parsedFeed.WWWURL,
-    Format: parsedFeed.Format,
-    Retrieved: parsedFeed.Retrieved,
-    HourlyUpdateFrequency: parsedFeed.HourlyUpdateFrequency,
-  }
-
-  feed.Entries = make([]*Entry, len(parsedFeed.Entries))
-  feed.EntryMetas = make([]*EntryMeta, len(parsedFeed.Entries))
-
-  for i, parsedEntry := range parsedFeed.Entries {
-    feed.Entries[i] = &Entry {
-      UniqueID: parsedEntry.UniqueID(),
-      Author: html.UnescapeString(parsedEntry.Author),
-      Title: html.UnescapeString(parsedEntry.Title),
-      Link: parsedEntry.WWWURL,
-      Published: parsedEntry.Published,
-      Updated: parsedEntry.Updated,
-      Content: parsedEntry.Content,
-      Summary: generateSummary(parsedEntry),
-    }
-    feed.EntryMetas[i] = &EntryMeta {
-      Published: parsedEntry.Published,
-      Retrieved: parsedFeed.Retrieved,
-    }
-  }
-
-  return &feed, nil
 }

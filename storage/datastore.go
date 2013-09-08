@@ -26,6 +26,8 @@ package storage
 import (
   "appengine"
   "appengine/datastore"
+  "html"
+  "math"
   "rss"
   "errors"
   "time"
@@ -708,18 +710,55 @@ func UnsubscribeAllInFolder(sc Context, ref FolderRef) error {
 func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
   c := sc.(appengine.Context)
 
-  feed, err := NewFeed(parsedFeed)
+  var updateCounter int64
+  
+  feed := Feed{}
+  feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
+
+  err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+    if err := datastore.Get(c, feedKey, &feed); err == datastore.ErrNoSuchEntity {
+      // New; set defaults
+      feed.URL = parsedFeed.URL
+      feed.UpdateCounter = math.MinInt64
+    } else if err != nil {
+      // Some other error
+      return err
+    }
+
+    feed.Title = parsedFeed.Title
+    feed.Description = parsedFeed.Description
+    feed.Updated = parsedFeed.Updated
+    feed.Link = parsedFeed.WWWURL
+    feed.Format = parsedFeed.Format
+    feed.Retrieved = parsedFeed.Retrieved
+    feed.HourlyUpdateFrequency = parsedFeed.HourlyUpdateFrequency
+
+    // Increment update counter
+    feed.UpdateCounter += int64(len(parsedFeed.Entries))
+    updateCounter = feed.UpdateCounter
+
+    if updatedKey, err := datastore.Put(c, feedKey, &feed); err != nil {
+      return err
+    } else {
+      feedKey = updatedKey
+    }
+
+    return nil
+  }, nil)
+
   if err != nil {
+    c.Errorf("Error incrementing entry counter: %s", err)
     return err
   }
 
-  feedKey := datastore.NewKey(c, "Feed", feed.URL, 0, nil)
-
   batchSize := 1000
-  elements := len(feed.Entries)
+  elements := len(parsedFeed.Entries)
 
   entryKeys := make([]*datastore.Key, batchSize)
+  entries := make([]*Entry, batchSize)
+
   entryMetaKeys := make([]*datastore.Key, batchSize)
+  entryMetas := make([]*EntryMeta, batchSize)
 
   pending := 0
   written := 0
@@ -727,12 +766,12 @@ func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
   for i := 0; ; i++ {
     if i >= elements || pending + 1 >= batchSize {
       if pending > 0 {
-        if _, err := datastore.PutMulti(c, entryKeys[:pending], feed.Entries[written:written + pending]); err != nil {
+        if _, err := datastore.PutMulti(c, entryKeys[:pending], entries[:pending]); err != nil {
           c.Errorf("Error writing Entry batch: %s", err)
           return err
         }
-        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], feed.EntryMetas[written:written + pending]); err != nil {
-          c.Errorf("Error writing EntryMetas batch: %s", err)
+        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], entryMetas[:pending]); err != nil {
+          c.Errorf("Error writing EntryMeta batch: %s", err)
           return err
         }
       }
@@ -745,22 +784,63 @@ func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
       }
     }
 
-    keyName := feed.Entries[i].UniqueID
-    if keyName == "" {
-      c.Warningf("UniqueID for an entry (titled '%s') is missing", feed.Entries[i].Title)
+    parsedEntry := parsedFeed.Entries[i]
+    entryGUID := parsedEntry.UniqueID()
+    if entryGUID == "" {
+      c.Warningf("Missing GUID for an entry titled '%s'", parsedEntry.Title)
       continue
     }
 
-    entryKeys[i] = datastore.NewKey(c, "Entry", keyName, 0, feedKey)
-    entryMetaKeys[i] = datastore.NewKey(c, "EntryMeta", keyName, 0, feedKey)
-    feed.EntryMetas[i].Entry = entryKeys[i]
+    entryMetaKey := datastore.NewKey(c, "EntryMeta", entryGUID, 0, feedKey)
+    entryKey := datastore.NewKey(c, "Entry", entryGUID, 0, feedKey)
+    var entryMeta EntryMeta
 
+    if err := datastore.Get(c, entryMetaKey, &entryMeta); err == datastore.ErrNoSuchEntity {
+      // New; set defaults
+      entryMeta.Entry = entryKey
+    } else if err != nil {
+      // Some other error
+      c.Warningf("Error getting entry meta (GUID '%s'): err", entryGUID, err)
+      continue
+    } else {
+      // Already in the store - check if it's new/updated
+      if entryMeta.Updated == parsedEntry.Updated && !entryMeta.Updated.IsZero() {
+        // No updates - skip
+        if appengine.IsDevAppServer() {
+          c.Infof("Skipping GUID %s - no changes detected", entryGUID)
+          continue
+        }
+      }
+    }
+
+    updateCounter++
     pending++
-  }
 
-  if _, err := datastore.Put(c, feedKey, feed); err != nil {
-    c.Errorf("Error writing feed: %s", err)
-    return err
+    entryMeta.Published = parsedEntry.Published
+    entryMeta.Updated = parsedEntry.Updated
+    entryMeta.Retrieved = parsedFeed.Retrieved
+    entryMeta.UpdateOffset = updateCounter
+
+    // At this point, metadata tells us the record needs updating, so we 
+    // just overwrite everything under the entry
+
+    entry := Entry {
+      UniqueID: entryGUID,
+      Author: html.UnescapeString(parsedEntry.Author),
+      Title: html.UnescapeString(parsedEntry.Title),
+      Link: parsedEntry.WWWURL,
+      Summary: generateSummary(parsedEntry),
+      Content: parsedEntry.Content,
+
+      // FIXME: Get rid of this eventually - already part of meta
+      Published: parsedEntry.Published,
+      Updated: parsedEntry.Updated,
+    }
+
+    entryMetas[i] = &entryMeta
+    entryMetaKeys[i] = entryMetaKey
+    entries[i] = &entry
+    entryKeys[i] = entryKey
   }
 
   return nil
