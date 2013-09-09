@@ -38,6 +38,11 @@ type route struct {
   Handler requestHandler
 }
 
+type HTMLRouteHandler func(pfc *PFContext)
+type CronRouteHandler func(pfc *PFContext) error
+type JSONRouteHandler func(pfc *PFContext) (interface{}, error)
+type TaskRouteHandler func(pfc *PFContext) (TaskMessage, error)
+
 type htmlRequestHandler struct {
   RouteHandler HTMLRouteHandler
   LoginRequired bool
@@ -52,6 +57,10 @@ type taskRequestHandler struct {
   RouteHandler TaskRouteHandler
 }
 
+type cronRequestHandler struct {
+  RouteHandler CronRouteHandler
+}
+
 type TaskMessage struct {
   Message string   `json:"message"`
   Refresh bool     `json:"refresh"`
@@ -59,10 +68,6 @@ type TaskMessage struct {
   Code int         `json:"code"`
   Data interface{} `json:"data"`
 }
-
-type HTMLRouteHandler func(pfc *PFContext)
-type JSONRouteHandler func(pfc *PFContext) (interface{}, error)
-type TaskRouteHandler func(pfc *PFContext) (TaskMessage, error)
 
 var routes []route = make([]route, 0, 100)
 
@@ -147,6 +152,14 @@ func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
   }
 }
 
+func (handler cronRequestHandler)handleRequest(pfc *PFContext) {
+  err := handler.RouteHandler(pfc)
+  if err != nil {
+    pfc.C.Errorf("Cron failed: %s", err.Error())
+    http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
+  }
+}
+
 func routeRequest(pfc *PFContext) {
   for _, route := range routes {
     if pfc.R.URL.Path == route.Pattern {
@@ -184,6 +197,17 @@ func RegisterTaskRoute(pattern string, handler TaskRouteHandler) {
   route := route {
     Pattern: pattern,
     Handler: taskRequestHandler {
+      RouteHandler: handler,
+    },
+  }
+
+  routes = append(routes, route)
+}
+
+func RegisterCronRoute(pattern string, handler CronRouteHandler) {
+  route := route {
+    Pattern: pattern,
+    Handler: cronRequestHandler {
       RouteHandler: handler,
     },
   }

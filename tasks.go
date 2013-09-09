@@ -43,8 +43,6 @@ func registerTasks() {
   RegisterTaskRoute("/tasks/import",        importOPMLTask)
   RegisterTaskRoute("/tasks/unsubscribe",   unsubscribeTask)
   RegisterTaskRoute("/tasks/markAllAsRead", markAllAsReadTask)
-  RegisterTaskRoute("/_ah/channel/connected",    channelConnectedTask)
-  RegisterTaskRoute("/_ah/channel/disconnected", channelDisconnectedTask)
 }
 
 func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, folderRef storage.FolderRef, opmlSubscription *opml.Subscription) {
@@ -319,22 +317,4 @@ func startTask(pfc *PFContext, taskName string, params taskParams) error {
   }
 
   return nil
-}
-
-func channelConnectedTask(pfc *PFContext) (TaskMessage, error) {
-  r := pfc.R
-  pfc.C.Infof("connected: %s", r.PostForm)
-
-  return TaskMessage {
-    Silent: true,
-  }, nil
-}
-
-func channelDisconnectedTask(pfc *PFContext) (TaskMessage, error) {
-  r := pfc.R
-  pfc.C.Infof("disconnected: %s", r.PostForm)
-
-  return TaskMessage {
-    Silent: true,
-  }, nil
 }

@@ -39,16 +39,23 @@ type Feed struct {
   Updated time.Time
   Link string
   Format string
-  Retrieved time.Time
+  Fetched time.Time
+  NextFetch time.Time
   HourlyUpdateFrequency float32
   UpdateCounter int64
 }
 
+type FeedUsage struct {
+  UpdateCount int64
+  LastSubscriptionUpdate time.Time
+  Feed *datastore.Key
+}
+
 type EntryMeta struct {
   Published time.Time
-  Retrieved time.Time
+  Fetched time.Time
   Updated time.Time
-  UpdateOffset int64
+  UpdateIndex int64
   Entry *datastore.Key
 }
 
@@ -114,8 +121,9 @@ type Article struct {
   Source string         `datastore:"-" json:"source"`
   Details *Entry        `datastore:"-" json:"details"`
 
+  UpdateIndex int64     `json:"-"`
   Published time.Time   `json:"-"`
-  Retrieved time.Time   `json:"-"`
+  Fetched time.Time     `json:"-"`
   Entry *datastore.Key  `json:"-"`
 
   Properties []string   `json:"properties"`

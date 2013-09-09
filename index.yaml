@@ -23,7 +23,18 @@ indexes:
   - name: Published
     direction: desc
 
+- kind: Article
+  ancestor: yes
+  properties:
+  - name: UpdateIndex
+    direction: desc
+
 - kind: EntryMeta
   ancestor: yes
   properties:
-  - name: Retrieved
+  - name: Fetched
+
+- kind: EntryMeta
+  ancestor: yes
+  properties:
+  - name: UpdateIndex

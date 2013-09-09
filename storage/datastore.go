@@ -27,7 +27,6 @@ import (
   "appengine"
   "appengine/datastore"
   "html"
-  "math"
   "rss"
   "errors"
   "time"
@@ -707,6 +706,25 @@ func UnsubscribeAllInFolder(sc Context, ref FolderRef) error {
   }
 }
 
+func UpdateAllFeeds(sc Context) error {
+  c := sc.(appengine.Context)
+  feed := Feed{}
+
+  q := datastore.NewQuery("Feed").Filter("NextFetch >", time.Now())
+  for t := q.Run(c); ; {
+    if _, err := t.Next(&feed); err == datastore.Done {
+      break
+    } else if err != nil {
+      c.Warningf("Error fetching feed record: %s", err)
+      return err
+    }
+
+
+  }
+
+  return nil
+}
+
 func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
   c := sc.(appengine.Context)
 
@@ -719,19 +737,22 @@ func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
     if err := datastore.Get(c, feedKey, &feed); err == datastore.ErrNoSuchEntity {
       // New; set defaults
       feed.URL = parsedFeed.URL
-      feed.UpdateCounter = math.MinInt64
+      feed.UpdateCounter = 0
     } else if err != nil {
       // Some other error
       return err
     }
+
+    durationBetweenUpdates := parsedFeed.DurationBetweenUpdates()
 
     feed.Title = parsedFeed.Title
     feed.Description = parsedFeed.Description
     feed.Updated = parsedFeed.Updated
     feed.Link = parsedFeed.WWWURL
     feed.Format = parsedFeed.Format
-    feed.Retrieved = parsedFeed.Retrieved
-    feed.HourlyUpdateFrequency = parsedFeed.HourlyUpdateFrequency
+    feed.Fetched = parsedFeed.Retrieved
+    feed.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
+    feed.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
 
     // Increment update counter
     feed.UpdateCounter += int64(len(parsedFeed.Entries))
@@ -818,8 +839,8 @@ func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
 
     entryMeta.Published = parsedEntry.Published
     entryMeta.Updated = parsedEntry.Updated
-    entryMeta.Retrieved = parsedFeed.Retrieved
-    entryMeta.UpdateOffset = updateCounter
+    entryMeta.Fetched = parsedFeed.Retrieved
+    entryMeta.UpdateIndex = updateCounter
 
     // At this point, metadata tells us the record needs updating, so we 
     // just overwrite everything under the entry
@@ -868,7 +889,37 @@ func UpdateSubscription(sc Context, url string, ref SubscriptionRef) error {
   }
 
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("Retrieved >", subscription.Updated)
+
+  // Update usage index (rough way to track feed popularity)
+  // No sharding, no transactions - complete accuracy is unimportant for now
+
+  feedUsage := FeedUsage{}
+  feedUsageKey := datastore.NewKey(c, "FeedUsage", url, 0, nil)
+
+  if err := datastore.Get(c, feedUsageKey, &feedUsage); err == datastore.ErrNoSuchEntity || err == nil {
+    if err == datastore.ErrNoSuchEntity {
+      // Create a new entity
+      feedUsage.Feed = feedKey
+    }
+
+    feedUsage.UpdateCount++
+    feedUsage.LastSubscriptionUpdate = time.Now()
+
+    if _, err := datastore.Put(c, feedUsageKey, &feedUsage); err != nil {
+      c.Warningf("Non-critical error updating feed usage (%s): %s", url, err)
+    }
+  }
+
+  // Find the largest update index for the subscription
+  maxUpdateIndex := int64(-1)
+  q := datastore.NewQuery("Article").Ancestor(subscriptionKey).Order("-UpdateIndex").Limit(1)
+  if _, err := q.GetAll(c, &articles); err != nil {
+    return err
+  } else if len(articles) > 0 {
+    maxUpdateIndex = articles[0].UpdateIndex
+  }
+
+  q = datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("UpdateIndex >", maxUpdateIndex)
   for t := q.Run(c); ; pending++ {
     entryMeta := new(EntryMeta)
     _, err := t.Next(entryMeta)
@@ -895,11 +946,12 @@ func UpdateSubscription(sc Context, url string, ref SubscriptionRef) error {
 
     articleKeys[pending] = datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
     articles[pending].Entry = entryMeta.Entry
-    articles[pending].Retrieved = entryMeta.Retrieved
+    articles[pending].UpdateIndex = entryMeta.UpdateIndex
+    articles[pending].Fetched = entryMeta.Fetched
     articles[pending].Published = entryMeta.Published
     articles[pending].Properties = []string { "unread" }
 
-    mostRecentEntryTime = entryMeta.Retrieved
+    mostRecentEntryTime = entryMeta.Fetched
   }
 
   // Write the subscription
