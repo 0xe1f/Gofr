@@ -6,6 +6,9 @@ api_version: go1
 handlers:
 - url: /content
   static_dir: content
+- url: /(favicon\.ico)
+  static_files: content/\1
+  upload: content/(.*)
 - url: /tasks/.*
   script: _go_app
   login: admin

@@ -31,7 +31,6 @@ import (
   "io"
   mrand "math/rand"
   "net/http"
-  "storage"
   "strconv"
 )
 
@@ -51,6 +50,7 @@ func init() {
 
   registerJson()
   registerTasks()
+  registerCron()
   registerWeb()
 }
 
@@ -59,7 +59,6 @@ type PFContext struct {
   C appengine.Context
   W http.ResponseWriter
   ClientID string
-  Context storage.Context
   User *user.User
   LoginURL string
 }
@@ -95,7 +94,6 @@ func Run(w http.ResponseWriter, r *http.Request) {
     C: c,
     W: w,
     ClientID: clientID,
-    Context: c,
     User: user.Current(c),
     LoginURL: loginURL,
   }

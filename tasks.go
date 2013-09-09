@@ -49,7 +49,7 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
   c := pfc.C
   subscriptionURL := opmlSubscription.URL
 
-  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, userID, subscriptionURL); err != nil {
     c.Errorf("Cannot determine if '%s' is duplicate: %s", subscriptionURL, err)
     goto done
   } else if subscribed {
@@ -57,7 +57,7 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
     goto done // Already subscribed
   }
 
-  if feed, err := storage.FeedByURL(pfc.Context, subscriptionURL); err != nil {
+  if feed, err := storage.FeedByURL(pfc.C, subscriptionURL); err != nil {
     c.Errorf("Error locating feed %s: %s", subscriptionURL, err.Error())
     goto done
   } else if feed == nil {
@@ -71,18 +71,18 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
       if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
         c.Errorf("Error reading RSS content: %s", err)
         goto done
-      } else if err := storage.UpdateFeed(pfc.Context, parsedFeed); err != nil {
+      } else if err := storage.UpdateFeed(pfc.C, parsedFeed); err != nil {
         c.Errorf("Error updating feed: %s", err)
         goto done
       }
     }
   }
 
-  if subscriptionRef, err := storage.Subscribe(pfc.Context, folderRef, subscriptionURL, opmlSubscription.Title); err != nil {
+  if subscriptionRef, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, opmlSubscription.Title); err != nil {
     c.Errorf("Error subscribing to feed %s: %s", subscriptionURL, err)
     goto done
   } else {
-    if err := storage.UpdateSubscription(pfc.Context, subscriptionURL, subscriptionRef); err != nil {
+    if err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
       c.Errorf("Error updating subscription %s: %s", subscriptionURL, err)
       goto done
     }
@@ -103,12 +103,12 @@ func importSubscriptions(pfc *PFContext, ch chan<- *opml.Subscription, userID st
     }
 
     if subscription.Subscriptions != nil {
-      folderRef, err := storage.FolderByTitle(pfc.Context, userID, subscription.Title)
+      folderRef, err := storage.FolderByTitle(pfc.C, userID, subscription.Title)
       if err != nil {
         c.Warningf("Error locating folder: %s", err)
         continue
       } else if folderRef.IsZero() {
-        if folderRef, err = storage.CreateFolder(pfc.Context, userID, subscription.Title); err != nil {
+        if folderRef, err = storage.CreateFolder(pfc.C, userID, subscription.Title); err != nil {
           c.Warningf("Error locating folder: %s", err)
           continue
         }
@@ -188,7 +188,7 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
     return TaskMessage{}, errors.New("Missing subscription URL")
   }
 
-  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, userID, subscriptionURL); err != nil {
     return TaskMessage{}, err
   } else if subscribed {
     return TaskMessage{
@@ -203,7 +203,7 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
   }
 
   feedTitle := ""
-  if feed, err := storage.FeedByURL(pfc.Context, subscriptionURL); err != nil {
+  if feed, err := storage.FeedByURL(pfc.C, subscriptionURL); err != nil {
     return TaskMessage{}, err
   } else if feed == nil {
     // Feed not available locally - fetch it
@@ -214,7 +214,7 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
       defer response.Body.Close()
       if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
         return TaskMessage{}, NewReadableError(_l("Error reading RSS content"), &err)
-      } else if err := storage.UpdateFeed(pfc.Context, parsedFeed); err != nil {
+      } else if err := storage.UpdateFeed(pfc.C, parsedFeed); err != nil {
         return TaskMessage{}, err
       } else {
         feedTitle = parsedFeed.Title
@@ -224,10 +224,10 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
     feedTitle = feed.Title
   }
 
-  if subscriptionRef, err := storage.Subscribe(pfc.Context, folderRef, subscriptionURL, feedTitle); err != nil {
+  if subscriptionRef, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, feedTitle); err != nil {
     return TaskMessage{}, err
   } else {
-    if err := storage.UpdateSubscription(pfc.Context, subscriptionURL, subscriptionRef); err != nil {
+    if err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
       return TaskMessage{}, err
     }
   }
@@ -258,11 +258,11 @@ func unsubscribeTask(pfc *PFContext) (TaskMessage, error) {
       SubscriptionID: subscriptionID,
     }
 
-    if err := storage.Unsubscribe(pfc.Context, ref); err != nil {
+    if err := storage.Unsubscribe(pfc.C, ref); err != nil {
       return TaskMessage{}, err
     }
   } else if folderID != "" {
-    if err := storage.UnsubscribeAllInFolder(pfc.Context, folderRef); err != nil {
+    if err := storage.UnsubscribeAllInFolder(pfc.C, folderRef); err != nil {
       return TaskMessage{}, err
     }
   } else {
@@ -291,7 +291,7 @@ func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {
     SubscriptionID: subscriptionID,
   }
 
-  if marked, err := storage.MarkAllAsRead(pfc.Context, ref); err != nil {
+  if marked, err := storage.MarkAllAsRead(pfc.C, ref); err != nil {
     return TaskMessage{}, err
   } else {
     return TaskMessage {

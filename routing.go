@@ -24,6 +24,7 @@
 package gofr
 
 import (
+ "appengine"
  "appengine/channel"
  "encoding/json"
  "net/http"
@@ -166,6 +167,10 @@ func routeRequest(pfc *PFContext) {
       route.Handler.handleRequest(pfc)
       return
     }
+  }
+
+  if appengine.IsDevAppServer() {
+    pfc.C.Warningf("Error routing %s: no destination", pfc.R.URL.Path)
   }
 }
 

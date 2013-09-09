@@ -37,7 +37,6 @@ const (
 )
 
 type UserID string
-type Context interface {}
 
 func (filter ArticleFilter)NewQuery(c appengine.Context, start string) (*datastore.Query, error) {
   userKey := newUserKey(c, filter.UserID)
@@ -122,9 +121,7 @@ func (ref SubscriptionRef)key(c appengine.Context) (*datastore.Key, error) {
   return datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey), nil
 }
 
-func NewArticlePage(sc Context, filter ArticleFilter, start string) (*ArticlePage, error) {
-  c := sc.(appengine.Context)
-
+func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*ArticlePage, error) {
   var q *datastore.Query
   if query, err := filter.NewQuery(c, start); err != nil {
     return nil, err
@@ -180,9 +177,7 @@ func NewArticlePage(sc Context, filter ArticleFilter, start string) (*ArticlePag
   return &page, nil
 }
 
-func NewUserSubscriptions(sc Context, userID UserID) (*UserSubscriptions, error) {
-  c := sc.(appengine.Context)
-
+func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscriptions, error) {
   var subscriptions []Subscription
   var subscriptionKeys []*datastore.Key
 
@@ -251,8 +246,7 @@ func NewUserSubscriptions(sc Context, userID UserID) (*UserSubscriptions, error)
   return &userSubscriptions, nil
 }
 
-func IsFolderDuplicate(sc Context, userID UserID, title string) (bool, error) {
-  c := sc.(appengine.Context)
+func IsFolderDuplicate(c appengine.Context, userID UserID, title string) (bool, error) {
   userKey := newUserKey(c, userID)
 
   var folders []*Folder
@@ -266,8 +260,7 @@ func IsFolderDuplicate(sc Context, userID UserID, title string) (bool, error) {
   return false, nil
 }
 
-func IsSubscriptionDuplicate(sc Context, userID UserID, subscriptionURL string) (bool, error) {
-  c := sc.(appengine.Context)
+func IsSubscriptionDuplicate(c appengine.Context, userID UserID, subscriptionURL string) (bool, error) {
   userKey := newUserKey(c, userID)
 
   feedKey := datastore.NewKey(c, "Feed", subscriptionURL, 0, nil)
@@ -282,8 +275,7 @@ func IsSubscriptionDuplicate(sc Context, userID UserID, subscriptionURL string) 
   return false, nil
 }
 
-func FolderByTitle(sc Context, userID UserID, title string) (FolderRef, error) {
-  c := sc.(appengine.Context)
+func FolderByTitle(c appengine.Context, userID UserID, title string) (FolderRef, error) {
   userKey := newUserKey(c, userID)
 
   q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).KeysOnly().Limit(1)
@@ -296,8 +288,7 @@ func FolderByTitle(sc Context, userID UserID, title string) (FolderRef, error) {
   return FolderRef{}, nil
 }
 
-func FolderExists(sc Context, ref FolderRef) (bool, error) {
-  c := sc.(appengine.Context)
+func FolderExists(c appengine.Context, ref FolderRef) (bool, error) {
   userKey := newUserKey(c, ref.UserID)
 
   if ref.FolderID == "" && ref.UserID != "" {
@@ -322,8 +313,7 @@ func FolderExists(sc Context, ref FolderRef) (bool, error) {
   return false, nil
 }
 
-func SubscriptionExists(sc Context, ref SubscriptionRef) (bool, error) {
-  c := sc.(appengine.Context)
+func SubscriptionExists(c appengine.Context, ref SubscriptionRef) (bool, error) {
   userKey := newUserKey(c, ref.UserID)
 
   parentKey := userKey
@@ -349,8 +339,7 @@ func SubscriptionExists(sc Context, ref SubscriptionRef) (bool, error) {
   return false, nil
 }
 
-func CreateFolder(sc Context, userID UserID, title string) (FolderRef, error) {
-  c := sc.(appengine.Context)
+func CreateFolder(c appengine.Context, userID UserID, title string) (FolderRef, error) {
   userKey := newUserKey(c, userID)
 
   folderKey := datastore.NewIncompleteKey(c, "Folder", userKey)
@@ -365,8 +354,7 @@ func CreateFolder(sc Context, userID UserID, title string) (FolderRef, error) {
   }
 }
 
-func RenameSubscription(sc Context, ref SubscriptionRef, title string) error {
-  c := sc.(appengine.Context)
+func RenameSubscription(c appengine.Context, ref SubscriptionRef, title string) error {
   userKey := newUserKey(c, ref.UserID)
 
   ancestorKey := userKey
@@ -395,8 +383,7 @@ func RenameSubscription(sc Context, ref SubscriptionRef, title string) error {
   return nil
 }
 
-func RenameFolder(sc Context, userID UserID, folderID string, title string) error {
-  c := sc.(appengine.Context)
+func RenameFolder(c appengine.Context, userID UserID, folderID string, title string) error {
   userKey := newUserKey(c, userID)
 
   var folderKey *datastore.Key
@@ -421,8 +408,7 @@ func RenameFolder(sc Context, userID UserID, folderID string, title string) erro
   return nil
 }
 
-func SetProperty(sc Context, ref ArticleRef, propertyName string, propertyValue bool) ([]string, error) {
-  c := sc.(appengine.Context)
+func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, propertyValue bool) ([]string, error) {
   userKey := newUserKey(c, ref.UserID)
 
   parentKey := userKey
@@ -515,9 +501,7 @@ func SetProperty(sc Context, ref ArticleRef, propertyName string, propertyValue 
   return article.Properties, nil
 }
 
-func MarkAllAsRead(sc Context, ref SubscriptionRef) (int, error) {
-  c := sc.(appengine.Context)
-
+func MarkAllAsRead(c appengine.Context, ref SubscriptionRef) (int, error) {
   key, err := ref.key(c)
   if err != nil {
     return 0, err
@@ -604,9 +588,7 @@ func MarkAllAsRead(sc Context, ref SubscriptionRef) (int, error) {
   return markedAsRead, nil
 }
 
-func FeedByURL(sc Context, url string) (*Feed, error) {
-  c := sc.(appengine.Context)
-
+func FeedByURL(c appengine.Context, url string) (*Feed, error) {
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
   feed := new(Feed)
 
@@ -619,9 +601,7 @@ func FeedByURL(sc Context, url string) (*Feed, error) {
   return nil, nil
 }
 
-func IsFeedAvailable(sc Context, url string) (bool, error) {
-  c := sc.(appengine.Context)
-
+func IsFeedAvailable(c appengine.Context, url string) (bool, error) {
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
   feed := new(Feed)
 
@@ -634,9 +614,7 @@ func IsFeedAvailable(sc Context, url string) (bool, error) {
   return false, nil
 }
 
-func WebToFeedURL(sc Context, url string) (string, error) {
-  c := sc.(appengine.Context)
-
+func WebToFeedURL(c appengine.Context, url string) (string, error) {
   q := datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
   var feeds []*Feed
   if _, err := q.GetAll(c, &feeds); err == nil {
@@ -650,9 +628,7 @@ func WebToFeedURL(sc Context, url string) (string, error) {
   return "", nil
 }
 
-func Subscribe(sc Context, ref FolderRef, url string, title string) (SubscriptionRef, error) {
-  c := sc.(appengine.Context)
-
+func Subscribe(c appengine.Context, ref FolderRef, url string, title string) (SubscriptionRef, error) {
   folderKey, err := ref.key(c)
   if err != nil {
     return SubscriptionRef{}, err
@@ -686,9 +662,7 @@ func Subscribe(sc Context, ref FolderRef, url string, title string) (Subscriptio
   }, nil
 }
 
-func Unsubscribe(sc Context, ref SubscriptionRef) error {
-  c := sc.(appengine.Context)
-
+func Unsubscribe(c appengine.Context, ref SubscriptionRef) error {
   if key, err := ref.key(c); err != nil {
     return err
   } else {
@@ -696,9 +670,7 @@ func Unsubscribe(sc Context, ref SubscriptionRef) error {
   }
 }
 
-func UnsubscribeAllInFolder(sc Context, ref FolderRef) error {
-  c := sc.(appengine.Context)
-  
+func UnsubscribeAllInFolder(c appengine.Context, ref FolderRef) error {
   if key, err := ref.key(c); err != nil {
     return err
   } else {
@@ -706,28 +678,7 @@ func UnsubscribeAllInFolder(sc Context, ref FolderRef) error {
   }
 }
 
-func UpdateAllFeeds(sc Context) error {
-  c := sc.(appengine.Context)
-  feed := Feed{}
-
-  q := datastore.NewQuery("Feed").Filter("NextFetch >", time.Now())
-  for t := q.Run(c); ; {
-    if _, err := t.Next(&feed); err == datastore.Done {
-      break
-    } else if err != nil {
-      c.Warningf("Error fetching feed record: %s", err)
-      return err
-    }
-
-
-  }
-
-  return nil
-}
-
-func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
-  c := sc.(appengine.Context)
-
+func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
   var updateCounter int64
   
   feed := Feed{}
@@ -867,9 +818,7 @@ func UpdateFeed(sc Context, parsedFeed *rss.Feed) error {
   return nil
 }
 
-func UpdateSubscription(sc Context, url string, ref SubscriptionRef) error {
-  c := sc.(appengine.Context)
-
+func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) error {
   batchSize := 1000
   mostRecentEntryTime := time.Time {}
   articles := make([]Article, batchSize)

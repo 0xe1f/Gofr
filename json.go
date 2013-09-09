@@ -63,7 +63,7 @@ func registerJson() {
 func subscriptions(pfc *PFContext) (interface{}, error) {
   userID := storage.UserID(pfc.User.ID)
 
-  return storage.NewUserSubscriptions(pfc.Context, userID)
+  return storage.NewUserSubscriptions(pfc.C, userID)
 }
 
 func articles(pfc *PFContext) (interface{}, error) {
@@ -80,7 +80,7 @@ func articles(pfc *PFContext) (interface{}, error) {
     filter.Property = filterProperty
   }
 
-  return storage.NewArticlePage(pfc.Context, filter, r.FormValue("continue"))
+  return storage.NewArticlePage(pfc.C, filter, r.FormValue("continue"))
 }
 
 func createFolder(pfc *PFContext) (interface{}, error) {
@@ -96,17 +96,17 @@ func createFolder(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Folder name is too long"), nil)
   }
 
-  if exists, err := storage.IsFolderDuplicate(pfc.Context, userID, title); err != nil {
+  if exists, err := storage.IsFolderDuplicate(pfc.C, userID, title); err != nil {
     return nil, err
   } else if exists {
     return nil, NewReadableError(_l("A folder with that name already exists"), nil)
   }
 
-  if _, err := storage.CreateFolder(pfc.Context, userID, title); err != nil {
+  if _, err := storage.CreateFolder(pfc.C, userID, title); err != nil {
     return nil, NewReadableError(_l("An error occurred while adding the new folder"), &err)
   }
 
-  return storage.NewUserSubscriptions(pfc.Context, userID)
+  return storage.NewUserSubscriptions(pfc.C, userID)
 }
 
 func rename(pfc *PFContext) (interface{}, error) {
@@ -129,25 +129,25 @@ func rename(pfc *PFContext) (interface{}, error) {
       },
       SubscriptionID: subscriptionID,
     }
-    if err := storage.RenameSubscription(pfc.Context, ref, title); err != nil {
+    if err := storage.RenameSubscription(pfc.C, ref, title); err != nil {
       return nil, NewReadableError(_l("Error renaming folder"), &err)
     }
   } else if folderID != "" {
     // Rename folder
-    if exists, err := storage.IsFolderDuplicate(pfc.Context, userID, title); err != nil {
+    if exists, err := storage.IsFolderDuplicate(pfc.C, userID, title); err != nil {
       return nil, err
     } else if exists {
       return nil, NewReadableError(_l("A folder with that name already exists"), nil)
     }
 
-    if err := storage.RenameFolder(pfc.Context, userID, folderID, title); err != nil {
+    if err := storage.RenameFolder(pfc.C, userID, folderID, title); err != nil {
       return nil, NewReadableError(_l("Error renaming folder"), &err)
     }
   } else {
     return nil, NewReadableError(_l("Nothing to rename"), nil)
   }
 
-  return storage.NewUserSubscriptions(pfc.Context, userID)
+  return storage.NewUserSubscriptions(pfc.C, userID)
 }
 
 func setProperty(pfc *PFContext) (interface{}, error) {
@@ -179,7 +179,7 @@ func setProperty(pfc *PFContext) (interface{}, error) {
     ArticleID: articleID,
   }
 
-  if properties, err := storage.SetProperty(pfc.Context, ref, propertyName, propertyValue); err != nil {
+  if properties, err := storage.SetProperty(pfc.C, ref, propertyName, propertyValue); err != nil {
     return nil, NewReadableError(_l("Error updating article"), &err)
   } else {
     return properties, nil
@@ -206,20 +206,20 @@ func subscribe(pfc *PFContext) (interface{}, error) {
       FolderID: folderId,
     }
 
-    if exists, err := storage.FolderExists(pfc.Context, ref); err != nil {
+    if exists, err := storage.FolderExists(pfc.C, ref); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Folder not found"), nil)
     }
   }
 
-  if exists, err := storage.IsFeedAvailable(pfc.Context, subscriptionURL); err != nil {
+  if exists, err := storage.IsFeedAvailable(pfc.C, subscriptionURL); err != nil {
     return nil, err
   } else if !exists {
     // Not a known feed URL
     // Match it against a list of known WWW links
 
-    if feedURL, err := storage.WebToFeedURL(pfc.Context, subscriptionURL); err != nil {
+    if feedURL, err := storage.WebToFeedURL(pfc.C, subscriptionURL); err != nil {
       return nil, err
     } else if feedURL != "" {
       subscriptionURL = feedURL
@@ -235,7 +235,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
         modifiedURL = re.ReplaceAllString(subscriptionURL, "://www.")
       }
 
-      if feedURL, err := storage.WebToFeedURL(pfc.Context, modifiedURL); err != nil {
+      if feedURL, err := storage.WebToFeedURL(pfc.C, modifiedURL); err != nil {
         return nil, err
       } else if feedURL != "" {
         subscriptionURL = feedURL
@@ -243,14 +243,14 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     }
   }
 
-  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.Context, userID, subscriptionURL); err != nil {
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, userID, subscriptionURL); err != nil {
     return nil, err
   } else if subscribed {
     return nil, NewReadableError(_l("You are already subscribed"), nil)
   }
 
   // At this point, the URL may have been re-written, so we check again
-  if exists, err := storage.IsFeedAvailable(pfc.Context, subscriptionURL); err != nil {
+  if exists, err := storage.IsFeedAvailable(pfc.C, subscriptionURL); err != nil {
     return nil, err
   } else if !exists {
     // Don't have the locally - fetch it
@@ -315,14 +315,14 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
       SubscriptionID: subscriptionID,
     }
 
-    if exists, err := storage.SubscriptionExists(pfc.Context, ref); err != nil {
+    if exists, err := storage.SubscriptionExists(pfc.C, ref); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Subscription not found"), nil)
     }
   } else if folderID != "" {
     // Remove a folder
-    if exists, err := storage.FolderExists(pfc.Context, folderRef); err != nil {
+    if exists, err := storage.FolderExists(pfc.C, folderRef); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Folder not found"), nil)
@@ -398,7 +398,7 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
       },
       SubscriptionID: subscriptionID,
     }
-    if exists, err := storage.SubscriptionExists(pfc.Context, ref); err != nil {
+    if exists, err := storage.SubscriptionExists(pfc.C, ref); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Subscription not found"), nil)
@@ -409,7 +409,7 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
       FolderID: folderID,
     }
 
-    if exists, err := storage.FolderExists(pfc.Context, ref); err != nil {
+    if exists, err := storage.FolderExists(pfc.C, ref); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Folder not found"), nil)
