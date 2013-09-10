@@ -32,6 +32,11 @@ import (
   "time"
 )
 
+type User struct {
+  ID string
+  LastSubscriptionUpdate time.Time
+}
+
 type Feed struct {
   URL string
   Title string
@@ -148,4 +153,16 @@ func generateSummary(entry *rss.Entry) string {
   } else {
     return stripped
   }
+}
+
+func (article Article) IsUnread() bool {
+  for _, property := range article.Properties {
+    if property == "read" {
+      return false
+    } else if property == "unread" {
+      return true
+    }
+  }
+
+  return false
 }

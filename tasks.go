@@ -43,6 +43,7 @@ func registerTasks() {
   RegisterTaskRoute("/tasks/import",        importOPMLTask)
   RegisterTaskRoute("/tasks/unsubscribe",   unsubscribeTask)
   RegisterTaskRoute("/tasks/markAllAsRead", markAllAsReadTask)
+  RegisterTaskRoute("/tasks/refresh",       refreshTask)
 }
 
 func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, folderRef storage.FolderRef, opmlSubscription *opml.Subscription) {
@@ -299,6 +300,21 @@ func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {
       Refresh: true,
     }, nil
   }
+}
+
+func refreshTask(pfc *PFContext) (TaskMessage, error) {
+  userID := pfc.R.PostFormValue("userID")
+  if userID == "" {
+    return TaskMessage{}, errors.New("Missing User ID")
+  }
+
+  if err := storage.UpdateAllSubscriptions(pfc.C, userID); err != nil {
+    return TaskMessage{}, err
+  }
+
+  return TaskMessage {
+    Refresh: true,
+  }, nil
 }
 
 func startTask(pfc *PFContext, taskName string, params taskParams) error {

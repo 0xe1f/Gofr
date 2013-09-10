@@ -31,6 +31,7 @@ import (
   "io"
   mrand "math/rand"
   "net/http"
+  "storage"
   "strconv"
 )
 
@@ -59,7 +60,7 @@ type PFContext struct {
   C appengine.Context
   W http.ResponseWriter
   ClientID string
-  User *user.User
+  User *storage.User
   LoginURL string
 }
 
@@ -89,12 +90,34 @@ func Run(w http.ResponseWriter, r *http.Request) {
     clientID = id
   }
 
+  var gofrUser *storage.User
+  if aeUser := user.Current(c); aeUser != nil {
+    if u, err := storage.UserByID(c, aeUser.ID); err != nil {
+      c.Errorf("Error loading user")
+      http.Error(w, "Unexpected error - try again later", http.StatusInternalServerError)
+      return
+    } else if u == nil {
+      // New user
+      newUser := storage.User {
+        ID: aeUser.ID,
+      }
+      if err := newUser.Save(c); err != nil {
+        c.Errorf("Error saving new user")
+        http.Error(w, "Unexpected error - try again later", http.StatusInternalServerError)
+        return
+      }
+      gofrUser = &newUser
+    } else {
+      gofrUser = u
+    }
+  }
+
   pfc := PFContext {
     R: r,
     C: c,
     W: w,
     ClientID: clientID,
-    User: user.Current(c),
+    User: gofrUser,
     LoginURL: loginURL,
   }
 

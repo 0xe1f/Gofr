@@ -36,6 +36,7 @@ const (
   articlePageSize = 40
 )
 
+// FIXME: get rid of it
 type UserID string
 
 func (filter ArticleFilter)NewQuery(c appengine.Context, start string) (*datastore.Query, error) {
@@ -119,6 +120,14 @@ func (ref SubscriptionRef)key(c appengine.Context) (*datastore.Key, error) {
   }
 
   return datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey), nil
+}
+
+func (user User)key(c appengine.Context) (*datastore.Key, error) {
+  if user.ID == "" {
+    return nil, errors.New("User missing an ID")
+  }
+
+  return datastore.NewKey(c, "User", user.ID, 0, nil), nil
 }
 
 func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*ArticlePage, error) {
@@ -273,6 +282,32 @@ func IsSubscriptionDuplicate(c appengine.Context, userID UserID, subscriptionURL
   }
 
   return false, nil
+}
+
+func UserByID(c appengine.Context, userID string) (*User, error) {
+  userKey := datastore.NewKey(c, "User", userID, 0, nil)
+  user := User{}
+
+  if err := datastore.Get(c, userKey, &user); err == nil {
+    return &user, nil
+  } else if err != datastore.ErrNoSuchEntity {
+    return nil, err
+  }
+
+  return nil, nil
+}
+
+func (user User)Save(c appengine.Context) error {
+  if user.ID == "" {
+    return errors.New("User is missing a User ID")
+  }
+
+  userKey := newUserKey(c, UserID(user.ID))
+  if _, err := datastore.Put(c, userKey, &user); err != nil {
+    return err
+  }
+
+  return nil
 }
 
 func FolderByTitle(c appengine.Context, userID UserID, title string) (FolderRef, error) {
@@ -818,32 +853,20 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
   return nil
 }
 
-func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) error {
+func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key, subscription Subscription) error {
   batchSize := 1000
-  mostRecentEntryTime := time.Time {}
   articles := make([]Article, batchSize)
   articleKeys := make([]*datastore.Key, batchSize)
 
-  pending, written := 0, 0
+  pending, unreadDelta := 0, 0
 
-  subscriptionKey, err := ref.key(c)
-  if err != nil {
-    return err
-  }
-
-  subscription := new(Subscription)
-  if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
-    c.Errorf("Error getting subscription: %s", err)
-    return err
-  }
-
-  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+  feedKey := subscription.Feed
 
   // Update usage index (rough way to track feed popularity)
   // No sharding, no transactions - complete accuracy is unimportant for now
 
   feedUsage := FeedUsage{}
-  feedUsageKey := datastore.NewKey(c, "FeedUsage", url, 0, nil)
+  feedUsageKey := datastore.NewKey(c, "FeedUsage", feedKey.StringID(), 0, nil)
 
   if err := datastore.Get(c, feedUsageKey, &feedUsage); err == datastore.ErrNoSuchEntity || err == nil {
     if err == datastore.ErrNoSuchEntity {
@@ -855,7 +878,7 @@ func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) er
     feedUsage.LastSubscriptionUpdate = time.Now()
 
     if _, err := datastore.Put(c, feedUsageKey, &feedUsage); err != nil {
-      c.Warningf("Non-critical error updating feed usage (%s): %s", url, err)
+      c.Warningf("Non-critical error updating feed usage (%s): %s", feedKey.StringID(), err)
     }
   }
 
@@ -869,7 +892,7 @@ func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) er
   }
 
   q = datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("UpdateIndex >", maxUpdateIndex)
-  for t := q.Run(c); ; pending++ {
+  for t := q.Run(c); ; {
     entryMeta := new(EntryMeta)
     _, err := t.Next(entryMeta)
 
@@ -882,7 +905,6 @@ func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) er
         }
       }
 
-      written += pending
       pending = 0
 
       if err == datastore.Done {
@@ -893,24 +915,89 @@ func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) er
       return err
     }
 
-    articleKeys[pending] = datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
-    articles[pending].Entry = entryMeta.Entry
-    articles[pending].UpdateIndex = entryMeta.UpdateIndex
-    articles[pending].Fetched = entryMeta.Fetched
-    articles[pending].Published = entryMeta.Published
-    articles[pending].Properties = []string { "unread" }
+    articleKey := datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
+    article := Article{}
 
-    mostRecentEntryTime = entryMeta.Fetched
+    if err := datastore.Get(c, articleKey, &article); err == datastore.ErrNoSuchEntity {
+      // New article
+      article.Entry = entryMeta.Entry
+      article.Properties = []string { "unread" }
+      unreadDelta++
+    } else if err != nil {
+      c.Warningf("Error reading article %s: %s", entryMeta.Entry.StringID(), err)
+    }
+
+    article.UpdateIndex = entryMeta.UpdateIndex
+    article.Fetched = entryMeta.Fetched
+    article.Published = entryMeta.Published
+
+    articleKeys[pending] = articleKey
+    articles[pending] = article
+
+    pending++
   }
 
   // Write the subscription
-  subscription.Updated = mostRecentEntryTime
-  subscription.UnreadCount += written
+  subscription.Updated = time.Now()
+  subscription.UnreadCount += unreadDelta
 
-  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+  if _, err := datastore.Put(c, subscriptionKey, &subscription); err != nil {
     c.Errorf("Error writing subscription: %s", err)
     return err
   }
+
+  return nil
+}
+
+func updateSubscriptionAsync(c appengine.Context, subscriptionKey *datastore.Key, subscription Subscription, ch chan<- Subscription) {
+  err := updateSubscriptionByKey(c, subscriptionKey, subscription)
+  if err != nil {
+    c.Errorf("Error updating subscription %s: %s", subscription.Title, err)
+  }
+
+  ch <- subscription
+}
+
+func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) error {
+  subscriptionKey, err := ref.key(c)
+  if err != nil {
+    return err
+  }
+
+  subscription := Subscription{}
+  if err := datastore.Get(c, subscriptionKey, &subscription); err != nil {
+    c.Errorf("Error getting subscription: %s", err)
+    return err
+  }
+
+  return updateSubscriptionByKey(c, subscriptionKey, subscription)
+}
+
+func UpdateAllSubscriptions(c appengine.Context, userID string) error {
+  userKey := newUserKey(c, UserID(userID))
+
+  var subscriptions []Subscription
+
+  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(1000)
+  subscriptionKeys, err := q.GetAll(c, &subscriptions)
+  if err != nil {
+    return err
+  }
+
+  started := time.Now()
+  doneChannel := make(chan Subscription)
+  subscriptionCount := len(subscriptions)
+
+  for i := 0; i < subscriptionCount; i++ {
+    go updateSubscriptionAsync(c, subscriptionKeys[i], subscriptions[i], doneChannel)
+  }
+
+  for i := 0; i < subscriptionCount; i++ {
+    subscription := <-doneChannel;
+    c.Infof("Completed sub. %s", subscription.Title)
+  }
+
+  c.Infof("%d subscriptions completed in %s", subscriptionCount, time.Since(started))
 
   return nil
 }

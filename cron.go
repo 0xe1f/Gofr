@@ -80,10 +80,10 @@ func updateFeedsJob(pfc *PFContext) error {
 
   for i := 0; i < importing; i++ {
     feed := <-doneChannel;
-    c.Infof("Completed %s", feed.Title)
+    c.Infof("Completed feed %s", feed.Title)
   }
 
-  c.Infof("All completed in %s", time.Since(importStarted))
+  c.Infof("%d feeds completed in %s", importing, time.Since(importStarted))
 
   return nil
 }

@@ -1,5 +1,7 @@
-Add subscription refreshes
 Mask the continue marker (currently sent in base-64)
 Localization
 Tasks will currently re-run when failed. Disable this for user-initiated tasks.
 Use separate queues for various tasks
+Use a mutex to prevent simultaneous feed updates
+Subscription refresh task should not be initiated unless stale subscriptions exist
+Unread count can't be relied on to always be correct. A separate cron job should routinely correct discrepancies

@@ -35,7 +35,12 @@ import (
   "rss"
   "storage"
   "strings"
+  "time"
   "unicode/utf8"
+)
+
+const (
+  subscriptionStalePeriodInMinutes = 30
 )
 
 var validProperties = map[string]bool {
@@ -62,6 +67,23 @@ func registerJson() {
 
 func subscriptions(pfc *PFContext) (interface{}, error) {
   userID := storage.UserID(pfc.User.ID)
+
+  staleDuration := time.Duration(subscriptionStalePeriodInMinutes) * time.Minute
+  if appengine.IsDevAppServer() {
+    // On dev server, stale period is 5 minutes
+    staleDuration = time.Duration(5) * time.Minute
+  }
+
+  if time.Since(pfc.User.LastSubscriptionUpdate) > staleDuration {
+    pfc.User.LastSubscriptionUpdate = time.Now()
+    if err := pfc.User.Save(pfc.C); err != nil {
+      return nil, err
+    }
+
+    if err := startTask(pfc, "refresh", nil); err != nil {
+      return nil, err
+    }
+  }
 
   return storage.NewUserSubscriptions(pfc.C, userID)
 }
