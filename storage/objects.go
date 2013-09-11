@@ -155,14 +155,51 @@ func generateSummary(entry *rss.Entry) string {
   }
 }
 
-func (article Article) IsUnread() bool {
+func (article Article)IsUnread() bool {
+  return article.HasProperty("unread")
+}
+
+func (article Article)HasProperty(propName string) bool {
   for _, property := range article.Properties {
-    if property == "read" {
-      return false
-    } else if property == "unread" {
+    if property == propName {
       return true
     }
   }
 
   return false
+}
+
+func (article *Article)SetProperty(propName string, value bool) {
+  propMap := make(map[string]bool)
+  for _, property := range article.Properties {
+    propMap[property] = true
+  }
+
+  if value && !propMap[propName] {
+    propMap[propName] = true
+    if propName == "read" {
+      delete(propMap, "unread")
+    } else if propName == "unread" {
+      delete(propMap, "read")
+    }
+  } else if !value && propMap[propName] {
+    delete(propMap, propName)
+    if propName == "read" {
+      propMap["unread"] = true
+    } else if propName == "unread" {
+      propMap["read"] = true
+    }
+  }
+
+  article.Properties = make([]string, len(propMap))
+  i := 0
+
+  for key, _ := range propMap {
+    article.Properties[i] = key
+    i++
+  }
+}
+
+func (article *Article)ToggleProperty(propName string) {
+  article.SetProperty(propName, !article.HasProperty(propName))
 }
