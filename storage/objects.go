@@ -25,10 +25,6 @@ package storage
 
 import (
   "appengine/datastore"
-  "html"
-  "rss"
-  "regexp"
-  "sanitize"
   "time"
 )
 
@@ -81,6 +77,8 @@ type UserSubscriptions struct {
   Folders []Folder             `json:"folders"`
 }
 
+type UserID string
+
 type FolderRef struct {
   UserID UserID
   FolderID string
@@ -89,6 +87,18 @@ type FolderRef struct {
 type SubscriptionRef struct {
   FolderRef
   SubscriptionID string
+}
+
+type ArticleScope SubscriptionRef
+
+type ArticleFilter struct {
+  ArticleScope
+  Property string
+}
+
+type ArticleRef struct {
+  SubscriptionRef
+  ArticleID string
 }
 
 type Subscription struct {
@@ -110,18 +120,6 @@ type ArticlePage struct {
   Continue string    `json:"continue,omitempty"`
 }
 
-type ArticleRef struct {
-  SubscriptionRef
-  ArticleID string
-}
-
-type ArticleFilter struct {
-  UserID UserID
-  FolderID string
-  SubscriptionID string
-  Property string
-}
-
 type Article struct {
   ID string             `datastore:"-" json:"id"`
   Source string         `datastore:"-" json:"source"`
@@ -138,22 +136,6 @@ type Article struct {
 type Folder struct {
   ID string    `datastore:"-" json:"id"`
   Title string `json:"title"`
-}
-
-var extraSpaceStripper *regexp.Regexp = regexp.MustCompile(`\s\s+`)
-
-func generateSummary(entry *rss.Entry) string {
-  // TODO: This process should be streamlined to do
-  // more things with fewer passes
-  sanitized := sanitize.StripTags(entry.Content)
-  unescaped := html.UnescapeString(sanitized)
-  stripped := extraSpaceStripper.ReplaceAllString(unescaped, "")
-
-  if runes := []rune(stripped); len(runes) > 400 {
-    return string(runes[:400])
-  } else {
-    return stripped
-  }
 }
 
 func (article Article)IsUnread() bool {

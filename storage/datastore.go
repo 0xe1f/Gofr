@@ -36,57 +36,23 @@ const (
   articlePageSize = 40
 )
 
-// FIXME: get rid of it
-type UserID string
-
-func (filter ArticleFilter)NewQuery(c appengine.Context, start string) (*datastore.Query, error) {
-  userKey := newUserKey(c, filter.UserID)
-
-  var ancestorKey *datastore.Key
-  if subscriptionID := filter.SubscriptionID; subscriptionID == "" {
-    ancestorKey = userKey
-  } else if kind, id, err := unformatId(subscriptionID); err != nil {
-    return nil, err
-  } else {
-    if kind == "folder" {
-      ancestorKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else { // Assume it's a subscription ID
-      parentKey := userKey
-      if folderId := filter.FolderID; folderId != "" {
-        if kind, id, err := unformatId(folderId); err == nil {
-          if kind == "folder" {
-            parentKey = datastore.NewKey(c, "Folder", "", id, userKey)
-          }
-        } else {
-          return nil, err
-        }
-      }
-
-      ancestorKey = datastore.NewKey(c, "Subscription", subscriptionID, 0, parentKey)
-    }
-  }
-
-  q := datastore.NewQuery("Article").Ancestor(ancestorKey).Order("-Published")
-  if filter.Property != "" {
-    q = q.Filter("Properties = ", filter.Property)
-  }
-  if start != "" {
-    if cursor, err := datastore.DecodeCursor(start); err == nil {
-      q = q.Start(cursor)
-    } else {
-      return nil, err
-    }
-  }
-
-  return q, nil
-}
-
 func (ref FolderRef)IsZero() bool {
   return ref.UserID == "" && ref.FolderID == ""
 }
 
+func (userID UserID)key(c appengine.Context) (*datastore.Key, error) {
+  if userID == "" {
+    return nil, errors.New("UserID is empty")
+  }
+
+  return datastore.NewKey(c, "User", string(userID), 0, nil), nil
+}
+
 func (ref FolderRef)key(c appengine.Context) (*datastore.Key, error) {
-  userKey := newUserKey(c, ref.UserID)
+  userKey, err := ref.UserID.key(c)
+  if err != nil {
+    return nil, err
+  }
 
   if ref.FolderID != "" {
     if kind, id, err := unformatId(ref.FolderID); err != nil {
@@ -102,24 +68,42 @@ func (ref FolderRef)key(c appengine.Context) (*datastore.Key, error) {
 }
 
 func (ref SubscriptionRef)key(c appengine.Context) (*datastore.Key, error) {
-  userKey := newUserKey(c, ref.UserID)
-
-  ancestorKey := userKey
-  if ref.FolderID != "" {
-    if kind, id, err := unformatId(ref.FolderID); err != nil {
-      return nil, err
-    } else if kind == "folder" {
-      ancestorKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      return nil, errors.New("Expecting folder ID; found: " + kind)
-    }
+  ancestorKey, err := ref.FolderRef.key(c)
+  if err != nil {
+    return nil, err
   }
 
   if ref.SubscriptionID == "" {
-    return ancestorKey, nil
+    return nil, errors.New("SubscriptionRef is missing Subscription ID")
   }
 
   return datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey), nil
+}
+
+func (scope ArticleScope)key(c appengine.Context) (*datastore.Key, error) {
+  ancestorKey, err := scope.FolderRef.key(c)
+  if err != nil {
+    return nil, err
+  }
+
+  if scope.SubscriptionID == "" {
+    return ancestorKey, nil
+  }
+
+  return datastore.NewKey(c, "Subscription", scope.SubscriptionID, 0, ancestorKey), nil
+}
+
+func (ref ArticleRef)key(c appengine.Context) (*datastore.Key, error) {
+  if ref.SubscriptionRef.SubscriptionID == "" {
+    return nil, errors.New("Article reference is missing subscription ID")
+  }
+
+  subscriptionKey, err := ref.SubscriptionRef.key(c)
+  if err != nil {
+    return nil, err
+  }
+
+  return datastore.NewKey(c, "Article", ref.ArticleID, 0, subscriptionKey), nil
 }
 
 func (user User)key(c appengine.Context) (*datastore.Key, error) {
@@ -131,11 +115,22 @@ func (user User)key(c appengine.Context) (*datastore.Key, error) {
 }
 
 func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*ArticlePage, error) {
-  var q *datastore.Query
-  if query, err := filter.NewQuery(c, start); err != nil {
+  scopeKey, err := filter.key(c)
+  if err != nil {
     return nil, err
-  } else {
-    q = query
+  }
+
+  q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Published")
+  if filter.Property != "" {
+    q = q.Filter("Properties = ", filter.Property)
+  }
+
+  if start != "" {
+    if cursor, err := datastore.DecodeCursor(start); err == nil {
+      q = q.Start(cursor)
+    } else {
+      return nil, err
+    }
   }
 
   t := q.Run(c)
@@ -190,7 +185,11 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
   var subscriptions []Subscription
   var subscriptionKeys []*datastore.Key
 
-  userKey := newUserKey(c, userID)
+  userKey, err := userID.key(c)
+  if err != nil {
+    return nil, err
+  }
+
   q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(400)
   if subKeys, err := q.GetAll(c, &subscriptions); err != nil {
     return nil, err
@@ -256,7 +255,10 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 }
 
 func IsFolderDuplicate(c appengine.Context, userID UserID, title string) (bool, error) {
-  userKey := newUserKey(c, userID)
+  userKey, err := userID.key(c)
+  if err != nil {
+    return false, err
+  }
 
   var folders []*Folder
   q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).Limit(1)
@@ -270,7 +272,10 @@ func IsFolderDuplicate(c appengine.Context, userID UserID, title string) (bool, 
 }
 
 func IsSubscriptionDuplicate(c appengine.Context, userID UserID, subscriptionURL string) (bool, error) {
-  userKey := newUserKey(c, userID)
+  userKey, err := userID.key(c)
+  if err != nil {
+    return false, err
+  }
 
   feedKey := datastore.NewKey(c, "Feed", subscriptionURL, 0, nil)
   q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
@@ -298,11 +303,11 @@ func UserByID(c appengine.Context, userID string) (*User, error) {
 }
 
 func (user User)Save(c appengine.Context) error {
-  if user.ID == "" {
-    return errors.New("User is missing a User ID")
+  userKey, err := UserID(user.ID).key(c)
+  if err != nil {
+    return err
   }
 
-  userKey := newUserKey(c, UserID(user.ID))
   if _, err := datastore.Put(c, userKey, &user); err != nil {
     return err
   }
@@ -311,8 +316,11 @@ func (user User)Save(c appengine.Context) error {
 }
 
 func FolderByTitle(c appengine.Context, userID UserID, title string) (FolderRef, error) {
-  userKey := newUserKey(c, userID)
-
+  userKey, err := userID.key(c)
+  if err != nil {
+    return FolderRef{}, err
+  }
+  
   q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).KeysOnly().Limit(1)
   if folderKeys, err := q.GetAll(c, nil); err != nil {
     return FolderRef{}, err
@@ -324,59 +332,41 @@ func FolderByTitle(c appengine.Context, userID UserID, title string) (FolderRef,
 }
 
 func FolderExists(c appengine.Context, ref FolderRef) (bool, error) {
-  userKey := newUserKey(c, ref.UserID)
-
-  if ref.FolderID == "" && ref.UserID != "" {
-    return true, nil
-  }
-
-  if kind, id, err := unformatId(ref.FolderID); err != nil {
+  if folderKey, err := ref.key(c); err != nil {
     return false, err
-  } else if kind == "folder" {
-    folderKey := datastore.NewKey(c, "Folder", "", id, userKey)
+  } else {
     folder := new(Folder)
-
     if err := datastore.Get(c, folderKey, folder); err == nil {
       return true, nil
     } else if err != datastore.ErrNoSuchEntity {
       return false, err
     }
-  } else {
-    return false, errors.New("Expecting folder ID; found: " + kind)
   }
 
   return false, nil
 }
 
 func SubscriptionExists(c appengine.Context, ref SubscriptionRef) (bool, error) {
-  userKey := newUserKey(c, ref.UserID)
-
-  parentKey := userKey
-  if ref.FolderID != "" {
-    if kind, id, err := unformatId(ref.FolderID); err != nil {
-      return false, err
-    } else if kind == "folder" {
-      parentKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      return false, errors.New("Expecting folder ID; found: " + kind)
-    }
-  }
-
-  subscriptionKey := datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, parentKey)
-  subscription := new(Subscription)
-
-  if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
-    return true, nil
-  } else if err != datastore.ErrNoSuchEntity {
+  if subscriptionKey, err := ref.key(c); err != nil {
     return false, err
+  } else {
+    subscription := new(Subscription)
+    if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
+      return true, nil
+    } else if err != datastore.ErrNoSuchEntity {
+      return false, err
+    }
   }
 
   return false, nil
 }
 
 func CreateFolder(c appengine.Context, userID UserID, title string) (FolderRef, error) {
-  userKey := newUserKey(c, userID)
-
+  userKey, err := userID.key(c)
+  if err != nil {
+    return FolderRef{}, err
+  }
+  
   folderKey := datastore.NewIncompleteKey(c, "Folder", userKey)
   folder := Folder {
     Title: title,
@@ -390,22 +380,12 @@ func CreateFolder(c appengine.Context, userID UserID, title string) (FolderRef, 
 }
 
 func RenameSubscription(c appengine.Context, ref SubscriptionRef, title string) error {
-  userKey := newUserKey(c, ref.UserID)
-
-  ancestorKey := userKey
-  if ref.FolderID != "" {
-    if kind, id, err := unformatId(ref.FolderID); err != nil {
-      return err
-    } else if kind == "folder" {
-      ancestorKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      return errors.New("Expecting folder ID; found: " + kind)
-    }
+  subscriptionKey, err := ref.key(c)
+  if err != nil {
+    return err
   }
 
-  subscriptionKey := datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey)
   subscription := new(Subscription)
-
   if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
     return err
   }
@@ -418,16 +398,10 @@ func RenameSubscription(c appengine.Context, ref SubscriptionRef, title string) 
   return nil
 }
 
-func RenameFolder(c appengine.Context, userID UserID, folderID string, title string) error {
-  userKey := newUserKey(c, userID)
-
-  var folderKey *datastore.Key
-  if kind, id, err := unformatId(folderID); err != nil {
+func RenameFolder(c appengine.Context, ref FolderRef, title string) error {
+  folderKey, err := ref.key(c)
+  if err != nil {
     return err
-  } else if kind == "folder" {
-    folderKey = datastore.NewKey(c, "Folder", "", id, userKey)
-  } else {
-    return errors.New("Expecting folder ID; found: " + kind)
   }
 
   folder := new(Folder)
@@ -444,75 +418,29 @@ func RenameFolder(c appengine.Context, userID UserID, folderID string, title str
 }
 
 func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, propertyValue bool) ([]string, error) {
-  userKey := newUserKey(c, ref.UserID)
-
-  parentKey := userKey
-  if ref.FolderID != "" {
-    if kind, id, err := unformatId(ref.FolderID); err != nil {
-      return nil, err
-    } else if kind == "folder" {
-      parentKey = datastore.NewKey(c, "Folder", "", id, userKey)
-    } else {
-      return nil, errors.New("Expecting folder ID; found: " + kind)
-    }
+  articleKey, err := ref.key(c)
+  if err != nil {
+    return nil, err
   }
-
-  subscriptionKey := datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, parentKey)
-  articleKey := datastore.NewKey(c, "Article", ref.ArticleID, 0, subscriptionKey)
 
   article := new(Article)
   if err := datastore.Get(c, articleKey, article); err != nil {
     return nil, err
   }
 
-  // Convert set property list to a map
-  propertyMap := make(map[string]bool)
-  for _, property := range article.Properties {
-    propertyMap[property] = true
-  }
+  if propertyValue != article.HasProperty(propertyName) {
+    wasUnread := article.IsUnread()
+    unreadDelta := 0
 
-  unreadDelta := 0
-  writeChanges := false
+    article.SetProperty(propertyName, propertyValue)
 
-  // 'read' and 'unread' are mutually exclusive
-  if propertyName == "read" {
-    if propertyMap[propertyName] && !propertyValue {
-      delete(propertyMap, "read")
-      propertyMap["unread"] = true
-      unreadDelta = 1
-    } else if !propertyMap[propertyName] && propertyValue {
-      delete(propertyMap, "unread")
-      propertyMap["read"] = true
-      unreadDelta = -1
-    }
-    writeChanges = unreadDelta != 0
-  } else if propertyName == "unread" {
-    if propertyMap[propertyName] && !propertyValue {
-      delete(propertyMap, "unread")
-      propertyMap["read"] = true
-      unreadDelta = -1
-    } else if !propertyMap[propertyName] && propertyValue {
-      delete(propertyMap, "read")
-      propertyMap["unread"] = true
-      unreadDelta = 1
-    }
-    writeChanges = unreadDelta != 0
-  } else {
-    if propertyMap[propertyName] && !propertyValue {
-      delete(propertyMap, propertyName)
-      writeChanges = true
-    } else if !propertyMap[propertyName] && propertyValue {
-      propertyMap[propertyName] = true
-      writeChanges = true
-    }
-  }
-
-  if writeChanges {
-    article.Properties = make([]string, len(propertyMap))
-    i := 0
-    for key, _ := range propertyMap {
-      article.Properties[i] = key
-      i++
+    // Update unread counts if necessary
+    if wasUnread != article.IsUnread() {
+      if wasUnread {
+        unreadDelta = -1
+      } else {
+        unreadDelta = 1
+      }
     }
 
     if _, err := datastore.Put(c, articleKey, article); err != nil {
@@ -521,13 +449,15 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 
     if unreadDelta != 0 {
       // Update unread counts - not critical
+      subscriptionKey := articleKey.Parent()
       subscription := new(Subscription)
+
       if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
-        c.Errorf("Unread count update failed: subscription fetch error (%s)", err)
+        c.Warningf("Unread count update failed: subscription read error (%s)", err)
       } else {
         subscription.UnreadCount += unreadDelta
         if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
-          c.Errorf("Unread count update failed: subscription write error (%s)", err)
+          c.Warningf("Unread count update failed: subscription write error (%s)", err)
         }
       }
     }
@@ -536,8 +466,8 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
   return article.Properties, nil
 }
 
-func MarkAllAsRead(c appengine.Context, ref SubscriptionRef) (int, error) {
-  key, err := ref.key(c)
+func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
+  key, err := scope.key(c)
   if err != nil {
     return 0, err
   }
@@ -821,7 +751,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
       Author: html.UnescapeString(parsedEntry.Author),
       Title: html.UnescapeString(parsedEntry.Title),
       Link: parsedEntry.WWWURL,
-      Summary: generateSummary(parsedEntry),
+      Summary: parsedEntry.GenerateSummary(),
       Content: parsedEntry.Content,
 
       // FIXME: Get rid of this eventually - already part of meta
@@ -836,7 +766,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
   }
 
   if appengine.IsDevAppServer() {
-    c.Debugf("Completed %s: %d new; %d changed; %d unchanged (took %s, last fetch: %s ago)", 
+    c.Debugf("Completed %s: %d,%d,%d (n,c,u) (took %s, last fetch: %s ago)", 
       parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
   }
 
@@ -858,9 +788,12 @@ func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) (i
   return updateSubscriptionByKey(c, subscriptionKey, subscription)
 }
 
-func UpdateAllSubscriptions(c appengine.Context, userID string) error {
-  userKey := newUserKey(c, UserID(userID))
-
+func UpdateAllSubscriptions(c appengine.Context, userID UserID) error {
+  userKey, err := userID.key(c)
+  if err != nil {
+    return err
+  }
+  
   var subscriptions []Subscription
 
   q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(400)

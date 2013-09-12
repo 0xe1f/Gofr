@@ -24,14 +24,17 @@
 package rss
 
 import (
-  "time"
+  "bytes"
   "encoding/xml"
+  "errors"
+  "html"
   "io"
   "io/ioutil"
-  "bytes"
-  "errors"
+  "regexp"
+  "sanitize"
   "strings"
   "sort"
+  "time"
 )
 
 type Feed struct {
@@ -218,4 +221,20 @@ func substr(s string, pos int, length int) string {
   }
 
   return string(runes[pos:l])
+}
+
+var extraSpaceStripper *regexp.Regexp = regexp.MustCompile(`\s\s+`)
+
+func (entry Entry)GenerateSummary() string {
+  // TODO: This process should be streamlined to do
+  // more things with fewer passes
+  sanitized := sanitize.StripTags(entry.Content)
+  unescaped := html.UnescapeString(sanitized)
+  stripped := extraSpaceStripper.ReplaceAllString(unescaped, "")
+
+  if runes := []rune(stripped); len(runes) > 400 {
+    return string(runes[:400])
+  } else {
+    return stripped
+  }
 }

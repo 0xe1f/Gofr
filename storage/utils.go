@@ -32,10 +32,6 @@ import (
   "time"
 )
 
-func newUserKey(c appengine.Context, userId UserID) *datastore.Key {
-  return datastore.NewKey(c, "User", string(userId), 0, nil)
-}
-
 func formatId(kind string, intId int64) string {
   return kind + "://" + strconv.FormatInt(intId, 36)
 }
@@ -158,7 +154,7 @@ func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key
 
   if batchWriter.Written() > 0 {
     if appengine.IsDevAppServer() {
-      c.Debugf("Completed %s: %d records", batchWriter.Written())
+      c.Debugf("Completed %s: %d records", subscriptionKey.StringID(), batchWriter.Written())
     }
 
     // Write the subscription

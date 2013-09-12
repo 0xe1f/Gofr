@@ -284,7 +284,7 @@ func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {
     return TaskMessage{}, errors.New("Missing user ID")
   }
 
-  ref := storage.SubscriptionRef {
+  ref := storage.ArticleScope {
     FolderRef: storage.FolderRef {
       UserID: userID,
       FolderID: folderID,
@@ -303,7 +303,7 @@ func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {
 }
 
 func refreshTask(pfc *PFContext) (TaskMessage, error) {
-  userID := pfc.R.PostFormValue("userID")
+  userID := storage.UserID(pfc.R.PostFormValue("userID"))
   if userID == "" {
     return TaskMessage{}, errors.New("Missing User ID")
   }

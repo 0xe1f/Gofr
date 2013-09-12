@@ -40,7 +40,7 @@ import (
 )
 
 const (
-  subscriptionStalePeriodInMinutes = 30
+  subscriptionStalePeriodInMinutes = 5
 )
 
 var validProperties = map[string]bool {
@@ -114,9 +114,13 @@ func articles(pfc *PFContext) (interface{}, error) {
   userID := storage.UserID(pfc.User.ID)
 
   filter := storage.ArticleFilter {
-    SubscriptionID: r.FormValue("subscription"),
-    FolderID: r.FormValue("folder"),
-    UserID: userID,
+    ArticleScope: storage.ArticleScope {
+      FolderRef: storage.FolderRef {
+        UserID: userID,
+        FolderID: r.FormValue("folder"),
+      },
+      SubscriptionID: r.FormValue("subscription"),
+    },
   }
 
   if filterProperty := r.FormValue("filter"); validProperties[filterProperty] {
@@ -183,7 +187,12 @@ func rename(pfc *PFContext) (interface{}, error) {
       return nil, NewReadableError(_l("A folder with that name already exists"), nil)
     }
 
-    if err := storage.RenameFolder(pfc.C, userID, folderID, title); err != nil {
+    ref := storage.FolderRef {
+      UserID: userID,
+      FolderID: folderID,
+    }
+
+    if err := storage.RenameFolder(pfc.C, ref, title); err != nil {
       return nil, NewReadableError(_l("Error renaming folder"), &err)
     }
   } else {
