@@ -99,6 +99,7 @@ type Subscription struct {
   Updated time.Time    `json:"-"`
   Subscribed time.Time `json:"-"`
   Feed *datastore.Key  `json:"-"`
+  MaxUpdateIndex int64 `json:"-"`
 
   Title string         `json:"title"`
   UnreadCount int      `json:"unread"`

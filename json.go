@@ -66,26 +66,47 @@ func registerJson() {
 }
 
 func subscriptions(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
   userID := storage.UserID(pfc.User.ID)
+
+  userSubscriptions, err := storage.NewUserSubscriptions(c, userID)
+  if err != nil {
+    return nil, err
+  }
 
   staleDuration := time.Duration(subscriptionStalePeriodInMinutes) * time.Minute
   if appengine.IsDevAppServer() {
-    // On dev server, stale period is 5 minutes
-    staleDuration = time.Duration(5) * time.Minute
+    // On dev server, stale period is 1 minute
+    staleDuration = time.Duration(1) * time.Minute
   }
 
   if time.Since(pfc.User.LastSubscriptionUpdate) > staleDuration {
     pfc.User.LastSubscriptionUpdate = time.Now()
-    if err := pfc.User.Save(pfc.C); err != nil {
-      return nil, err
-    }
+    if err := pfc.User.Save(c); err != nil {
+      c.Warningf("Could not write user object back to store: %s", err)
+    } else {
+      started := time.Now()
 
-    if err := startTask(pfc, "refresh", nil); err != nil {
-      return nil, err
+      // Determine if new feeds are available
+      if needRefresh, err := storage.AreNewEntriesAvailable(c, userSubscriptions.Subscriptions); err != nil {
+        c.Warningf("Could not determine if new entries are available: %s", err)
+      } else if needRefresh {
+        if appengine.IsDevAppServer() {
+          c.Debugf("Subscriptions need update; initiating a refresh (took %s)", time.Since(started))
+        }
+
+        if err := startTask(pfc, "refresh", nil); err != nil {
+          c.Warningf("Could not initiate the refresh task: %s", err)
+        }
+      } else {
+        if appengine.IsDevAppServer() {
+          c.Debugf("Subscriptions are up to date (took %s)", time.Since(started))
+        }
+      }
     }
   }
 
-  return storage.NewUserSubscriptions(pfc.C, userID)
+  return userSubscriptions, nil
 }
 
 func articles(pfc *PFContext) (interface{}, error) {

@@ -659,6 +659,7 @@ func Subscribe(c appengine.Context, ref FolderRef, url string, title string) (Su
     subscription.Subscribed = time.Now()
     subscription.Title = title
     subscription.UnreadCount = 0
+    subscription.MaxUpdateIndex = -1
     subscription.Feed = datastore.NewKey(c, "Feed", url, 0, nil)
   } else {
     return SubscriptionRef{}, err
@@ -695,6 +696,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
   
   feed := Feed{}
   feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
+  var lastFetched time.Time
 
   err := datastore.RunInTransaction(c, func(c appengine.Context) error {
     if err := datastore.Get(c, feedKey, &feed); err == datastore.ErrNoSuchEntity {
@@ -707,6 +709,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     }
 
     durationBetweenUpdates := parsedFeed.DurationBetweenUpdates()
+
+    lastFetched = feed.Fetched
 
     feed.Title = parsedFeed.Title
     feed.Description = parsedFeed.Description
@@ -747,6 +751,9 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
   pending := 0
   written := 0
 
+  started := time.Now()
+  nuovo, unchanged, changed := 0, 0, 0
+
   for i := 0; ; i++ {
     if i >= elements || pending + 1 >= batchSize {
       if pending > 0 {
@@ -782,18 +789,19 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     if err := datastore.Get(c, entryMetaKey, &entryMeta); err == datastore.ErrNoSuchEntity {
       // New; set defaults
       entryMeta.Entry = entryKey
+      nuovo++
     } else if err != nil {
       // Some other error
       c.Warningf("Error getting entry meta (GUID '%s'): err", entryGUID, err)
       continue
     } else {
       // Already in the store - check if it's new/updated
-      if entryMeta.Updated == parsedEntry.Updated && !entryMeta.Updated.IsZero() {
+      if !entryMeta.Updated.IsZero() && entryMeta.Updated.Equal(parsedEntry.Updated) {
         // No updates - skip
-        if appengine.IsDevAppServer() {
-          c.Infof("Skipping GUID %s - no changes detected", entryGUID)
-          continue
-        }
+        unchanged++
+        continue
+      } else {
+        changed++
       }
     }
 
@@ -827,19 +835,24 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     entryKeys[i] = entryKey
   }
 
+  if appengine.IsDevAppServer() {
+    c.Debugf("Completed %s: %d new; %d changed; %d unchanged (took %s, last fetch: %s ago)", 
+      parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
+  }
+
   return nil
 }
 
-func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) error {
+func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) (int, error) {
   subscriptionKey, err := ref.key(c)
   if err != nil {
-    return err
+    return 0, err
   }
 
   subscription := Subscription{}
   if err := datastore.Get(c, subscriptionKey, &subscription); err != nil {
     c.Errorf("Error getting subscription: %s", err)
-    return err
+    return 0, err
   }
 
   return updateSubscriptionByKey(c, subscriptionKey, subscription)
@@ -865,11 +878,23 @@ func UpdateAllSubscriptions(c appengine.Context, userID string) error {
   }
 
   for i := 0; i < subscriptionCount; i++ {
-    subscription := <-doneChannel;
-    c.Infof("Completed sub. %s", subscription.Title)
+    <-doneChannel;
   }
 
   c.Infof("%d subscriptions completed in %s", subscriptionCount, time.Since(started))
 
   return nil
+}
+
+func AreNewEntriesAvailable(c appengine.Context, subscriptions []Subscription) (bool, error) {
+  for _, subscription := range subscriptions {
+    q := datastore.NewQuery("EntryMeta").Ancestor(subscription.Feed).Filter("UpdateIndex >", subscription.MaxUpdateIndex).KeysOnly().Limit(1)
+    if entryMetaKeys, err := q.GetAll(c, nil); err != nil {
+      return false, err
+    } else if len(entryMetaKeys) > 0 {
+      return true, nil
+    }
+  }
+
+  return false, nil
 }

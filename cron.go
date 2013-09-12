@@ -62,8 +62,15 @@ func updateFeedsJob(pfc *PFContext) error {
   importing := 0
   importStarted := time.Now()
   doneChannel := make(chan storage.Feed)
+  fetchTime := time.Now()
 
-  q := datastore.NewQuery("Feed").Filter("NextFetch <", time.Now())
+  if appengine.IsDevAppServer() {
+    // On dev server, disregard next update limitations 
+    // (by "forwarding the clock")
+    fetchTime = fetchTime.Add(time.Duration(24) * time.Hour)
+  }
+  
+  q := datastore.NewQuery("Feed").Filter("NextFetch <", fetchTime)
   for t := q.Run(c); ; {
     if _, err := t.Next(&feed); err == datastore.Done {
       break
@@ -72,15 +79,12 @@ func updateFeedsJob(pfc *PFContext) error {
       return err
     }
 
-    c.Infof("%s, overdue %s for update", feed.Title, time.Since(feed.Fetched))
-
     go updateFeed(pfc.C, doneChannel, feed)
     importing++
   }
 
   for i := 0; i < importing; i++ {
-    feed := <-doneChannel;
-    c.Infof("Completed feed %s", feed.Title)
+    <-doneChannel;
   }
 
   c.Infof("%d feeds completed in %s", importing, time.Since(importStarted))

@@ -83,7 +83,7 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
     c.Errorf("Error subscribing to feed %s: %s", subscriptionURL, err)
     goto done
   } else {
-    if err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
+    if _, err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
       c.Errorf("Error updating subscription %s: %s", subscriptionURL, err)
       goto done
     }
@@ -228,7 +228,7 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
   if subscriptionRef, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, feedTitle); err != nil {
     return TaskMessage{}, err
   } else {
-    if err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
+    if _, err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
       return TaskMessage{}, err
     }
   }

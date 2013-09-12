@@ -136,7 +136,8 @@ func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
   taskMessage, err := handler.RouteHandler(pfc)
   if err != nil {
     pfc.C.Errorf("Task failed: %s", err.Error())
-    http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
+    // Don't return an error - that would routinely restart the task
+    // http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
     response = map[string] string { "error": err.Error() }
   } else {
     response = taskMessage
