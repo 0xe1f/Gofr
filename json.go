@@ -40,6 +40,13 @@ import (
 )
 
 const (
+  subscriptionQueue = "subscriptions"
+  importQueue = "imports"
+  refreshQueue = "refreshes"
+  modificationQueue = "modifications"
+)
+
+const (
   subscriptionStalePeriodInMinutes = 5
 )
 
@@ -95,7 +102,7 @@ func subscriptions(pfc *PFContext) (interface{}, error) {
           c.Debugf("Subscriptions need update; initiating a refresh (took %s)", time.Since(started))
         }
 
-        if err := startTask(pfc, "refresh", nil); err != nil {
+        if err := startTask(pfc, "refresh", nil, refreshQueue); err != nil {
           c.Warningf("Could not initiate the refresh task: %s", err)
         }
       } else {
@@ -337,7 +344,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     "url":      subscriptionURL,
     "folderId": folderId,
   }
-  if err := startTask(pfc, "subscribe", params); err != nil {
+  if err := startTask(pfc, "subscribe", params, subscriptionQueue); err != nil {
     return nil, NewReadableError(_l("Cannot subscribe - too busy"), &err)
   }
 
@@ -387,7 +394,7 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
     "subscriptionID": subscriptionID,
     "folderID": folderID,
   }
-  if err := startTask(pfc, "unsubscribe", params); err != nil {
+  if err := startTask(pfc, "unsubscribe", params, modificationQueue); err != nil {
     return nil, NewReadableError(_l("Cannot unsubscribe - too busy"), &err)
   }
 
@@ -423,7 +430,7 @@ func importOPML(pfc *PFContext) (interface{}, error) {
   params := taskParams {
     "opmlBlobKey": string(blobKey),
   }
-  if err := startTask(pfc, "import", params); err != nil {
+  if err := startTask(pfc, "import", params, importQueue); err != nil {
     // Remove the blob
     if err := blobstore.Delete(c, blobKey); err != nil {
       c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
@@ -472,7 +479,7 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
     "subscriptionID": subscriptionID,
     "folderID":       folderID,
   }
-  if err := startTask(pfc, "markAllAsRead", params); err != nil {
+  if err := startTask(pfc, "markAllAsRead", params, modificationQueue); err != nil {
     return nil, err
   }
 

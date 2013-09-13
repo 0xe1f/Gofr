@@ -831,3 +831,30 @@ func AreNewEntriesAvailable(c appengine.Context, subscriptions []Subscription) (
 
   return false, nil
 }
+
+func UpdateUnreadCounts(c appengine.Context, ch chan<- Subscription, subscriptionKey *datastore.Key, subscription Subscription) {
+  originalSubscriptionCount := subscription.UnreadCount
+  q := datastore.NewQuery("Article").Ancestor(subscriptionKey).Filter("Properties =", "unread")
+
+  if count, err := q.Count(c); err != nil {
+    c.Errorf("Error getting unread count: %s", err)
+    goto done
+  } else if count != originalSubscriptionCount {
+    subscription.UnreadCount = count
+    if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+      c.Errorf("Error writing unread count: %s", err)
+      goto done
+    }
+  }
+
+  if originalSubscriptionCount != subscription.UnreadCount {
+    c.Infof("Subscription count corrected to %d (was: %d)", 
+      subscription.UnreadCount, originalSubscriptionCount)
+  }
+
+done:
+  if ch != nil {
+    ch<- subscription
+  }
+}
+

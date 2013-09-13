@@ -283,8 +283,8 @@ $().ready(function()
 
       $.getJSON('articles', 
       {
-        'subscription': subscription.id ? subscription.id : undefined,
-        'folder':       subscription.parent ? subscription.parent : undefined,
+        'subscription': !subscription.isFolder() ? subscription.id : undefined,
+        'folder':       subscription.isFolder() ? subscription.id : subscription.parent,
         'continue':     continueFrom ? continueFrom : undefined,
         'filter':       selectedFilter,
       })

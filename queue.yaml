@@ -1,0 +1,17 @@
+queue:
+- name: subscriptions
+  rate: 10/s
+  retry_parameters:
+    task_retry_limit: 0
+- name: imports
+  rate: 10/s
+  retry_parameters:
+    task_retry_limit: 0
+- name: refreshes
+  rate: 10/s
+  retry_parameters:
+    task_retry_limit: 0
+- name: modifications
+  rate: 10/s
+  retry_parameters:
+    task_retry_limit: 0

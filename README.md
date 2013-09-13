@@ -18,7 +18,7 @@ To deploy:
 1. Clone the repository: `git clone https://github.com/melllvar/Gofr.git`
 2. Change into the new directory: `cd Gofr`
 3. Edit [app.yaml](app.yaml) and change the name of the application (initially "gofr-io") to one of your choosing
-4. Deploy to production: `appcfg.py --oauth2 update .`
+4. Deploy to production: `appcfg.py update .`
 
 Dev Server Notes
 ----------------

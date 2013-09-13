@@ -70,7 +70,7 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
     } else {
       defer response.Body.Close()
       if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
-        c.Errorf("Error reading RSS content: %s", err)
+        c.Errorf("Error reading RSS content (%s): %s", subscriptionURL, err)
         goto done
       } else if err := storage.UpdateFeed(pfc.C, parsedFeed); err != nil {
         c.Errorf("Error updating feed: %s", err)
@@ -317,7 +317,7 @@ func refreshTask(pfc *PFContext) (TaskMessage, error) {
   }, nil
 }
 
-func startTask(pfc *PFContext, taskName string, params taskParams) error {
+func startTask(pfc *PFContext, taskName string, params taskParams, queueName string) error {
   taskValues := url.Values {
     "userID": { pfc.User.ID },
     "channelID": { pfc.ChannelID() },
@@ -328,7 +328,7 @@ func startTask(pfc *PFContext, taskName string, params taskParams) error {
   }
 
   task := taskqueue.NewPOSTTask("/tasks/" + taskName, taskValues)
-  if _, err := taskqueue.Add(pfc.C, task, ""); err != nil {
+  if _, err := taskqueue.Add(pfc.C, task, queueName); err != nil {
     return err
   }
 
