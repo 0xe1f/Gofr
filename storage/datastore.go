@@ -688,11 +688,27 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     if i >= elements || pending + 1 >= batchSize {
       if pending > 0 {
         if _, err := datastore.PutMulti(c, entryKeys[:pending], entries[:pending]); err != nil {
-          c.Errorf("Error writing Entry batch: %s", err)
+          if multiError, ok := err.(appengine.MultiError); ok {
+            for i, err := range multiError {
+              if err != nil {
+                c.Errorf("entry[%d]: key [%s,%s] failed: %s", i, 
+                  entryKeys[i].StringID(), entries[i].Link, err)
+              }
+            }
+          }
+          // FIXME: don't stop the entire write simply because a few entries failed
           return err
         }
         if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], entryMetas[:pending]); err != nil {
-          c.Errorf("Error writing EntryMeta batch: %s", err)
+          if multiError, ok := err.(appengine.MultiError); ok {
+            for i, err := range multiError {
+              if err != nil {
+                c.Errorf("entryMeta[%d]: [%s,%s] failed: %s", i, 
+                  entryMetaKeys[i].StringID(), entries[i].Link, err)
+              }
+            }
+          }
+          // FIXME: don't stop the entire write simply because a few entries failed
           return err
         }
       }
@@ -735,9 +751,6 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
       }
     }
 
-    updateCounter++
-    pending++
-
     entryMeta.Published = parsedEntry.Published
     entryMeta.Updated = parsedEntry.Updated
     entryMeta.Fetched = parsedFeed.Retrieved
@@ -759,10 +772,13 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
       Updated: parsedEntry.Updated,
     }
 
-    entryMetas[i] = &entryMeta
-    entryMetaKeys[i] = entryMetaKey
-    entries[i] = &entry
-    entryKeys[i] = entryKey
+    entryMetas[pending] = &entryMeta
+    entryMetaKeys[pending] = entryMetaKey
+    entries[pending] = &entry
+    entryKeys[pending] = entryKey
+    
+    updateCounter++
+    pending++
   }
 
   if appengine.IsDevAppServer() {
