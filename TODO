@@ -1,4 +1,5 @@
 Mask the continue marker (currently sent in base-64)
 Localization
 Use a mutex to prevent simultaneous feed updates
-Fix buggy Channel implementation
+Fix buggy Channel implementation in Upload OPML
+Remove User from PFC

@@ -691,8 +691,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
           if multiError, ok := err.(appengine.MultiError); ok {
             for i, err := range multiError {
               if err != nil {
-                c.Errorf("entry[%d]: key [%s,%s] failed: %s", i, 
-                  entryKeys[i].StringID(), entries[i].Link, err)
+                c.Errorf("entry[%d]: key [%s] failed: %s", i, 
+                  entryKeys[i].StringID(), err)
               }
             }
           }
@@ -703,8 +703,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
           if multiError, ok := err.(appengine.MultiError); ok {
             for i, err := range multiError {
               if err != nil {
-                c.Errorf("entryMeta[%d]: [%s,%s] failed: %s", i, 
-                  entryMetaKeys[i].StringID(), entries[i].Link, err)
+                c.Errorf("entryMeta[%d]: [%s] failed: %s", i, 
+                  entryMetaKeys[i].StringID(), err)
               }
             }
           }
@@ -776,7 +776,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     entryMetaKeys[pending] = entryMetaKey
     entries[pending] = &entry
     entryKeys[pending] = entryKey
-    
+
     updateCounter++
     pending++
   }

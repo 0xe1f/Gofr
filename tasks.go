@@ -320,7 +320,7 @@ func refreshTask(pfc *PFContext) (TaskMessage, error) {
 func startTask(pfc *PFContext, taskName string, params taskParams, queueName string) error {
   taskValues := url.Values {
     "userID": { pfc.User.ID },
-    "channelID": { pfc.ChannelID() },
+    "channelID": { pfc.ChannelID },
   }
 
   for k, v := range params {

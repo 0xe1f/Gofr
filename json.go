@@ -497,8 +497,12 @@ func authUpload(pfc *PFContext) (interface{}, error) {
 }
 
 func initChannel(pfc *PFContext) (interface{}, error) {
-  if token, err := channel.Create(pfc.C, pfc.ChannelID()); err != nil {
-    return nil, NewReadableError("Error initializing channel", &err)
+  if pfc.ChannelID == "" {
+    return nil, NewReadableError(_l("Missing Client ID"), nil)
+  }
+
+  if token, err := channel.Create(pfc.C, pfc.ChannelID); err != nil {
+    return nil, NewReadableError(_l("Error initializing channel"), &err)
   } else {
     return map[string]string { "token": token }, nil
   }

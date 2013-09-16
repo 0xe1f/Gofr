@@ -23,6 +23,7 @@
  
 $().ready(function()
 {
+  var clientId = null;
   var subscriptionMap = null;
   var continueFrom = null;
   var lastContinued = null;
@@ -287,6 +288,7 @@ $().ready(function()
         'folder':       subscription.isFolder() ? subscription.id : subscription.parent,
         'continue':     continueFrom ? continueFrom : undefined,
         'filter':       selectedFilter,
+        'client':       clientId,
       })
       .success(function(response)
       {
@@ -388,6 +390,7 @@ $().ready(function()
 
       $.post('unsubscribe', 
       {
+        'client': clientId,
         'subscription': subscription.isFolder() ? undefined : subscription.id,
         'folder': subscription.isFolder() ? subscription.id : subscription.parent,
       }, 
@@ -403,6 +406,7 @@ $().ready(function()
 
       $.post('markAllAsRead', 
       {
+        'client': clientId,
         'subscription': subscription.isFolder() ? undefined : subscription.id,
         'folder':       subscription.isFolder() ? subscription.id : subscription.parent,
         'filter':       filter,
@@ -420,7 +424,10 @@ $().ready(function()
   {
     'subscribe': function(url)
     {
-      var params = { 'url': url };
+      var params = {
+        'url': url,
+        'client': clientId,
+      };
       if (this.id)
         params['folder'] = this.id;
 
@@ -1424,46 +1431,51 @@ $().ready(function()
 
   var initChannels = function()
   {
-      $.post('initChannel', {},
-      function(response)
-      {
-        channel = new goog.appengine.Channel(response.token);
-        socket = channel.open();
+    clientId = Math.random() + "";
 
-        // FIXME
-        socket.onopen = function()
+    $.post('initChannel', 
+    {
+      'client': clientId,
+    },
+    function(response)
+    {
+      channel = new goog.appengine.Channel(response.token);
+      socket = channel.open();
+
+      // FIXME
+      socket.onopen = function()
+      {
+        if (console && console.debug)
+          console.debug("Channel open");
+      };
+      socket.onclose = function()
+      {
+        // Reconnect
+        if (console && console.debug)
         {
-          if (console && console.debug)
-            console.debug("Channel open");
-        };
-        socket.onclose = function()
+          console.debug("Channel closed");
+          initChannels();
+        }
+      };
+      socket.onmessage = function(m)
+      {
+        var obj = $.parseJSON(m.data);
+        if (obj.error)
+          ui.showToast(obj.error, true);
+        else
         {
-          // Reconnect
-          if (console && console.debug)
-          {
-            console.debug("Channel closed");
-            initChannels();
-          }
-        };
-        socket.onmessage = function(m)
-        {
-          var obj = $.parseJSON(m.data);
-          if (obj.error)
-            ui.showToast(obj.error, true);
-          else
-          {
-            if (obj.message)
-              ui.showToast(obj.message, false);
-            if (obj.refresh)
-              refresh();
-          }
-        };
-        socket.onerror = function(error)
-        {
-          if (console && console.debug)
-            console.debug("Received an error: " + error);
-        };
-      }, 'json');
+          if (obj.message)
+            ui.showToast(obj.message, false);
+          if (obj.refresh)
+            refresh();
+        }
+      };
+      socket.onerror = function(error)
+      {
+        if (console && console.debug)
+          console.debug("Received an error: " + error);
+      };
+    }, 'json');
   };
 
   ui.init();

@@ -26,8 +26,10 @@ package gofr
 import (
  "appengine"
  "appengine/channel"
+ "appengine/user"
  "encoding/json"
  "net/http"
+ "storage"
 )
 
 type requestHandler interface {
@@ -75,10 +77,13 @@ var routes []route = make([]route, 0, 100)
 func (handler htmlRequestHandler)handleRequest(pfc *PFContext) {
   w := pfc.W
 
-  if handler.LoginRequired && pfc.User == nil {
+  aeUser := user.Current(pfc.C)
+  if handler.LoginRequired && aeUser == nil {
     w.Header().Set("Location", pfc.LoginURL)
     w.WriteHeader(http.StatusFound)
     return
+  } else if aeUser != nil {
+    pfc.UserID = storage.UserID(aeUser.ID)
   }
 
   handler.RouteHandler(pfc)
@@ -88,13 +93,19 @@ func (handler jsonRequestHandler)handleRequest(pfc *PFContext) {
   w := pfc.W
   c := pfc.C
 
-  if handler.LoginRequired && pfc.User == nil {
+  aeUser := user.Current(pfc.C)
+  if handler.LoginRequired && aeUser == nil {
     jsonObj := map[string]string { "errorMessage": _l("Please sign in") }
     bf, _ := json.Marshal(jsonObj)
 
     w.Header().Set("Content-type", "application/json; charset=utf-8")
     http.Error(w, string(bf), 401)
     return
+  } else if aeUser != nil {
+    pfc.UserID = storage.UserID(aeUser.ID)
+    if clientID := pfc.R.PostFormValue("client"); clientID != "" {
+      pfc.ChannelID = aeUser.ID + "," + clientID
+    }
   }
 
   if returnValue, err := handler.RouteHandler(pfc); err == nil {
@@ -132,12 +143,18 @@ func (handler jsonRequestHandler)handleRequest(pfc *PFContext) {
 }
 
 func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
+  if userID := pfc.R.PostFormValue("userID"); userID != "" {
+    pfc.UserID = storage.UserID(userID)
+    if channelID := pfc.R.PostFormValue("channelID"); channelID != "" {
+      pfc.ChannelID = channelID
+    }
+  }
+
   var response interface{}
   taskMessage, err := handler.RouteHandler(pfc)
   if err != nil {
     pfc.C.Errorf("Task failed: %s", err.Error())
-    // Don't return an error - that would routinely restart the task
-    // http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
+    http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
     response = map[string] string { "error": err.Error() }
   } else {
     response = taskMessage

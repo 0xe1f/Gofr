@@ -26,26 +26,11 @@ package gofr
 import (
   "appengine"
   "appengine/user"
-  crand "crypto/rand"
-  "github.com/gorilla/sessions"
-  "io"
-  mrand "math/rand"
   "net/http"
   "storage"
-  "strconv"
 )
 
-var cookieStore *sessions.CookieStore
-
 func init() {
-  // Initialize cookie store
-  bytes := make([]byte, 20)
-  if n, err := io.ReadFull(crand.Reader, bytes); n != len(bytes) || err != nil {
-  	// FIXME: Critical, failed to initialize random array of bytes
-  	return
-  }
-  cookieStore = sessions.NewCookieStore(bytes)
-
   // Initialize handlers
   http.HandleFunc("/", Run)
 
@@ -59,13 +44,10 @@ type PFContext struct {
   R *http.Request
   C appengine.Context
   W http.ResponseWriter
-  ClientID string
+  ChannelID string
+  UserID storage.UserID
   User *storage.User
   LoginURL string
-}
-
-func (context PFContext)ChannelID() string {
-  return context.User.ID + "," + context.ClientID
 }
 
 func Run(w http.ResponseWriter, r *http.Request) {
@@ -79,18 +61,8 @@ func Run(w http.ResponseWriter, r *http.Request) {
     loginURL = url
   }
 
-  var clientID string
-
-  session, _ := cookieStore.Get(r, "main")
-  if id, ok := session.Values["clientID"].(string); !ok || id == "" {
-    clientID = strconv.Itoa(mrand.Int())
-    session.Values["clientID"] = clientID
-    session.Save(r, w)
-  } else {
-    clientID = id
-  }
-
   var gofrUser *storage.User
+
   if aeUser := user.Current(c); aeUser != nil {
     if u, err := storage.UserByID(c, aeUser.ID); err != nil {
       c.Errorf("Error loading user")
@@ -116,7 +88,6 @@ func Run(w http.ResponseWriter, r *http.Request) {
     R: r,
     C: c,
     W: w,
-    ClientID: clientID,
     User: gofrUser,
     LoginURL: loginURL,
   }
