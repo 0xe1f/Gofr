@@ -24,14 +24,17 @@
 package rss
 
 import (
+  "appengine"
   "strings"
   "regexp"
+  "net/url"
 )
 
-func ExtractRSSLink(html string) string {
+func ExtractRSSLink(c appengine.Context, sourceURL string, html string) (string, error) {
   tagRe := regexp.MustCompile(`<link(?:\s+\w+\s*=\s*(?:"[^"]*"|'[^']'))+\s*/?>`)
   attrRe := regexp.MustCompile(`\b(?P<key>\w+)\s*=\s*(?:"(?P<value>[^"]*)"|'(?P<value>[^'])')`)
 
+  linkURL := ""
   for _, linkTag := range tagRe.FindAllString(html, -1) {
     link := make(map[string]string)
     for _, attr := range attrRe.FindAllStringSubmatch(linkTag, -1) {
@@ -44,9 +47,20 @@ func ExtractRSSLink(html string) string {
     }
 
     if link["rel"] == "alternate" && link["type"] == "application/rss+xml" {
-      return link["href"]
+      linkURL = link["href"]
     }
   }
 
-  return ""
+  if refURL, err := url.Parse(linkURL); err != nil {
+    return "", err
+  } else if !refURL.IsAbs() {
+    // URL is not absolute. Resolve it.
+    if asURL, err := url.Parse(sourceURL); err != nil {
+      return "", err
+    } else {
+      linkURL = asURL.ResolveReference(refURL).String()
+    }
+  }
+
+  return linkURL, nil
 }

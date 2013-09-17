@@ -129,6 +129,9 @@ func (nativeEntry *atomEntry) Marshal() (entry *Entry, err error) {
   updated := published
   if nativeEntry.Updated != "" {
     updated, err = parseTime(supportedAtomTimeFormats, nativeEntry.Updated)
+    if published.IsZero() {
+      published = updated // e.g. xkcd
+    }
   }
 
   entry = &Entry {

@@ -289,8 +289,8 @@ func IsSubscriptionDuplicate(c appengine.Context, userID UserID, subscriptionURL
   return false, nil
 }
 
-func UserByID(c appengine.Context, userID string) (*User, error) {
-  userKey := datastore.NewKey(c, "User", userID, 0, nil)
+func UserByID(c appengine.Context, userID UserID) (*User, error) {
+  userKey := datastore.NewKey(c, "User", string(userID), 0, nil)
   user := User{}
 
   if err := datastore.Get(c, userKey, &user); err == nil {

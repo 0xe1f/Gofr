@@ -20,53 +20,33 @@
  **
  ******************************************************************************
  */
- 
-package gofr
 
-import (
-  "appengine"
-  "appengine/user"
-  "net/http"
-  "storage"
-)
+var dateTimeFormatter = function(date, sameDay)
+{
+  if (sameDay)
+  {
+    // Return time string (e.g. "10:30 AM")
 
-func init() {
-  // Initialize handlers
-  http.HandleFunc("/", Run)
+    var hours = date.getHours();
 
-  registerJson()
-  registerTasks()
-  registerCron()
-  registerWeb()
-}
+    var ampm = (hours < 12) ? "AM" : "PM";
+    var twelveHourHours = hours;
+    if (hours == 0)
+      twelveHourHours = 12;
+    else if (hours > 12)
+      twelveHourHours -= 12;
 
-type PFContext struct {
-  R *http.Request
-  C appengine.Context
-  W http.ResponseWriter
-  ChannelID string
-  UserID storage.UserID
-  User *storage.User
-  LoginURL string
-}
+    var minutes = date.getMinutes() + "";
+    if (minutes.length < 2)
+      minutes = "0" + minutes;
 
-func Run(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-
-  loginURL := ""
-  if url, err := user.LoginURL(c, r.URL.String()); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else {
-    loginURL = url
+    return twelveHourHours + ":" + minutes + " " + ampm;
   }
-
-  pfc := PFContext {
-    R: r,
-    C: c,
-    W: w,
-    LoginURL: loginURL,
+  else
+  {
+    // Return date string (e.g. "Jan 5, 2010")
+    
+    var months = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ];
+    return months[date.getMonth()] + " " + date.getDate() + ", " + date.getFullYear();
   }
-
-  routeRequest(&pfc)
-}
+};

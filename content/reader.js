@@ -32,11 +32,17 @@ $().ready(function()
 
   var _l = function(str, args)
   {
-    // FIXME
-    if (args)
-      return vsprintf(str, args);
+    var localized = null;
+    if (typeof gofrStrings !== 'undefined' && gofrStrings != null)
+      localized = gofrStrings[str];
 
-    return str;
+    if (localized == null)
+      localized = str; // No localization
+
+    if (args)
+      return vsprintf(localized, args);
+
+    return localized;
   };
 
   var getPublishedDate = function(dateAsString)
@@ -48,10 +54,7 @@ $().ready(function()
       && now.getMonth() == date.getMonth() 
       && now.getFullYear() == date.getFullYear();
 
-    if (sameDay)
-      return date.toLocaleTimeString();
-    else
-      return date.toLocaleDateString();
+    return dateTimeFormatter(date, sameDay);
   };
 
   // Automatic pager
@@ -316,7 +319,8 @@ $().ready(function()
       {
         this.selectedEntry = null;
 
-        // Update the entry header
+        $('#entries').toggleClass('single-source', this.link != null);
+
         if (!this.link)
           $('.entries-header').text(this.title);
         else
@@ -740,6 +744,9 @@ $().ready(function()
         },
         function(response)
         {
+          // Set the client ID
+          form.find('input[name=client]').val(clientId);
+
           // Upload the file
           form
             .attr('action', response.uploadUrl)

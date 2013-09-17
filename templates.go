@@ -42,6 +42,8 @@ const indexTemplateHTML = `
     <script src="content/jquery.cookie.js" type="text/javascript"></script>
     <script src="content/jquery.form.min.js" type="text/javascript"></script>
     <script src="content/jquery.scrollintoview.min.js" type="text/javascript"></script>
+    <script src="content/l10n/default.js" type="text/javascript"></script>
+    <script src="content/l10n/en-us.js" type="text/javascript"></script>
     <script src="content/reader.js" type="text/javascript"></script>
     <title>Gofr</title>
   </head>
@@ -81,6 +83,7 @@ const indexTemplateHTML = `
         <h1>Upload OPML file</h1>
         <form enctype="multipart/form-data" action="#" method="POST">
           <input name="opml" type="file" />
+          <input name="client" type="hidden" value="" />
         </form>
         <div class="buttons">
           <button class="modal-cancel">Cancel</button>

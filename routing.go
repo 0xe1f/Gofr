@@ -54,6 +54,7 @@ type htmlRequestHandler struct {
 type jsonRequestHandler struct {
   RouteHandler JSONRouteHandler
   LoginRequired bool
+  NoFormPreparse bool
 }
 
 type taskRequestHandler struct {
@@ -84,6 +85,13 @@ func (handler htmlRequestHandler)handleRequest(pfc *PFContext) {
     return
   } else if aeUser != nil {
     pfc.UserID = storage.UserID(aeUser.ID)
+    if user, err := loadUser(pfc.C, pfc.UserID); err != nil {
+      pfc.C.Errorf("Error loading user: %s", err)
+      http.Error(w, "Unexpected error", http.StatusInternalServerError)
+      return
+    } else {
+      pfc.User = user
+    }
   }
 
   handler.RouteHandler(pfc)
@@ -103,8 +111,18 @@ func (handler jsonRequestHandler)handleRequest(pfc *PFContext) {
     return
   } else if aeUser != nil {
     pfc.UserID = storage.UserID(aeUser.ID)
-    if clientID := pfc.R.PostFormValue("client"); clientID != "" {
-      pfc.ChannelID = aeUser.ID + "," + clientID
+    if !handler.NoFormPreparse {
+      if clientID := pfc.R.PostFormValue("client"); clientID != "" {
+        pfc.ChannelID = aeUser.ID + "," + clientID
+      }
+    }
+
+    if user, err := loadUser(pfc.C, pfc.UserID); err != nil {
+      c.Errorf("Error loading user: %s", err)
+      http.Error(w, "Unexpected error", http.StatusInternalServerError)
+      return
+    } else {
+      pfc.User = user
     }
   }
 
@@ -148,6 +166,14 @@ func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
     if channelID := pfc.R.PostFormValue("channelID"); channelID != "" {
       pfc.ChannelID = channelID
     }
+
+    if user, err := loadUser(pfc.C, pfc.UserID); err != nil {
+      pfc.C.Errorf("Error loading user: %s", err)
+      http.Error(pfc.W, "Unexpected error", http.StatusInternalServerError)
+      return
+    } else {
+      pfc.User = user
+    }
   }
 
   var response interface{}
@@ -166,7 +192,7 @@ func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
         pfc.C.Criticalf("Error writing to channel: %s", err)
       }
     } else {
-      pfc.C.Criticalf("Channel ID is empty!")
+      pfc.C.Warningf("Channel ID is empty!")
     }
   }
 }
@@ -198,6 +224,19 @@ func RegisterJSONRoute(pattern string, handler JSONRouteHandler) {
     Handler: jsonRequestHandler {
       RouteHandler: handler,
       LoginRequired: true,
+    },
+  }
+
+  routes = append(routes, route)
+}
+
+func RegisterJSONRouteSansPreparse(pattern string, handler JSONRouteHandler) {
+  route := route {
+    Pattern: pattern,
+    Handler: jsonRequestHandler {
+      RouteHandler: handler,
+      LoginRequired: true,
+      NoFormPreparse: true,
     },
   }
 
@@ -236,4 +275,22 @@ func RegisterCronRoute(pattern string, handler CronRouteHandler) {
   }
 
   routes = append(routes, route)
+}
+
+func loadUser(c appengine.Context, userID storage.UserID) (*storage.User, error) {
+  if u, err := storage.UserByID(c, userID); err != nil {
+    return nil, err
+  } else if u == nil {
+    // New user
+    newUser := storage.User {
+      ID: string(userID),
+    }
+    if err := newUser.Save(c); err != nil {
+      return nil, err
+    }
+
+    return &newUser, nil
+  } else {
+    return u, nil
+  }
 }

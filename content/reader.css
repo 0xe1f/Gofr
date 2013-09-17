@@ -203,7 +203,7 @@ a
   position: absolute;
 }
 
-.single-feed .entry-source
+.single-source .entry-source
 {
   display: none;
 }
@@ -217,7 +217,7 @@ a
   margin-right: 7em;
 }
 
-.single-feed .entry-excerpt
+.single-source .entry-excerpt
 {
   margin-left: 20px;
 }

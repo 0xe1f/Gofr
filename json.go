@@ -65,18 +65,21 @@ func registerJson() {
   RegisterJSONRoute("/setProperty",   setProperty)
   RegisterJSONRoute("/subscribe",     subscribe)
   RegisterJSONRoute("/unsubscribe",   unsubscribe)
-  RegisterJSONRoute("/import",        importOPML)
   RegisterJSONRoute("/markAllAsRead", markAllAsRead)
 
   RegisterJSONRoute("/authUpload",    authUpload)
   RegisterJSONRoute("/initChannel",   initChannel)
+
+  // PostFormValue before blobstore.ParseUpload results in
+  // "blobstore: error reading next mime part with boundary",
+  // so we read post form values after parsing the uploaded file
+  RegisterJSONRouteSansPreparse("/import",        importOPML)
 }
 
 func subscriptions(pfc *PFContext) (interface{}, error) {
   c := pfc.C
-  userID := storage.UserID(pfc.User.ID)
 
-  userSubscriptions, err := storage.NewUserSubscriptions(c, userID)
+  userSubscriptions, err := storage.NewUserSubscriptions(c, pfc.UserID)
   if err != nil {
     return nil, err
   }
@@ -118,12 +121,11 @@ func subscriptions(pfc *PFContext) (interface{}, error) {
 
 func articles(pfc *PFContext) (interface{}, error) {
   r := pfc.R
-  userID := storage.UserID(pfc.User.ID)
 
   filter := storage.ArticleFilter {
     ArticleScope: storage.ArticleScope {
       FolderRef: storage.FolderRef {
-        UserID: userID,
+        UserID: pfc.UserID,
         FolderID: r.FormValue("folder"),
       },
       SubscriptionID: r.FormValue("subscription"),
@@ -139,7 +141,6 @@ func articles(pfc *PFContext) (interface{}, error) {
 
 func createFolder(pfc *PFContext) (interface{}, error) {
   r := pfc.R
-  userID := storage.UserID(pfc.User.ID)
 
   title := r.PostFormValue("folderName")
   if title == "" {
@@ -150,22 +151,21 @@ func createFolder(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Folder name is too long"), nil)
   }
 
-  if exists, err := storage.IsFolderDuplicate(pfc.C, userID, title); err != nil {
+  if exists, err := storage.IsFolderDuplicate(pfc.C, pfc.UserID, title); err != nil {
     return nil, err
   } else if exists {
     return nil, NewReadableError(_l("A folder with that name already exists"), nil)
   }
 
-  if _, err := storage.CreateFolder(pfc.C, userID, title); err != nil {
+  if _, err := storage.CreateFolder(pfc.C, pfc.UserID, title); err != nil {
     return nil, NewReadableError(_l("An error occurred while adding the new folder"), &err)
   }
 
-  return storage.NewUserSubscriptions(pfc.C, userID)
+  return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
 }
 
 func rename(pfc *PFContext) (interface{}, error) {
   r := pfc.R
-  userID := storage.UserID(pfc.User.ID)
 
   title := r.PostFormValue("title")
   if title == "" {
@@ -178,7 +178,7 @@ func rename(pfc *PFContext) (interface{}, error) {
     // Rename subscription
     ref := storage.SubscriptionRef {
       FolderRef: storage.FolderRef {
-        UserID: userID,
+        UserID: pfc.UserID,
         FolderID: folderID,
       },
       SubscriptionID: subscriptionID,
@@ -188,14 +188,14 @@ func rename(pfc *PFContext) (interface{}, error) {
     }
   } else if folderID != "" {
     // Rename folder
-    if exists, err := storage.IsFolderDuplicate(pfc.C, userID, title); err != nil {
+    if exists, err := storage.IsFolderDuplicate(pfc.C, pfc.UserID, title); err != nil {
       return nil, err
     } else if exists {
       return nil, NewReadableError(_l("A folder with that name already exists"), nil)
     }
 
     ref := storage.FolderRef {
-      UserID: userID,
+      UserID: pfc.UserID,
       FolderID: folderID,
     }
 
@@ -206,12 +206,11 @@ func rename(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Nothing to rename"), nil)
   }
 
-  return storage.NewUserSubscriptions(pfc.C, userID)
+  return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
 }
 
 func setProperty(pfc *PFContext) (interface{}, error) {
   r := pfc.R
-  userID := storage.UserID(pfc.User.ID)
 
   folderID := r.PostFormValue("folder")
   subscriptionID := r.PostFormValue("subscription")
@@ -230,7 +229,7 @@ func setProperty(pfc *PFContext) (interface{}, error) {
   ref := storage.ArticleRef {
     SubscriptionRef: storage.SubscriptionRef {
       FolderRef: storage.FolderRef {
-        UserID: userID,
+        UserID: pfc.UserID,
         FolderID: folderID,
       },
       SubscriptionID: subscriptionID,
@@ -248,7 +247,6 @@ func setProperty(pfc *PFContext) (interface{}, error) {
 func subscribe(pfc *PFContext) (interface{}, error) {
   c := pfc.C
   r := pfc.R
-  userID := storage.UserID(pfc.User.ID)
 
   subscriptionURL := r.PostFormValue("url")
   folderId := r.PostFormValue("folder")
@@ -261,7 +259,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 
   if folderId != "" {
     ref := storage.FolderRef {
-      UserID: userID,
+      UserID: pfc.UserID,
       FolderID: folderId,
     }
 
@@ -302,7 +300,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     }
   }
 
-  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, userID, subscriptionURL); err != nil {
+  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, pfc.UserID, subscriptionURL); err != nil {
     return nil, err
   } else if subscribed {
     return nil, NewReadableError(_l("You are already subscribed"), nil)
@@ -331,7 +329,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
         // Parse failed. Assume it's an HTML document and 
         // try to pull out an RSS <link />
 
-        if linkURL := rss.ExtractRSSLink(body); linkURL == "" {
+        if linkURL, err := rss.ExtractRSSLink(c, subscriptionURL, body); linkURL == "" || err != nil {
           return nil, NewReadableError(_l("RSS content not found"), &err)
         } else {
           subscriptionURL = linkURL
@@ -354,16 +352,11 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 func unsubscribe(pfc *PFContext) (interface{}, error) {
   r := pfc.R
 
-  userID := storage.UserID(pfc.User.ID)
-  if userID == "" {
-    return nil, NewReadableError(_l("Missing User ID"), nil)
-  }
-
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
 
   folderRef := storage.FolderRef {
-    UserID: userID,
+    UserID: pfc.UserID,
     FolderID: folderID,
   }
 
@@ -405,9 +398,13 @@ func importOPML(pfc *PFContext) (interface{}, error) {
   c := pfc.C
   r := pfc.R
 
-  blobs, _, err := blobstore.ParseUpload(r)
+  blobs, other, err := blobstore.ParseUpload(r)
   if err != nil {
     return nil, NewReadableError(_l("Error receiving file"), &err)
+  } else if len(other["client"]) > 0 {
+    if clientID := other["client"][0]; clientID != "" {
+      pfc.ChannelID = string(pfc.UserID) + "," + clientID
+    }
   }
 
   var blobKey appengine.BlobKey
@@ -444,7 +441,6 @@ func importOPML(pfc *PFContext) (interface{}, error) {
 
 func markAllAsRead(pfc *PFContext) (interface{}, error) {
   r := pfc.R
-  userID := storage.UserID(pfc.User.ID)
 
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
@@ -452,7 +448,7 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
   if subscriptionID != "" {
     ref := storage.SubscriptionRef {
       FolderRef: storage.FolderRef {
-        UserID: userID,
+        UserID: pfc.UserID,
         FolderID: folderID,
       },
       SubscriptionID: subscriptionID,
@@ -464,7 +460,7 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
     }
   } else if folderID != "" {
     ref := storage.FolderRef {
-      UserID: userID,
+      UserID: pfc.UserID,
       FolderID: folderID,
     }
 

@@ -20,53 +20,18 @@
  **
  ******************************************************************************
  */
- 
-package gofr
 
-import (
-  "appengine"
-  "appengine/user"
-  "net/http"
-  "storage"
-)
-
-func init() {
-  // Initialize handlers
-  http.HandleFunc("/", Run)
-
-  registerJson()
-  registerTasks()
-  registerCron()
-  registerWeb()
+var gofrStrings = 
+{
+  // Default localization just uses the incoming string
 }
 
-type PFContext struct {
-  R *http.Request
-  C appengine.Context
-  W http.ResponseWriter
-  ChannelID string
-  UserID storage.UserID
-  User *storage.User
-  LoginURL string
-}
+var defaultDateTimeFormatter = function(date, sameDay)
+{
+	if (sameDay)
+		return date.toLocaleTimeString();
+	else
+		return date.toLocaleDateString();
+};
 
-func Run(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
-
-  loginURL := ""
-  if url, err := user.LoginURL(c, r.URL.String()); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else {
-    loginURL = url
-  }
-
-  pfc := PFContext {
-    R: r,
-    C: c,
-    W: w,
-    LoginURL: loginURL,
-  }
-
-  routeRequest(&pfc)
-}
+var dateTimeFormatter = defaultDateTimeFormatter;
