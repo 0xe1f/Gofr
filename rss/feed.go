@@ -47,6 +47,8 @@ type Feed struct {
   Retrieved time.Time
   HourlyUpdateFrequency float32
   Entries []*Entry
+  HubURL string
+  Topic string
 }
 
 type Entry struct {

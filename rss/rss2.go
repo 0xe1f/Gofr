@@ -66,10 +66,23 @@ func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
     updated, err = parseRSS2Time(nativeFeed.Updated)
   }
 
+  hubURL := ""
   linkUrl := ""
-  for _, linkNode := range nativeFeed.Link {
-    if linkNode.XMLName.Space == "" {
-      linkUrl = linkNode.Content
+  topic := ""
+
+  for _, link := range nativeFeed.Link {
+    if link.XMLName.Space == "" {
+      linkUrl = link.Content
+    } else if link.XMLName.Space == "http://www.w3.org/2005/Atom" {
+      for _, rel := range strings.Split(link.Rel, " ") {
+        if rel == "self" {
+          topic = link.Href
+          break
+        } else if rel == "hub" {
+          hubURL = link.Href
+          break
+        }
+      }
     }
   }
 
@@ -79,6 +92,8 @@ func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
     Updated: updated,
     WWWURL: linkUrl,
     Format: "RSS2",
+    Topic: topic,
+    HubURL: hubURL,
   }
 
   if nativeFeed.UpdateFrequency != 0 && nativeFeed.UpdatePeriod != "" {

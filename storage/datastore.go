@@ -650,6 +650,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     feed.Fetched = parsedFeed.Retrieved
     feed.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
     feed.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
+    feed.HubURL = parsedFeed.HubURL
+    feed.Topic = parsedFeed.Topic
 
     // Increment update counter
     feed.UpdateCounter += int64(len(parsedFeed.Entries))

@@ -24,8 +24,9 @@
 package rss
 
 import (
-  "time"
   "encoding/xml"
+  "strings"
+  "time"
 )
 
 var supportedAtomTimeFormats = []string {
@@ -76,10 +77,23 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed, err error) {
     updated, err = parseTime(supportedAtomTimeFormats, nativeFeed.Updated)
   }
 
+  hubURL := ""
   linkUrl := ""
+  topic := ""
+
   for _, link := range nativeFeed.Link {
-    if (linkUrl == "" && link.Rel != "self") || link.Rel == "alternate" {
-      linkUrl = link.Href
+    rels := strings.Split(link.Rel, " ")
+    for _, rel := range rels {
+      if rel == "alternate" {
+        linkUrl = link.Href
+        break
+      } else if rel == "self" {
+        topic = link.Href
+        break
+      } else if rel == "hub" {
+        hubURL = link.Href
+        break
+      }
     }
   }
 
@@ -89,6 +103,8 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed, err error) {
     Updated: updated,
     WWWURL: linkUrl,
     Format: "Atom",
+    HubURL: hubURL,
+    Topic: topic,
   }
 
   if nativeFeed.Entry != nil {

@@ -44,6 +44,8 @@ type Feed struct {
   NextFetch time.Time
   HourlyUpdateFrequency float32
   UpdateCounter int64
+  Topic string
+  HubURL string
 }
 
 type FeedUsage struct {
