@@ -21,28 +21,24 @@
  ******************************************************************************
  */
  
-body 
-{
+body {
   font-family: arial, sans-serif;
   font-size: 10pt;
   color: #444;
   margin: 0;
 }
 
-#header
-{
+#header {
   border-bottom: solid 1px #ccc;
   background-color: #eee;
   padding: 0.5em 1em;
 }
 
-#header h1
-{
+#header h1 {
   margin: 0.25em 0;
 }
 
-#reader
-{
+#reader {
   position: absolute;
   top: 125px;
   bottom: 0;
@@ -51,35 +47,29 @@ body
   border-top: solid 1px #aaa;
 }
 
-a
-{
+a {
   color: #0276FD;
   text-decoration: none;
 }
 
-.houmu-rogo
-{
+.houmu-rogo {
   margin: 3px;
 }
 
-.navbar a
-{
+.navbar a {
   font-weight: bold;
   text-decoration: none;
 }
 
-.navbar .admin
-{
+.navbar .admin {
   margin-left: 2em;
 }
 
-.logout
-{
+.logout {
   float: right;
 }
 
-.center-message
-{
+.center-message {
   position: absolute;
   top: 50%;
   left: 0;
@@ -90,13 +80,11 @@ a
   color: #777;
 }
 
-.center-message a 
-{
+.center-message a {
   margin-top: 0.25em;
 }
 
-.feeds-container
-{
+.feeds-container {
   position: absolute;
   width: 280px;
   top: 0;
@@ -104,13 +92,11 @@ a
   overflow: auto;
 }
 
-.floated-nav #reader .feeds-container
-{
+.floated-nav #reader .feeds-container {
   display: none;
 }
 
-#floating-nav
-{
+#floating-nav {
   display: none;
   position: absolute;
   width: 280px;
@@ -121,14 +107,12 @@ a
   box-shadow: 2px 2px 5px #aaa;
 }
 
-#entries
-{
+#entries {
   margin-left: 0.25em;
   margin-right: 0.75em;
 }
 
-.entries-header
-{
+.entries-header {
   font-size: 10.5pt;
   font-weight: bold;
   padding: 0.5em;
@@ -137,14 +121,12 @@ a
   border-bottom: solid 1px #ccc;
 }
 
-.entries-header a
-{
+.entries-header a {
   color: #444;
   text-decoration: none;
 }
 
-.entries-container
-{
+.entries-container {
   position: absolute;
   left: 280px;
   top: 0;
@@ -153,27 +135,23 @@ a
   overflow: auto;
 }
 
-.floated-nav .entries-container
-{
+.floated-nav .entries-container {
   left: 0;
 }
 
-.entry
-{
+.entry {
   cursor: pointer;
   clear: both;
   border-bottom: solid 1px #ccc;
   border-left: solid 1px transparent;
 }
 
-.entry.open
-{
+.entry.open {
   border-left-color: #4d90f0;
 }
 
 .entry-item,
-.entry.selected.open .entry-item
-{
+.entry.selected.open .entry-item {
   padding-left: 0.5em;
   padding-right: 0.5em;
   height: 37px;
@@ -183,18 +161,15 @@ a
 }
 
 .entry.read .entry-item,
-.entry.read.open .entry-item
-{
+.entry.read.open .entry-item {
   background-color: #eee;
 }
 
-.entry.selected .entry-item
-{
+.entry.selected .entry-item {
   background-color: #ffffcc;
 }
 
-.entry-source 
-{
+.entry-source {
   overflow: hidden;
   white-space: nowrap;
   margin-left: 20px;
@@ -203,13 +178,11 @@ a
   position: absolute;
 }
 
-.single-source .entry-source
-{
+.single-source .entry-source {
   display: none;
 }
 
-.entry-excerpt
-{
+.entry-excerpt {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -217,13 +190,11 @@ a
   margin-right: 7em;
 }
 
-.single-source .entry-excerpt
-{
+.single-source .entry-excerpt {
   margin-left: 20px;
 }
 
-.entry-link
-{
+.entry-link {
   display: block;
   width: 15px;
   height: 15px;
@@ -237,8 +208,7 @@ a
   white-space: nowrap;
 }
 
-.entry-pubDate
-{
+.entry-pubDate {
   display: block;
   position: absolute;
   right: 32px;
@@ -246,102 +216,85 @@ a
   width: 6em;
 }
 
-.entry-title
-{
+.entry-title {
   font-size: 10pt;
   display: inline;
   margin: 0;
 }
 
-.entry.read .entry-title
-{
+.entry.read .entry-title {
   font-weight: normal;
 }
 
 .article-title, 
-.article-author a
-{
+.article-author a {
   color: rgb(17, 85, 204);
   text-decoration: none;
 }
 
-.article-title h2
-{
+.article-title h2 {
   font-size: 14pt;
   margin: 0;
 }
 
-.article-body
-{
+.article-body {
   margin: 0.7em 0;
 }
 
-.entry-summary
-{
+.entry-summary {
     color: #777;
 }
 
-.entry-content
-{
+.entry-content {
   display: block;
   cursor: auto;
 }
 
-.article 
-{
+.article {
   margin: 0.5em 1em;
 }
 
-.entry-footer
-{
+.entry-footer {
   padding: 0.5em 0.5em;
   border-top: solid 1px #ebebeb;
   background-color: #fafafa;
 }
 
-.entry-action
-{
+.entry-action {
   background-repeat: no-repeat;
   padding-left: 20px;
   margin-left: 1em;
   cursor: pointer;
 }
 
-.entry-action a
-{
+.entry-action a {
   text-decoration: none;
   color: #000;
 }
 
-.entry-action a span
-{
+.entry-action a span {
   margin-left: 5px;
 }
 
-.action-unread
-{
+.action-unread {
   background-image: url(sprites.png);
   background-position: -15px -15px;
 }
 
-.action-tag
-{
+.action-tag {
   background-image: url(sprites.png);
   background-position: -120px -120px;
 }
 
-.action-tag.has-tags
-{
+.action-tag.has-tags {
   background-position: -105px -105px;
 }
 
-.entry.read .action-unread
-{
+.entry.read .action-unread {
   background-position: 0 0;
 }
 
-.action-star
-{
+.action-star {
   display: inline-block;
   width: 15px;
   height: 15px;
@@ -350,37 +303,31 @@ a
   cursor: pointer;
 }
 
-.action-like
-{
+.action-like {
   background-image: url(sprites.png);
   background-position: -60px -60px;
 }
 
-.star .action-star
-{
+.star .action-star {
   background-position: -45px -45px;
 }
 
-.like .action-like
-{
+.like .action-like {
   background-position: -75px -75px;
 }
 
-.entry-footer .action-star
-{
+.entry-footer .action-star {
   margin-right: 3em;
 }
 
-.entry-item .action-star
-{
+.entry-item .action-star {
   top: 50%;
   margin-top: -8px;
   white-space: nowrap;
   position: absolute;
 }
 
-.next-page 
-{
+.next-page {
   padding: 1em;
   text-align: center;
   cursor: pointer;
@@ -388,19 +335,20 @@ a
 }
 
 ul#subscriptions,
-#subscriptions ul
-{
+#subscriptions ul {
   margin: 0;
   padding: 0;
 }
 
-#subscriptions li
-{
+.dest-subscription {
+  background-color: #cedefa;
+}
+
+#subscriptions li {
   margin: 0;
 }
 
-.subscription-icon
-{
+.subscription-icon {
   width: 15px;
   height: 15px;
   float: left;
@@ -409,8 +357,7 @@ ul#subscriptions,
   background-position: -150px -150px;
 }
 
-.subscription-item
-{
+.subscription-item {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -420,86 +367,79 @@ ul#subscriptions,
   border: solid 1px transparent;
 }
 
-.subscription.folder > ul > .leaf > .subscription-item
-{
+.subscription.folder > ul > .leaf > .subscription-item {
   padding-left: 1em;
 }
 
-.subscription.root .subscription-item
-{
+.subscription.root .subscription-item {
   margin-bottom: 1em;
 }
 
-.subscription.root .subscription-icon 
-{
+.subscription.root .subscription-icon {
   background-position: -165px -165px;
 }
 
-.subscription.folder .subscription-icon 
-{
+.subscription.folder .subscription-icon {
   background-position: -135px -135px;
 }
 
-.subscription.leaf .subscription-icon 
-{
+.subscription.leaf .subscription-icon {
   background-position: -150px -150px;
 }
 
-.subscription-item:hover
-{
+.subscription-item:hover {
   background-color: #eee;
 }
 
-.subscription.selected > .subscription-item
-{
+.subscription.selected > .subscription-item {
   background-color: #cedefa;
 }
 
-.subscription.highlighted > .subscription-item
-{
+.subscription.dragging > .subscription-item {
+  background-color: #fff79a;
+}
+
+.subscription.dragged > .subscription-item {
+  opacity: 0.5;
+  background-color: white;
+}
+
+.subscription.highlighted > .subscription-item {
   border: solid 1px #000;
 }
 
-.subscription-title
-{
+.subscription-title {
 }
 
-.subscription-unread-count
-{
+.subscription-unread-count {
   color: #aaa;
   display: none;
   margin-left: 0.5em;
 }
 
-.has-unread .subscription-title
-{
+.has-unread .subscription-title {
   font-weight: bold;
 }
 
-.has-unread .subscription-unread-count
-{
+.has-unread .subscription-unread-count {
   display: inline;
 }
 
-#navbar
-{
+#navbar {
   padding: 10px;
 }
 
-#navbar .right-aligned
-{
+#navbar .right-aligned {
   position: absolute;
   right: 10px;
 }
 
-.settings
-{
+.settings {
   position: absolute;
   right: 90px;
 }
 
-button
-{
+button {
   height: 30px;
   padding: 0.5em 1.5em;
   background-color: #eee;
@@ -512,43 +452,36 @@ button
   color: #555;
 }
 
-button:active
-{
+button:active {
   box-shadow: none;
   color: #000;
 }
 
-button:hover
-{
+button:hover {
   border-color: #777;
   color: #000;
 }
 
-button.dropdown
-{
+button.dropdown {
   background: url(sprites.png) no-repeat right #eee;
   background-position: 100% -270px;
   padding: 0.5em 30px 0.5em 20px;
 }
 
-.navigate
-{
+.navigate {
   display: none;
 }
 
-.floated-nav .navigate
-{
+.floated-nav .navigate {
   display: inline-block;
 }
 
-.select-article
-{
+.select-article {
   width: 40px;
   padding: 0;
 }
 
-.select-article.up
-{
+.select-article.up {
   margin-right: 0;
   box-shadow: 0 1px 1px #aaa;
   border-right: none;
@@ -557,8 +490,7 @@ button.dropdown
   background: url(sprites.png) no-repeat -25px -240px #eee;
 }
 
-.select-article.down
-{
+.select-article.down {
   margin-left: 0;
   box-shadow: 0 1px 1px #aaa;
   border-top-left-radius: 0;
@@ -567,45 +499,38 @@ button.dropdown
 }
 
 .select-article.up:hover, 
-.select-article.up:active
-{
-  background: url(sprites.png) no-repeat -85px -240px #eee;
+.select-article.up:active {
+  background-position: -85px -240px;
 }
 
 .select-article.down:hover, 
-.select-article.down:active
-{
-  background: url(sprites.png) no-repeat -55px -240px #eee;
+.select-article.down:active {
+  background-position: -55px -240px;
 }
 
-.refresh
-{
+.refresh {
   width: 60px;
   padding: 0;
   background: url(sprites.png) no-repeat 0 -270px #eee;
 }
 
 .refresh:hover, 
-.refresh:active
-{
-  background: url(sprites.png) no-repeat -60px -270px #eee;  
+.refresh:active {
+  background-position: -60px -270px;
 }
 
-.settings.dropdown
-{
+.settings.dropdown {
   width: 65px;
   padding: 0;
   background: url(sprites.png) no-repeat 0 -210px #eee;
 }
 
 .settings.dropdown:hover, 
-.settings.dropdown:active
-{
-  background: url(sprites.png) no-repeat -60px -210px #eee;  
+.settings.dropdown:active {
+  background-position: -60px -210px;
 }
 
-button.subscribe
-{
+button.subscribe {
   border-color: #D14836;
   background-color: #D14836;
   color: white;
@@ -614,13 +539,11 @@ button.subscribe
   margin: 1em 20px;
 }
 
-#navbar .spacer
-{
+#navbar .spacer {
   margin-left: 20px;
 }
 
-#toast
-{
+#toast {
   display: none;
   position: absolute;
   top: 1em;
@@ -629,8 +552,7 @@ button.subscribe
   text-align: center;
 }
 
-#toast span
-{
+#toast span {
   border-style: solid;
   border-width: 2px;
   border-radius: 3px;
@@ -640,25 +562,21 @@ button.subscribe
   color: #000;
 }
 
-#toast.info span 
-{
+#toast.info span {
   border-color: #FDC68A;
   background-color: #FFF79A;
 }
 
-#toast.error span 
-{
+#toast.error span {
   border-color: red;
   background-color: #ffaaaa;
 }
 
-.spinner
-{
+.spinner {
   margin: 5px auto;
 }
 
-.subscription-item .chevron
-{
+.subscription-item .chevron {
   width: 15px;
   height: 15px;
   display: inline-block;
@@ -668,13 +586,11 @@ button.subscribe
   background-position: -90px -90px;
 }
 
-.subscription-item:hover .chevron
-{
+.subscription-item:hover .chevron {
   visibility: visible;
 }
 
-ul.menu
-{
+ul.menu {
   position: absolute;
   display: none;
   margin: 0;
@@ -687,30 +603,25 @@ ul.menu
   min-width: 13em;
 }
 
-.menu li
-{
+.menu li {
   color: #555;
   cursor: pointer;
   padding: 0.5em 1em;
 }
 
-.menu li:hover
-{
+.menu li:hover {
   background-color: #ccc;
 }
 
-.menu .divider
-{
+.menu .divider {
   height: 1px;
   background-color: #ccc;
 }
 
-.menu li.selected-menu-item
-{
+.menu li.selected-menu-item {
 }
 
-.shortcuts
-{
+.shortcuts {
   position: absolute;
   top: 2em;
   right: 2em;
@@ -722,34 +633,29 @@ ul.menu
   overflow: auto;
 }
 
-.shortcuts table
-{
+.shortcuts table {
   margin: auto;
   color: #fff;
   font-size: 15pt;
 }
 
-.shortcuts th
-{
+.shortcuts th {
   color: yellow;
   padding: 1em 0 0.3em 0;
 }
 
-.shortcuts .sh-keys
-{
+.shortcuts .sh-keys {
   text-align: right;
   padding-left: 2em;
   font-weight: bold;
 }
 
-.shortcuts .sh-action
-{
+.shortcuts .sh-action {
   text-align: left;
   padding-right: 2em;
 }
 
-.modal-blocker
-{
+.modal-blocker {
   position: absolute;
   left: 0;
   right: 0;
@@ -759,15 +665,13 @@ ul.menu
   background-color: #fff;
 }
 
-.modal
-{
+.modal {
   position: absolute;
   left: 50%;
   top: 50%;
 }
 
-.modal-inner
-{
+.modal-inner {
   position: relative;
   left: -50%;
   top: -50%;
@@ -782,8 +686,7 @@ ul.menu
   margin: 0 0 1em 0;
 }
 
-.modal .buttons
-{
+.modal .buttons {
   margin-top: 1em;
   text-align: right;
 }

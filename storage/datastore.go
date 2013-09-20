@@ -530,6 +530,141 @@ func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
   return batchWriter.Written(), nil
 }
 
+func MoveSubscription(c appengine.Context, subRef SubscriptionRef, destRef FolderRef) error {
+  currentSubscriptionKey, err := subRef.key(c)
+  if err != nil {
+    return err
+  }
+
+  newSubRef := SubscriptionRef {
+    FolderRef: destRef,
+    SubscriptionID: subRef.SubscriptionID,
+  }
+
+  newSubscriptionKey, err := newSubRef.key(c)
+  if err != nil {
+    return err
+  }
+
+  // Move the subscription
+
+  subscription := new(Subscription)
+  if err := datastore.Get(c, currentSubscriptionKey, subscription); err != nil {
+    c.Errorf("Error reading subscription: %s", err)
+    return err
+  }
+
+  if _, err := datastore.Put(c, newSubscriptionKey, subscription); err != nil {
+    c.Errorf("Error writing subscription: %s", err)
+    return err
+  }
+
+  if err := datastore.Delete(c, currentSubscriptionKey); err != nil {
+    c.Errorf("Error deleting subscription: %s", err)
+    return err
+  }
+
+  // Move the articles
+
+  batchWriter := NewBatchWriter(c, BatchPut)
+  batchDeleter := NewBatchWriter(c, BatchDelete)
+
+  q := datastore.NewQuery("Article").Ancestor(currentSubscriptionKey)
+  for t := q.Run(c); ; {
+    article := new(Article)
+    currentArticleKey, err := t.Next(article)
+
+    if err == datastore.Done {
+      break
+    } else if err != nil {
+      c.Errorf("Error reading Article: %s", err)
+      return err
+    }
+
+    newArticleKey := datastore.NewKey(c, "Article", currentArticleKey.StringID(), 0, newSubscriptionKey)
+    if err := batchWriter.Enqueue(newArticleKey, article); err != nil {
+      c.Errorf("Error queueing article for batch write: %s", err)
+      return err
+    }
+    if err := batchDeleter.EnqueueKey(currentArticleKey); err != nil {
+      c.Errorf("Error queueing article for batch delete: %s", err)
+      return err
+    }
+  }
+
+  if err := batchWriter.Flush(); err != nil {
+    c.Errorf("Error flushing batch write queue: %s", err)
+    return err
+  }
+
+  if err := batchDeleter.Flush(); err != nil {
+    c.Errorf("Error flushing batch delete queue: %s", err)
+    return err
+  }
+
+  return nil
+}
+
+func DeleteFolder(c appengine.Context, ref FolderRef) error {
+  folderKey, err := ref.key(c)
+  if err != nil {
+    return err
+  }
+
+  // Get a list of relevant subscriptions
+  q := datastore.NewQuery("Subscription").Ancestor(folderKey).KeysOnly().Limit(400)
+  subscriptionKeys, err := q.GetAll(c, nil)
+
+  if err != nil {
+    return err
+  }
+
+  // Delete folder & subscriptions
+  if err := datastore.Delete(c, folderKey); err != nil {
+    c.Errorf("Error deleting folder: %s", err)
+    return err
+  }
+
+  if subscriptionKeys == nil {
+    // No subscriptions; nothing more to do
+    return nil
+  }
+
+  if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
+    c.Errorf("Error deleting subscriptions: %s", err)
+    return err
+  }
+
+  // Delete articles
+  batchDeleter := NewBatchWriter(c, BatchDelete)
+
+  for _, subscriptionKey := range subscriptionKeys {
+    q := datastore.NewQuery("Article").Ancestor(subscriptionKey).KeysOnly()
+    for t := q.Run(c); ; {
+      articleKey, err := t.Next(nil)
+
+      if err == datastore.Done {
+        break
+      } else if err != nil {
+        c.Errorf("Error reading Article: %s", err)
+        return err
+      }
+
+      if err := batchDeleter.EnqueueKey(articleKey); err != nil {
+        c.Errorf("Error queueing article for batch delete: %s", err)
+        return err
+      }
+    }
+  }
+
+  if err := batchDeleter.Flush(); err != nil {
+    c.Errorf("Error flushing batch delete queue: %s", err)
+    return err
+  }
+
+  return nil
+}
+
 func FeedByURL(c appengine.Context, url string) (*Feed, error) {
   feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
   feed := new(Feed)

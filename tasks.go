@@ -43,7 +43,27 @@ func registerTasks() {
   RegisterTaskRoute("/tasks/import",        importOPMLTask)
   RegisterTaskRoute("/tasks/unsubscribe",   unsubscribeTask)
   RegisterTaskRoute("/tasks/markAllAsRead", markAllAsReadTask)
+  RegisterTaskRoute("/tasks/moveSubscription", moveSubscriptionTask)
   RegisterTaskRoute("/tasks/refresh",       refreshTask)
+  RegisterTaskRoute("/tasks/removeFolder",  removeFolderTask)
+}
+
+func startTask(pfc *PFContext, taskName string, params taskParams, queueName string) error {
+  taskValues := url.Values {
+    "userID": { pfc.User.ID },
+    "channelID": { pfc.ChannelID },
+  }
+
+  for k, v := range params {
+    taskValues.Add(k, v)
+  }
+
+  task := taskqueue.NewPOSTTask("/tasks/" + taskName, taskValues)
+  if _, err := taskqueue.Add(pfc.C, task, queueName); err != nil {
+    return err
+  }
+
+  return nil
 }
 
 func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, folderRef storage.FolderRef, opmlSubscription *opml.Subscription) {
@@ -283,6 +303,36 @@ func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {
   }
 }
 
+func moveSubscriptionTask(pfc *PFContext) (TaskMessage, error) {
+  r := pfc.R
+
+  subscriptionID := r.PostFormValue("subscriptionID")
+  folderID := r.PostFormValue("folderID")
+  destinationID := r.PostFormValue("destinationID")
+  
+  subscription := storage.SubscriptionRef {
+    FolderRef: storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: folderID,
+    },
+    SubscriptionID: subscriptionID,
+  }
+
+  destination := storage.FolderRef {
+    UserID: pfc.UserID,
+    FolderID: destinationID,
+  }
+
+  if err := storage.MoveSubscription(pfc.C, subscription, destination); err != nil {
+    return TaskMessage{}, err
+  } else {
+    return TaskMessage {
+      Message: _l("Folder moved"),
+      Refresh: true,
+    }, nil
+  }
+}
+
 func refreshTask(pfc *PFContext) (TaskMessage, error) {
   if err := storage.UpdateAllSubscriptions(pfc.C, pfc.UserID); err != nil {
     return TaskMessage{}, err
@@ -293,20 +343,18 @@ func refreshTask(pfc *PFContext) (TaskMessage, error) {
   }, nil
 }
 
-func startTask(pfc *PFContext, taskName string, params taskParams, queueName string) error {
-  taskValues := url.Values {
-    "userID": { pfc.User.ID },
-    "channelID": { pfc.ChannelID },
+func removeFolderTask(pfc *PFContext) (TaskMessage, error) {
+  folderID := pfc.R.PostFormValue("folderID")
+  folderRef := storage.FolderRef {
+    UserID: pfc.UserID,
+    FolderID: folderID,
   }
 
-  for k, v := range params {
-    taskValues.Add(k, v)
+  if err := storage.DeleteFolder(pfc.C, folderRef); err != nil {
+    return TaskMessage{}, err
   }
 
-  task := taskqueue.NewPOSTTask("/tasks/" + taskName, taskValues)
-  if _, err := taskqueue.Add(pfc.C, task, queueName); err != nil {
-    return err
-  }
-
-  return nil
+  return TaskMessage{
+    Refresh: true,
+  }, nil
 }

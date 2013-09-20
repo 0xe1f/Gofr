@@ -20,9 +20,12 @@
  **
  ******************************************************************************
  */
- 
+
 $().ready(function()
 {
+  var $dragSource = null;
+  var dragDestination = null;
+
   var clientId = null;
   var subscriptionMap = null;
   var continueFrom = null;
@@ -75,12 +78,29 @@ $().ready(function()
 
   // Default click handler
 
-  $('html').click(function() 
-  {
-    $('.shortcuts').hide();
-    $('.menu').hide();
-    $('#floating-nav').hide();
-  });
+  $('html')
+    .click(function() 
+    {
+      $('.shortcuts').hide();
+      $('.menu').hide();
+      $('#floating-nav').hide();
+    })
+    .mouseup(function(e) 
+    {
+      $('#subscriptions').unbind("mousemove");
+      $('#subscriptions .dragging').remove();
+      $('#subscriptions .dragged').removeClass('dragged');
+
+      if ($dragSource && dragDestination)
+      {
+        var dragSource = $dragSource.data('subscription');
+        if (dragDestination.id != (dragSource.parent || ''))
+          dragSource.moveTo(dragDestination);
+      }
+
+      $dragSource = null;
+      dragDestination = null;
+    });
 
   $('.modal-blocker').click(function() 
   {
@@ -410,7 +430,7 @@ $().ready(function()
 
       $.post('markAllAsRead', 
       {
-        'client': clientId,
+        'client':       clientId,
         'subscription': subscription.isFolder() ? undefined : subscription.id,
         'folder':       subscription.isFolder() ? subscription.id : subscription.parent,
         'filter':       filter,
@@ -421,6 +441,40 @@ $().ready(function()
         if (response.done)
           refresh();
       }, 'json');
+    },
+    'moveTo': function(folder)
+    {
+      var subscription = this;
+
+      $.post('moveSubscription', 
+      {
+        'client':       clientId,
+        'subscription': subscription.id,
+        'folder':       subscription.parent ? subscription.parent : undefined,
+        'destination':  folder.id ? folder.id : undefined,
+      },
+      function(response)
+      {
+        ui.showToast(response.message);
+        if (response.done)
+          refresh();
+      }, 'json');
+    },
+    'removeFolder': function()
+    {
+      var subscription = this;
+      if (subscription.isFolder())
+      {
+        $.post('removeFolder', 
+        {
+          'client': clientId,
+          'folder': subscription.id,
+        }, 
+        function(response)
+        {
+          ui.showToast(response.message);
+        }, 'json');
+      }
     },
   };
 
@@ -643,6 +697,10 @@ $().ready(function()
     {
       ui.unsubscribe(contextObject);
     }
+    else if (menuItem.is('.menu-delete'))
+    {
+      ui.removeFolder(contextObject);
+    }
   };
 
   var onFilterChanged = function()
@@ -777,7 +835,8 @@ $().ready(function()
           .append($('<li />', { 'class': 'menu-toggle-navmode' }).text(_l("Toggle navigation mode"))))
         .append($('<ul />', { 'id': 'menu-folder', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…")))
-          .append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…"))))
+          .append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
+          .append($('<li />', { 'class': 'menu-delete' }).text(_l("Delete…"))))
         .append($('<ul />', { 'id': 'menu-root', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-create-folder' }).text(_l("New folder…")))
           .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…"))))
@@ -1184,15 +1243,18 @@ $().ready(function()
     },
     'showToast': function(message, isError)
     {
-      $('#toast span').text(message);
-      $('#toast').attr('class', isError ? 'error' : 'info');
-
-      if ($('#toast').is(':hidden'))
+      if (message)
       {
-        $('#toast')
-          .fadeIn()
-          .delay(8000)
-          .fadeOut('slow'); 
+        $('#toast span').text(message);
+        $('#toast').attr('class', isError ? 'error' : 'info');
+
+        if ($('#toast').is(':hidden'))
+        {
+          $('#toast')
+            .fadeIn()
+            .delay(8000)
+            .fadeOut('slow'); 
+        }
       }
     },
     'subscribe': function(parentFolder)
@@ -1244,6 +1306,13 @@ $().ready(function()
 
       var filter = $('.group-filter.selected-menu-item').data('value');
       subscription.markAllAsRead(filter);
+    },
+    'removeFolder': function(folder)
+    {
+      if (!confirm(_l("You will be unsubscribed from all subscriptions in this folder. Delete %s?", [folder.title])))
+        return;
+
+      folder.removeFolder();
     },
   };
 
@@ -1354,7 +1423,7 @@ $().ready(function()
     var subMap = generateSubscriptionMap(userSubscriptions);
     var createSubDom = function(subscription)
     {
-      var subDom = $('<li />', { 'class' : 'subscription ' + subscription.domId })
+      var $subDom = $('<li />', { 'class' : 'subscription ' + subscription.domId })
         .data('subscription', subscription)
         .append($('<div />', { 'class' : 'subscription-item' })
           .append($('<span />', { 'class' : 'chevron' })
@@ -1378,8 +1447,88 @@ $().ready(function()
             subscription.select();
           }));
 
-      subDom.addClass(subscription.getType());
-      return subDom;
+      if (!subscription.isFolder())
+      {
+        // Drag-and-drop code
+        $subDom
+          .mousedown(function(e) 
+          {
+            var $elem = $(document.elementFromPoint(e.pageX, e.pageY)).closest('.subscription');
+            if (!$elem.length)
+              return;
+
+            $('#subscriptions').mousemove(function(e) 
+            {
+              if (!$dragSource)
+              {
+                $dragSource = $elem;
+                $dragSource.addClass('dragged');
+                dragDestination = null;
+
+                return;
+              }
+
+              var dragSource = $dragSource.data('subscription');
+              var $hoveredElement = $(document.elementFromPoint(e.pageX, e.pageY));
+
+              if ($hoveredElement)
+              {
+                var $sub = $hoveredElement.closest('.subscription');
+                var sub = $sub.data('subscription');
+
+                var $newParent = null;
+                var newParentId = null;
+
+                if ($sub.is('li.folder'))
+                {
+                  $newParent = $sub.children('ul:first');
+                  newParentId = sub.id;
+                  dragDestination = sub;
+                }
+                else if (sub != null)
+                {
+                  $newParent = $sub.closest('ul');
+                  newParentId = sub.parent;
+                  dragDestination = subscriptionMap[sub.parent || ''];
+                }
+                else
+                {
+                  return false;
+                }
+
+                $('#subscriptions .dragging').remove();
+
+                if (newParentId != dragSource.parent)
+                {
+                  var $followingElement = null;
+                  var $clone = $dragSource.clone().removeClass('dragged').addClass('dragging');
+
+                  $newParent.children('li').each(function()
+                  {
+                    var $child = $(this);
+                    var child = $child.data('subscription');
+
+                    if (dragSource.title.toUpperCase() < child.title.toUpperCase())
+                    {
+                      $followingElement = $child;
+                      return false;
+                    }
+                  });
+
+                  if ($followingElement != null)
+                    $clone.insertBefore($followingElement);
+                  else
+                    $clone.appendTo($newParent);
+                }
+              }
+            });
+
+            return false;
+          });
+      }
+
+      $subDom.addClass(subscription.getType());
+      return $subDom;
     };
 
     var buildDom = function(parentDom, subscriptions)
@@ -1387,16 +1536,16 @@ $().ready(function()
       $.each(subscriptions, function()
       {
         var subscription = this;
-        var subDom = createSubDom(subscription);
+        var $subDom = createSubDom(subscription);
 
-        parentDom.append(subDom);
+        parentDom.append($subDom);
         if (subscription.id)
         {
           var children = subMap[subscription.id];
-          if (children && children.length > 0)
+          if (children)
           {
             var childDom = $('<ul />');
-            subDom.append(childDom);
+            $subDom.append(childDom);
 
             buildDom(childDom, children);
           }

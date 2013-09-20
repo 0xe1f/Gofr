@@ -66,6 +66,8 @@ func registerJson() {
   RegisterJSONRoute("/subscribe",     subscribe)
   RegisterJSONRoute("/unsubscribe",   unsubscribe)
   RegisterJSONRoute("/markAllAsRead", markAllAsRead)
+  RegisterJSONRoute("/moveSubscription", moveSubscription)
+  RegisterJSONRoute("/removeFolder",  removeFolder);
 
   RegisterJSONRoute("/authUpload",    authUpload)
   RegisterJSONRoute("/initChannel",   initChannel)
@@ -340,7 +342,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 
   params := taskParams {
     "url":      subscriptionURL,
-    "folderId": folderId,
+    "folderID": folderId,
   }
   if err := startTask(pfc, "subscribe", params, subscriptionQueue); err != nil {
     return nil, NewReadableError(_l("Cannot subscribe - too busy"), &err)
@@ -482,6 +484,52 @@ func markAllAsRead(pfc *PFContext) (interface{}, error) {
   return _l("Please wait…"), nil
 }
 
+func moveSubscription(pfc *PFContext) (interface{}, error) {
+  r := pfc.R
+
+  subscriptionID := r.PostFormValue("subscription")
+  folderID := r.PostFormValue("folder")
+  destinationID := r.PostFormValue("destination")
+  
+  if destinationID != "" {
+    destination := storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: destinationID,
+    }
+    if exists, err := storage.FolderExists(pfc.C, destination); err != nil {
+      return nil, err
+    } else if !exists {
+      return nil, NewReadableError(_l("Folder not found"), nil)
+    }
+  }
+
+  ref := storage.SubscriptionRef {
+    FolderRef: storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: folderID,
+    },
+    SubscriptionID: subscriptionID,
+  }
+
+  if exists, err := storage.SubscriptionExists(pfc.C, ref); err != nil {
+    return nil, err
+  } else if !exists {
+    return nil, NewReadableError(_l("Subscription not found"), nil)
+  }
+
+  params := taskParams {
+    "subscriptionID": subscriptionID,
+    "folderID":       folderID,
+    "destinationID":  destinationID,
+  }
+
+  if err := startTask(pfc, "moveSubscription", params, modificationQueue); err != nil {
+    return nil, err
+  }
+
+  return _l("Please wait…"), nil
+}
+
 func authUpload(pfc *PFContext) (interface{}, error) {
   c := pfc.C
 
@@ -502,4 +550,33 @@ func initChannel(pfc *PFContext) (interface{}, error) {
   } else {
     return map[string]string { "token": token }, nil
   }
+}
+
+func removeFolder(pfc *PFContext) (interface{}, error) {
+  r := pfc.R
+
+  folderID := r.PostFormValue("folder")
+  if folderID == "" {
+    return nil, NewReadableError(_l("Folder not found"), nil)
+  }
+
+  folderRef := storage.FolderRef {
+    UserID: pfc.UserID,
+    FolderID: folderID,
+  }
+
+  if exists, err := storage.FolderExists(pfc.C, folderRef); err != nil {
+    return nil, err
+  } else if !exists {
+    return nil, NewReadableError(_l("Folder not found"), nil)
+  }
+
+  params := taskParams {
+    "folderID": folderID,
+  }
+  if err := startTask(pfc, "removeFolder", params, modificationQueue); err != nil {
+    return nil, NewReadableError(_l("Cannot unsubscribe - too busy"), &err)
+  }
+
+  return _l("Please wait…"), nil
 }
