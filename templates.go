@@ -44,6 +44,7 @@ const indexTemplateHTML = `
     <script src="content/jquery.scrollintoview.min.js" type="text/javascript"></script>
     <script src="content/l10n/default.js" type="text/javascript"></script>
     <script src="content/l10n/en-us.js" type="text/javascript"></script>
+    <script src="content/menus.js" type="text/javascript"></script>
     <script src="content/reader.js" type="text/javascript"></script>
     <title>Gofr</title>
   </head>
@@ -57,12 +58,12 @@ const indexTemplateHTML = `
     </div>
     <div id="navbar">
       <div class="right-aligned">
-        <button class="settings dropdown" data-ddid="settings" title="Options"></button>
+        <button class="settings dropdown" data-dropdown="menu-settings" title="Options"></button>
         <button class="select-article up" title="Previous Article"></button><button class="select-article down" title="Next Article"></button>
       </div>
       <button class="navigate">Navigate</button>
       <button class="refresh" title="Refresh">&nbsp;</button>
-      <button class="filter dropdown selectable" data-ddid="filter">All Items</button>
+      <button class="filter dropdown" data-dropdown="menu-filter">All Items</button>
       <button class="mark-all-as-read">Mark all as read</button>
     </div>
     <div id="reader">

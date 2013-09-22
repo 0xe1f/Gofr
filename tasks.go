@@ -254,31 +254,25 @@ func unsubscribeTask(pfc *PFContext) (TaskMessage, error) {
   folderID := pfc.R.PostFormValue("folderID")
   subscriptionID := pfc.R.PostFormValue("subscriptionID")
 
-  folderRef := storage.FolderRef {
-    UserID: pfc.UserID,
-    FolderID: folderID,
+  if subscriptionID == "" {
+    return TaskMessage{}, errors.New("Missing subscription ID")
   }
 
-  if subscriptionID != "" {
-    ref := storage.SubscriptionRef {
-      FolderRef: folderRef,
-      SubscriptionID: subscriptionID,
-    }
+  ref := storage.ArticleScope {
+    FolderRef: storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: folderID,
+    },
+    SubscriptionID: subscriptionID,
+  }
 
-    if err := storage.Unsubscribe(pfc.C, ref); err != nil {
-      return TaskMessage{}, err
-    }
-  } else if folderID != "" {
-    if err := storage.UnsubscribeAllInFolder(pfc.C, folderRef); err != nil {
-      return TaskMessage{}, err
-    }
-  } else {
-    return TaskMessage{}, errors.New("Missing subscription constraint")
+  if err := storage.DeleteArticlesWithinScope(pfc.C, ref); err != nil {
+    return TaskMessage{}, err
   }
 
   return TaskMessage{
-    Refresh: true,
-    }, nil
+    Refresh: false,
+  }, nil
 }
 
 func markAllAsReadTask(pfc *PFContext) (TaskMessage, error) {

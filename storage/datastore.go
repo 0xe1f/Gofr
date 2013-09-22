@@ -741,19 +741,48 @@ func Subscribe(c appengine.Context, ref FolderRef, url string, title string) (Su
 }
 
 func Unsubscribe(c appengine.Context, ref SubscriptionRef) error {
-  if key, err := ref.key(c); err != nil {
+  subscriptionKey, err := ref.key(c)
+  if err != nil {
     return err
-  } else {
-    return unsubscribe(c, key)
   }
+
+  if err := datastore.Delete(c, subscriptionKey); err != nil {
+    return err
+  }
+
+  return nil
 }
 
-func UnsubscribeAllInFolder(c appengine.Context, ref FolderRef) error {
-  if key, err := ref.key(c); err != nil {
+func DeleteArticlesWithinScope(c appengine.Context, scope ArticleScope) error {
+  ancestorKey, err := scope.key(c)
+  if err != nil {
     return err
-  } else {
-    return unsubscribe(c, key)
   }
+
+  batchWriter := NewBatchWriter(c, BatchDelete)
+
+  q := datastore.NewQuery("Article").Ancestor(ancestorKey).KeysOnly()
+  for t := q.Run(c); ; {
+    articleKey, err := t.Next(nil)
+
+    if err == datastore.Done {
+      break
+    } else if err != nil {
+      return err
+    }
+
+    if err := batchWriter.EnqueueKey(articleKey); err != nil {
+      c.Errorf("Error queueing article for batch delete: %s", err)
+      return err
+    }
+  }
+
+  if err := batchWriter.Flush(); err != nil {
+    c.Errorf("Error flushing batch queue: %s", err)
+    return err
+  }
+
+  return nil
 }
 
 func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {

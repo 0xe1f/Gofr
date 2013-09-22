@@ -60,47 +60,6 @@ func newFolderRef(userID UserID, key *datastore.Key) (FolderRef) {
   return ref
 }
 
-func unsubscribe(c appengine.Context, ancestorKey *datastore.Key) error {
-  batchWriter := NewBatchWriter(c, BatchDelete)
-
-  q := datastore.NewQuery("Article").Ancestor(ancestorKey).KeysOnly()
-  for t := q.Run(c); ; {
-    articleKey, err := t.Next(nil)
-
-    if err == datastore.Done {
-      break
-    } else if err != nil {
-      return err
-    }
-
-    if err := batchWriter.EnqueueKey(articleKey); err != nil {
-      c.Errorf("Error queueing article for batch delete: %s", err)
-      return err
-    }
-  }
-
-  if err := batchWriter.Flush(); err != nil {
-    c.Errorf("Error flushing batch queue: %s", err)
-    return err
-  }
-
-  if ancestorKey.Kind() == "Folder" {
-    // Remove subscriptions under the folder
-    q = datastore.NewQuery("Subscription").Ancestor(ancestorKey).KeysOnly().Limit(400)
-    if subscriptionKeys, err := q.GetAll(c, nil); err == nil {
-      if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
-        return err
-      }
-    }
-  }
-
-  if err := datastore.Delete(c, ancestorKey); err != nil {
-    return err
-  }
-
-  return nil
-}
-
 func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key, subscription Subscription) (int, error) {
   feedKey := subscription.Feed
   largestUpdateIndexWritten := int64(-1)

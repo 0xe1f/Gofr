@@ -425,6 +425,10 @@ ul#subscriptions,
   display: inline;
 }
 
+.hide-read-subs .subscription.leaf.no-unread {
+  display: none;
+}
+
 #navbar {
   padding: 10px;
 }
@@ -618,7 +622,17 @@ ul.menu {
   background-color: #ccc;
 }
 
-.menu li.selected-menu-item {
+.menu li.selected-menu-item span {
+  background: url(sprites.png) no-repeat -225px -225px;
+}
+
+.menu li span {
+  padding-left: 20px;
+  white-space: nowrap;
+}
+
+.menu li.checked span {
+  background: url(sprites.png) no-repeat -225px -225px;
 }
 
 .shortcuts {

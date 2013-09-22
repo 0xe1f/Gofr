@@ -357,32 +357,23 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
 
-  folderRef := storage.FolderRef {
-    UserID: pfc.UserID,
-    FolderID: folderID,
+  // Remove a subscription
+  ref := storage.SubscriptionRef {
+    FolderRef: storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: folderID,
+    },
+    SubscriptionID: subscriptionID,
   }
 
-  if subscriptionID != "" {
-    // Remove a subscription
-    ref := storage.SubscriptionRef {
-      FolderRef: folderRef,
-      SubscriptionID: subscriptionID,
-    }
+  if exists, err := storage.SubscriptionExists(pfc.C, ref); err != nil {
+    return nil, err
+  } else if !exists {
+    return nil, NewReadableError(_l("Subscription not found"), nil)
+  }
 
-    if exists, err := storage.SubscriptionExists(pfc.C, ref); err != nil {
-      return nil, err
-    } else if !exists {
-      return nil, NewReadableError(_l("Subscription not found"), nil)
-    }
-  } else if folderID != "" {
-    // Remove a folder
-    if exists, err := storage.FolderExists(pfc.C, folderRef); err != nil {
-      return nil, err
-    } else if !exists {
-      return nil, NewReadableError(_l("Folder not found"), nil)
-    }
-  } else {
-    return nil, NewReadableError(_l("Item not found"), nil)
+  if err := storage.Unsubscribe(pfc.C, ref); err != nil {
+    return nil, err
   }
 
   params := taskParams {
@@ -393,7 +384,7 @@ func unsubscribe(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Cannot unsubscribe - too busy"), &err)
   }
 
-  return _l("Please wait…"), nil
+  return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
 }
 
 func importOPML(pfc *PFContext) (interface{}, error) {
