@@ -198,21 +198,21 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
     return TaskMessage{}, errors.New("Missing subscription URL")
   }
 
-  if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, pfc.UserID, subscriptionURL); err != nil {
+  subscriptionRef := storage.SubscriptionRef {
+    FolderRef: storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: folderID,
+    },
+    SubscriptionID: subscriptionURL,
+  }
+
+  if exists, err := storage.SubscriptionExists(pfc.C, subscriptionRef); err != nil {
     return TaskMessage{}, err
-  } else if subscribed {
-    return TaskMessage{
-      Message: _l("You are already subscribed"),
-      Refresh: true,
-    }, nil
+  } else if !exists {
+    pfc.C.Warningf("No longer subscribed to %s", subscriptionURL, err)
+    return TaskMessage{}, nil
   }
 
-  folderRef := storage.FolderRef {
-    UserID: pfc.UserID,
-    FolderID: folderID,
-  }
-
-  feedTitle := ""
   if feed, err := storage.FeedByURL(pfc.C, subscriptionURL); err != nil {
     return TaskMessage{}, err
   } else if feed == nil {
@@ -228,26 +228,17 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
         return TaskMessage{}, NewReadableError(_l("Error reading RSS content"), &err)
       } else if err := storage.UpdateFeed(pfc.C, parsedFeed); err != nil {
         return TaskMessage{}, err
-      } else {
-        feedTitle = parsedFeed.Title
       }
     }
-  } else {
-    feedTitle = feed.Title
   }
 
-  if subscriptionRef, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, feedTitle); err != nil {
+  if _, err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
     return TaskMessage{}, err
-  } else {
-    if _, err := storage.UpdateSubscription(pfc.C, subscriptionURL, subscriptionRef); err != nil {
-      return TaskMessage{}, err
-    }
   }
 
   return TaskMessage{
-    Message: _l("You are now subscribed to '%s'", feedTitle),
     Refresh: true,
-    }, nil
+  }, nil
 }
 
 func unsubscribeTask(pfc *PFContext) (TaskMessage, error) {

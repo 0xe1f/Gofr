@@ -24,12 +24,15 @@
 package gofr
 
 import (
+  "html/template"
   "net/http"
 )
 
 func registerWeb() {
   RegisterHTMLRoute("/", index)
 }
+
+var indexTemplate = template.Must(template.New("index").Parse(indexTemplateHTML))
 
 func index(pfc *PFContext) {
   if err := indexTemplate.Execute(pfc.W, nil); err != nil {

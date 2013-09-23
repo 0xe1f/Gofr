@@ -14,5 +14,3 @@ while the rest is done in a background task:
   Move Subscription
     Request: Move subscription
     Task: Move articles
-  Subscribe
-  Import OPML

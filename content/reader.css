@@ -22,7 +22,7 @@
  */
  
 body {
-  font-family: arial, sans-serif;
+  font-family: helvetica, arial, sans-serif;
   font-size: 10pt;
   color: #444;
   margin: 0;
@@ -40,7 +40,7 @@ body {
 
 #reader {
   position: absolute;
-  top: 125px;
+  top: 130px;
   bottom: 0;
   left: 0;
   right: 0;
@@ -57,12 +57,14 @@ a {
 }
 
 .navbar a {
+  font-size: 12pt;
   font-weight: bold;
   text-decoration: none;
+  margin-left: 2em;
 }
 
-.navbar .admin {
-  margin-left: 2em;
+.navbar a.import-subscriptions {
+  margin-left: 0;
 }
 
 .logout {
@@ -433,6 +435,7 @@ ul#subscriptions,
   padding: 10px;
 }
 
+.navbar .right-aligned,
 #navbar .right-aligned {
   position: absolute;
   right: 10px;
@@ -693,6 +696,7 @@ ul.menu {
   border: solid 1px #bbb;
   border-radius: 3px;
   background-color: #fff;
+  box-shadow: 0.5em 0.5em 0.5em #888;
 }
 
 .modal h1 {
@@ -703,4 +707,13 @@ ul.menu {
 .modal .buttons {
   margin-top: 1em;
   text-align: right;
+}
+
+#about h1 {
+  font-size: 24pt;
+}
+
+#about p {
+  font-size: 14pt;
+  line-height: 1.4;
 }

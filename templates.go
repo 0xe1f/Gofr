@@ -23,12 +23,6 @@
  
 package gofr
 
-import (
-  "html/template"
-)
-
-var indexTemplate = template.Must(template.New("index").Parse(indexTemplateHTML))
-
 const indexTemplateHTML = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
@@ -53,7 +47,10 @@ const indexTemplateHTML = `
     <div id="header">
       <h1>Gofr</h1>
       <div class="navbar">
+        <div class="right-aligned">
+        </div>
         <a class="import-subscriptions" href="#">Import subscriptions</a>
+        <a class="show-about" href="#">About</a>
       </div>
     </div>
     <div id="navbar">
@@ -90,6 +87,18 @@ const indexTemplateHTML = `
           <button class="modal-cancel">Cancel</button>
           <button class="modal-ok">Upload</button>
         </div>
+      </div>
+    </div>
+    <div id="about" class="modal">
+      <div class="modal-inner">
+        <h1>About Gofr</h1>
+        <p>Gofr (pronounced &#8220;gopher&#8221;) is an open source Feed Reader 
+        (Google Reader clone) for <a target="_blank" href="http://appengine.google.com">Google App 
+        Engine</a>, with code available on <a target="_blank" href="https://github.com/melllvar/Gofr">GitHub</a>. 
+        Gofr is loosely based on <a target="_blank" href="https://github.com/melllvar/grr">grr</a>, 
+        an initial version written for PHP/MySQL, also available on GitHub.</p>
+        <p>Gofr is written by <a target="_blank" href="http://www.akop.org/">Akop Karapetyan</a></p>
+        <button class="modal-cancel">Close</button>
       </div>
     </div>
   </body>

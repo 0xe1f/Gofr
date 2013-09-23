@@ -259,33 +259,33 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("URL is not valid"), &err)
   }
 
-  if folderId != "" {
-    ref := storage.FolderRef {
-      UserID: pfc.UserID,
-      FolderID: folderId,
-    }
+  folderRef := storage.FolderRef {
+    UserID: pfc.UserID,
+    FolderID: folderId,
+  }
 
-    if exists, err := storage.FolderExists(pfc.C, ref); err != nil {
+  if folderId != "" {
+    if exists, err := storage.FolderExists(pfc.C, folderRef); err != nil {
       return nil, err
     } else if !exists {
       return nil, NewReadableError(_l("Folder not found"), nil)
     }
   }
 
+  feedTitle := _l("New Subscription")
+
   if exists, err := storage.IsFeedAvailable(pfc.C, subscriptionURL); err != nil {
     return nil, err
   } else if !exists {
     // Not a known feed URL
     // Match it against a list of known WWW links
-
-    if feedURL, err := storage.WebToFeedURL(pfc.C, subscriptionURL); err != nil {
+    if feedURL, err := storage.WebToFeedURL(pfc.C, subscriptionURL, &feedTitle); err != nil {
       return nil, err
     } else if feedURL != "" {
       subscriptionURL = feedURL
     } else {
       // Still nothing
       // Add/remove 'www' to/from URL and try again
-
       var modifiedURL string
       if re := regexp.MustCompile(`://www\.`); re.MatchString(subscriptionURL) {
         modifiedURL = re.ReplaceAllString(subscriptionURL, "://")
@@ -294,7 +294,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
         modifiedURL = re.ReplaceAllString(subscriptionURL, "://www.")
       }
 
-      if feedURL, err := storage.WebToFeedURL(pfc.C, modifiedURL); err != nil {
+      if feedURL, err := storage.WebToFeedURL(pfc.C, modifiedURL, &feedTitle); err != nil {
         return nil, err
       } else if feedURL != "" {
         subscriptionURL = feedURL
@@ -305,14 +305,14 @@ func subscribe(pfc *PFContext) (interface{}, error) {
   if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, pfc.UserID, subscriptionURL); err != nil {
     return nil, err
   } else if subscribed {
-    return nil, NewReadableError(_l("You are already subscribed"), nil)
+    return nil, NewReadableError(_l("You are already subscribed to %s", feedTitle), nil)
   }
 
   // At this point, the URL may have been re-written, so we check again
   if exists, err := storage.IsFeedAvailable(pfc.C, subscriptionURL); err != nil {
     return nil, err
   } else if !exists {
-    // Don't have the locally - fetch it
+    // Don't have the feed locally - fetch it
     client := urlfetch.Client(c)
     if response, err := client.Get(subscriptionURL); err != nil {
       return nil, NewReadableError(_l("An error occurred while downloading the feed"), &err)
@@ -327,17 +327,36 @@ func subscribe(pfc *PFContext) (interface{}, error) {
       }
 
       reader := strings.NewReader(body)
-      if _, err := rss.UnmarshalStream(subscriptionURL, reader); err != nil {
+      if feed, err := rss.UnmarshalStream(subscriptionURL, reader); err != nil {
         // Parse failed. Assume it's an HTML document and 
         // try to pull out an RSS <link />
-
         if linkURL, err := rss.ExtractRSSLink(c, subscriptionURL, body); linkURL == "" || err != nil {
           return nil, NewReadableError(_l("RSS content not found"), &err)
         } else {
-          subscriptionURL = linkURL
+          // Validate the RSS file
+          if response, err := client.Get(linkURL); err != nil {
+            return nil, NewReadableError(_l("An error occurred while downloading the feed"), &err)
+          } else {
+            defer response.Body.Close()
+
+            if feed, err := rss.UnmarshalStream(linkURL, response.Body); err != nil {
+              return nil, NewReadableError(_l("RSS content not found"), &err)
+            } else {
+              feedTitle = feed.Title
+            }
+
+            subscriptionURL = linkURL
+          }
         }
+      } else {
+        feedTitle = feed.Title
       }
     }
+  }
+
+  // Create subscription entry
+  if _, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, feedTitle); err != nil {
+    return nil, NewReadableError(_l("Cannot subscribe"), &err)
   }
 
   params := taskParams {
@@ -348,7 +367,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Cannot subscribe - too busy"), &err)
   }
 
-  return _l("Subscribing, please wait…"), nil
+  return storage.NewUserSubscriptions(c, pfc.UserID)
 }
 
 func unsubscribe(pfc *PFContext) (interface{}, error) {

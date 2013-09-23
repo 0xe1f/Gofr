@@ -384,8 +384,7 @@ $().ready(function() {
         params['folder'] = this.id;
 
       $.post('subscribe', params, function(response) {
-        if (response.message)
-          ui.showToast(response.message, false);
+        resetSubscriptionDom(response, false);
       }, 'json');
     },
     'isFolder': function() {
@@ -566,7 +565,11 @@ $().ready(function() {
 
       $('a.import-subscriptions').click(function() {
         ui.showImportSubscriptionsModal();
+        return false;
+      });
 
+      $('a.show-about').click(function() {
+        ui.showAbout();
         return false;
       });
 
@@ -823,6 +826,9 @@ $().ready(function() {
       $('#import-subscriptions').find('form')[0].reset();
       $('#import-subscriptions').showModal(true);
     },
+    'showAbout': function() {
+      $('#about').showModal(true);
+    },
     'isGModifierActive': function() {
       return new Date().getTime() - lastGPressTime < 1000;
     },
@@ -883,16 +889,16 @@ $().ready(function() {
       var $next = null;
 
       if (which < 0) {
-        var $allFeeds = $('#subscriptions .subscription');
+        var $allFeeds = $('#subscriptions .subscription').not('.no-unread');
         var highlightedIndex = $allFeeds.index($highlighted);
 
         if (highlightedIndex - 1 >= 0)
           $next = $($allFeeds[highlightedIndex - 1]);
       } else if (which > 0) {
         if ($highlighted.length < 1)
-          $next = $('#subscriptions .subscription:first');
+          $next = $('#subscriptions .subscription:first').not('.no-unread');
         else {
-          var $allFeeds = $('#subscriptions .subscription');
+          var $allFeeds = $('#subscriptions .subscription').not('.no-unread');
           var highlightedIndex = $allFeeds.index($highlighted);
 
           if (highlightedIndex + 1 < $allFeeds.length)
@@ -986,7 +992,6 @@ $().ready(function() {
         },
         function(response) {
           resetSubscriptionDom(response, false);
-          ui.showToast(_l("Folder added successfully"), false);
         }, 'json');
       }
     },

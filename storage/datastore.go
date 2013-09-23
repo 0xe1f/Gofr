@@ -206,18 +206,28 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
     totalUnreadCount += subscription.UnreadCount
   }
 
+  var feedMultiError appengine.MultiError
   feeds := make([]Feed, len(subscriptions))
+
   if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
-    return nil, err
+    if multiError, ok := err.(appengine.MultiError); ok {
+      feedMultiError = multiError
+    } else {
+      return nil, err
+    }
   }
 
   for i, _ := range subscriptions {
-    subscription := &subscriptions[i]
-    feed := feeds[i]
     subscriptionKey := subscriptionKeys[i]
 
+    subscription := &subscriptions[i]
     subscription.ID = subscriptionKey.StringID()
-    subscription.Link = feed.Link
+
+    if feedMultiError == nil || feedMultiError[i] == nil {
+      subscription.Link = feeds[i].Link
+    } else if feedMultiError != nil && feedMultiError[i] != nil {
+      c.Warningf("MultiError for feed %s: %s", subscription.ID, feedMultiError[i])
+    }
 
     if subscriptionKey.Parent().Kind() == "Folder" {
       subscription.Parent = formatId("folder", subscriptionKey.Parent().IntID())
@@ -691,11 +701,14 @@ func IsFeedAvailable(c appengine.Context, url string) (bool, error) {
   return false, nil
 }
 
-func WebToFeedURL(c appengine.Context, url string) (string, error) {
+func WebToFeedURL(c appengine.Context, url string, title *string) (string, error) {
   q := datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
   var feeds []*Feed
   if _, err := q.GetAll(c, &feeds); err == nil {
     if len(feeds) > 0 {
+      if title != nil {
+        *title = feeds[0].Title
+      }
       return feeds[0].URL, nil
     }
   } else {
