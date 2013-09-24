@@ -453,7 +453,6 @@ button {
   border: solid 1px #aaa;
   border-radius: 3px;
   box-shadow: 1px 1px 1px #ddd;
-  font-family: arial, sans-serif;
   font-size: 8pt;
   font-weight: bold;
   color: #555;
@@ -537,13 +536,16 @@ button.dropdown {
   background-position: -60px -210px;
 }
 
-button.subscribe {
+button.solid-color {
   border-color: #D14836;
-  background-color: #D14836;
   color: white;
   text-transform: uppercase;
   font-weight: bold;
   margin: 1em 20px;
+}
+
+button.subscribe {
+  background-color: #D14836;
 }
 
 #navbar .spacer {
@@ -692,7 +694,7 @@ ul.menu {
   position: relative;
   left: -50%;
   top: -50%;
-  padding: 0.75em 2em;
+  padding: 2em 2em;
   border: solid 1px #bbb;
   border-radius: 3px;
   background-color: #fff;

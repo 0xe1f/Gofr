@@ -500,12 +500,13 @@ func moveSubscription(pfc *PFContext) (interface{}, error) {
   subscriptionID := r.PostFormValue("subscription")
   folderID := r.PostFormValue("folder")
   destinationID := r.PostFormValue("destination")
+
+  destination := storage.FolderRef {
+    UserID: pfc.UserID,
+    FolderID: destinationID,
+  }
   
   if destinationID != "" {
-    destination := storage.FolderRef {
-      UserID: pfc.UserID,
-      FolderID: destinationID,
-    }
     if exists, err := storage.FolderExists(pfc.C, destination); err != nil {
       return nil, err
     } else if !exists {
@@ -527,6 +528,10 @@ func moveSubscription(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Subscription not found"), nil)
   }
 
+  if err := storage.MoveSubscription(pfc.C, ref, destination); err != nil {
+    return nil, err
+  }
+
   params := taskParams {
     "subscriptionID": subscriptionID,
     "folderID":       folderID,
@@ -537,7 +542,7 @@ func moveSubscription(pfc *PFContext) (interface{}, error) {
     return nil, err
   }
 
-  return _l("Please wait…"), nil
+  return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
 }
 
 func authUpload(pfc *PFContext) (interface{}, error) {
@@ -581,6 +586,12 @@ func removeFolder(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Folder not found"), nil)
   }
 
+  // Delete the folder and subscriptions
+  if err := storage.DeleteFolder(pfc.C, folderRef); err != nil {
+    return nil, err
+  }
+
+  // Start a task to purge the articles
   params := taskParams {
     "folderID": folderID,
   }
@@ -588,5 +599,5 @@ func removeFolder(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Cannot unsubscribe - too busy"), &err)
   }
 
-  return _l("Please wait…"), nil
+  return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
 }

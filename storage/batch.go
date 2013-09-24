@@ -47,10 +47,6 @@ type BatchWriter struct {
   op BatchOp
 }
 
-func NewBatchWriter(c appengine.Context, op BatchOp) *BatchWriter {
-  return NewBatchWriterWithSize(c, op, 400)
-}
-
 func NewBatchWriterWithSize(c appengine.Context, op BatchOp, size int) *BatchWriter {
   writer := BatchWriter {
     c: c,

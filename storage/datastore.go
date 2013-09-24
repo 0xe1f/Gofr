@@ -34,7 +34,12 @@ import (
 
 const (
   articlePageSize = 40
+  defaultBatchSize = 400
 )
+
+func NewBatchWriter(c appengine.Context, op BatchOp) *BatchWriter {
+  return NewBatchWriterWithSize(c, op, defaultBatchSize)
+}
 
 func (ref FolderRef)IsZero() bool {
   return ref.UserID == "" && ref.FolderID == ""
@@ -190,7 +195,7 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
     return nil, err
   }
 
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(400)
+  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
   if subKeys, err := q.GetAll(c, &subscriptions); err != nil {
     return nil, err
   } else if subscriptions == nil {
@@ -237,7 +242,7 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
   var folders []Folder
   var folderKeys []*datastore.Key
 
-  q = datastore.NewQuery("Folder").Ancestor(userKey).Limit(400)
+  q = datastore.NewQuery("Folder").Ancestor(userKey).Limit(defaultBatchSize)
   if k, err := q.GetAll(c, &folders); err != nil {
     return nil, err
   } else if folders == nil {
@@ -512,7 +517,7 @@ func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
   // Reset unread counters
   if key.Kind() != "Subscription" {
     var subscriptions []*Subscription
-    q = datastore.NewQuery("Subscription").Ancestor(key).Limit(400)
+    q = datastore.NewQuery("Subscription").Ancestor(key).Limit(defaultBatchSize)
     
     if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
       return 0, err
@@ -556,8 +561,6 @@ func MoveSubscription(c appengine.Context, subRef SubscriptionRef, destRef Folde
     return err
   }
 
-  // Move the subscription
-
   subscription := new(Subscription)
   if err := datastore.Get(c, currentSubscriptionKey, subscription); err != nil {
     c.Errorf("Error reading subscription: %s", err)
@@ -574,7 +577,24 @@ func MoveSubscription(c appengine.Context, subRef SubscriptionRef, destRef Folde
     return err
   }
 
-  // Move the articles
+  return nil
+}
+
+func MoveArticles(c appengine.Context, subRef SubscriptionRef, destRef FolderRef) error {
+  currentSubscriptionKey, err := subRef.key(c)
+  if err != nil {
+    return err
+  }
+
+  newSubRef := SubscriptionRef {
+    FolderRef: destRef,
+    SubscriptionID: subRef.SubscriptionID,
+  }
+
+  newSubscriptionKey, err := newSubRef.key(c)
+  if err != nil {
+    return err
+  }
 
   batchWriter := NewBatchWriter(c, BatchPut)
   batchDeleter := NewBatchWriter(c, BatchDelete)
@@ -622,7 +642,7 @@ func DeleteFolder(c appengine.Context, ref FolderRef) error {
   }
 
   // Get a list of relevant subscriptions
-  q := datastore.NewQuery("Subscription").Ancestor(folderKey).KeysOnly().Limit(400)
+  q := datastore.NewQuery("Subscription").Ancestor(folderKey).KeysOnly().Limit(defaultBatchSize)
   subscriptionKeys, err := q.GetAll(c, nil)
 
   if err != nil {
@@ -642,33 +662,6 @@ func DeleteFolder(c appengine.Context, ref FolderRef) error {
 
   if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
     c.Errorf("Error deleting subscriptions: %s", err)
-    return err
-  }
-
-  // Delete articles
-  batchDeleter := NewBatchWriter(c, BatchDelete)
-
-  for _, subscriptionKey := range subscriptionKeys {
-    q := datastore.NewQuery("Article").Ancestor(subscriptionKey).KeysOnly()
-    for t := q.Run(c); ; {
-      articleKey, err := t.Next(nil)
-
-      if err == datastore.Done {
-        break
-      } else if err != nil {
-        c.Errorf("Error reading Article: %s", err)
-        return err
-      }
-
-      if err := batchDeleter.EnqueueKey(articleKey); err != nil {
-        c.Errorf("Error queueing article for batch delete: %s", err)
-        return err
-      }
-    }
-  }
-
-  if err := batchDeleter.Flush(); err != nil {
-    c.Errorf("Error flushing batch delete queue: %s", err)
     return err
   }
 
@@ -848,7 +841,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
     return err
   }
 
-  batchSize := 400
+  batchSize := defaultBatchSize
   elements := len(parsedFeed.Entries)
 
   entryKeys := make([]*datastore.Key, batchSize)
@@ -991,7 +984,7 @@ func UpdateAllSubscriptions(c appengine.Context, userID UserID) error {
   
   var subscriptions []Subscription
 
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(400)
+  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
   subscriptionKeys, err := q.GetAll(c, &subscriptions)
   if err != nil {
     return err
@@ -1052,4 +1045,3 @@ done:
     ch<- subscription
   }
 }
-

@@ -5,12 +5,6 @@ Use a mutex to prevent simultaneous feed updates
 Split the following tasks, so that some of the work is done immediately,
 while the rest is done in a background task:
 
-  Remove Folder
-    Request: Delete the folder and subscriptions
-    Task: Delete articles
   Mark All as Read
     Request: Reset unread counts for each subscription
     Task: Set properties to 'read'
-  Move Subscription
-    Request: Move subscription
-    Task: Move articles

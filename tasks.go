@@ -308,14 +308,11 @@ func moveSubscriptionTask(pfc *PFContext) (TaskMessage, error) {
     FolderID: destinationID,
   }
 
-  if err := storage.MoveSubscription(pfc.C, subscription, destination); err != nil {
+  if err := storage.MoveArticles(pfc.C, subscription, destination); err != nil {
     return TaskMessage{}, err
-  } else {
-    return TaskMessage {
-      Message: _l("Folder moved"),
-      Refresh: true,
-    }, nil
   }
+  
+  return TaskMessage{}, nil
 }
 
 func refreshTask(pfc *PFContext) (TaskMessage, error) {
@@ -330,16 +327,16 @@ func refreshTask(pfc *PFContext) (TaskMessage, error) {
 
 func removeFolderTask(pfc *PFContext) (TaskMessage, error) {
   folderID := pfc.R.PostFormValue("folderID")
-  folderRef := storage.FolderRef {
-    UserID: pfc.UserID,
-    FolderID: folderID,
+  ref := storage.ArticleScope {
+    FolderRef: storage.FolderRef {
+      UserID: pfc.UserID,
+      FolderID: folderID,
+    },
   }
 
-  if err := storage.DeleteFolder(pfc.C, folderRef); err != nil {
+  if err := storage.DeleteArticlesWithinScope(pfc.C, ref); err != nil {
     return TaskMessage{}, err
   }
 
-  return TaskMessage{
-    Refresh: true,
-  }, nil
+  return TaskMessage{}, nil
 }

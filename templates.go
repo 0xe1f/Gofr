@@ -65,7 +65,7 @@ const indexTemplateHTML = `
     </div>
     <div id="reader">
       <div class="feeds-container">
-        <button class="subscribe">Subscribe</button>
+        <button class="subscribe solid-color">Subscribe</button>
         <ul id="subscriptions"></ul>
       </div>
       <div class="entries-container">

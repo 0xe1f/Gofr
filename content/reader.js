@@ -318,15 +318,7 @@ $().ready(function() {
         }, 
         function(response) {
           resetSubscriptionDom(response, false);
-          $('#entries .entry').each(function() {
-            var $entry = $(this);
-            var entry = $entry.data('entry');
-
-            if (entry.source == subscription.id)
-              $entry.remove();
-
-            ui.onEntryListUpdate();
-          });
+          ui.pruneDeadEntries();
         }, 'json');
       }
     },
@@ -355,9 +347,7 @@ $().ready(function() {
         'destination':  folder.id ? folder.id : undefined,
       },
       function(response) {
-        ui.showToast(response.message);
-        if (response.done)
-          refresh();
+        resetSubscriptionDom(response, false);
       }, 'json');
     },
     'removeFolder': function() {
@@ -368,7 +358,8 @@ $().ready(function() {
           'folder': subscription.id,
         }, 
         function(response) {
-          ui.showToast(response.message);
+          resetSubscriptionDom(response, false);
+          ui.pruneDeadEntries();
         }, 'json');
       }
     },
@@ -1024,6 +1015,17 @@ $().ready(function() {
         if (entry.source == subscription.id)
           $entry.remove();
       });
+    },
+    'pruneDeadEntries': function() {
+      $('#entries .entry').each(function() {
+        var $entry = $(this);
+        var entry = $entry.data('entry');
+
+        if (!subscriptionMap[entry.source])
+          $entry.remove();
+      });
+
+      this.onEntryListUpdate();
     },
     'onEntryListUpdate': function() {
       var $centerMessage = $('.center-message');

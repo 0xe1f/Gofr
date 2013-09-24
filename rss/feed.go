@@ -61,6 +61,10 @@ type Entry struct {
   Updated time.Time
 }
 
+const (
+  maxSummaryLength = 400
+)
+
 type SortableTimes []time.Time 
 
 func (s SortableTimes) Len() int {
@@ -234,8 +238,8 @@ func (entry Entry)GenerateSummary() string {
   unescaped := html.UnescapeString(sanitized)
   stripped := extraSpaceStripper.ReplaceAllString(unescaped, "")
 
-  if runes := []rune(stripped); len(runes) > 400 {
-    return string(runes[:400])
+  if runes := []rune(stripped); len(runes) > maxSummaryLength {
+    return string(runes[:maxSummaryLength])
   } else {
     return stripped
   }
