@@ -49,56 +49,56 @@ const indexTemplateHTML = `
       <div class="navbar">
         <div class="right-aligned">
         </div>
-        <a class="import-subscriptions" href="#">Import subscriptions</a>
-        <a class="show-about" href="#">About</a>
+        <a class="import-subscriptions _l" href="#">Import subscriptions</a>
+        <a class="show-about _l" href="#">About</a>
       </div>
     </div>
     <div id="navbar">
       <div class="right-aligned">
-        <button class="settings dropdown" data-dropdown="menu-settings" title="Options"></button>
-        <button class="select-article up" title="Previous Article"></button><button class="select-article down" title="Next Article"></button>
+        <button class="settings dropdown _l" data-dropdown="menu-settings" title="Options"></button>
+        <button class="select-article up _l" title="Previous Article"></button><button class="select-article down _l" title="Next Article"></button>
       </div>
-      <button class="navigate">Navigate</button>
-      <button class="refresh" title="Refresh">&nbsp;</button>
-      <button class="filter dropdown" data-dropdown="menu-filter">All Items</button>
-      <button class="mark-all-as-read">Mark all as read</button>
+      <button class="navigate _l">Navigate</button>
+      <button class="refresh _l" title="Refresh">&nbsp;</button>
+      <button class="filter dropdown _l" data-dropdown="menu-filter">All Items</button>
+      <button class="mark-all-as-read _l">Mark all as read</button>
     </div>
     <div id="reader">
       <div class="feeds-container">
-        <button class="subscribe solid-color">Subscribe</button>
+        <button class="subscribe solid-color _l">Subscribe</button>
         <ul id="subscriptions"></ul>
       </div>
-      <div class="entries-container">
+      <div class="gofr-entries-container">
         <div class="center-message"></div>
-        <div class="entries-header"></div>
-        <div id="entries"></div>
+        <div class="gofr-entries-header"></div>
+        <div id="gofr-entries"></div>
       </div>
     </div>
     <div id="floating-nav"></div>
     <div class="modal-blocker"></div>
     <div id="import-subscriptions" class="modal">
       <div class="modal-inner">
-        <h1>Upload OPML file</h1>
+        <h1 class="_l">Upload OPML file</h1>
         <form enctype="multipart/form-data" action="#" method="POST">
           <input name="opml" type="file" />
           <input name="client" type="hidden" value="" />
         </form>
         <div class="buttons">
-          <button class="modal-cancel">Cancel</button>
-          <button class="modal-ok">Upload</button>
+          <button class="modal-cancel _l">Cancel</button>
+          <button class="modal-ok _l">Upload</button>
         </div>
       </div>
     </div>
     <div id="about" class="modal">
       <div class="modal-inner">
         <h1>About Gofr</h1>
-        <p>Gofr (pronounced &#8220;gopher&#8221;) is an open source Feed Reader 
-        (Google Reader clone) for <a target="_blank" href="http://appengine.google.com">Google App 
-        Engine</a>, with code available on <a target="_blank" href="https://github.com/melllvar/Gofr">GitHub</a>. 
-        Gofr is loosely based on <a target="_blank" href="https://github.com/melllvar/grr">grr</a>, 
+        <p class="_l">Gofr (pronounced &#8220;gopher&#8221;) is an open source Feed Reader 
+        (Google Reader clone) for (http://appengine.google.com)[Google App Engine], with code 
+        available on (https://github.com/melllvar/Gofr)[GitHub]. 
+        Gofr is loosely based on (https://github.com/melllvar/grr)[grr], 
         an initial version written for PHP/MySQL, also available on GitHub.</p>
-        <p>Gofr is written by <a target="_blank" href="http://www.akop.org/">Akop Karapetyan</a></p>
-        <button class="modal-cancel">Close</button>
+        <p class="_l">Gofr is written by (http://www.akop.org/)[Akop Karapetyan].</p>
+        <button class="modal-cancel _l">Close</button>
       </div>
     </div>
   </body>

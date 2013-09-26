@@ -32,6 +32,29 @@ $().ready(function() {
   var lastGPressTime = 0;
   var channel;
 
+  var linkify = function(str, args) {
+    var re = /\(((?:[a-z]+:\/\/|%s)[^\)]*)\)\[([^\]]*)\]/g;
+    var m;
+    var start = 0;
+    var html = "";
+    var outArgs = [];
+
+    while ((m = re.exec(str)) !== null) {
+      var url = m[1];
+      var text = m[2];
+      var anchor = '<a href="' + url + '" target="_blank">%s</a>';
+
+      html += str.substr(start, m.index - start) + anchor;
+      start = m.index + m[0].length;
+
+      outArgs.push(text);
+    }
+
+    html += str.substr(start);
+
+    return { html: html, args: args ? args : outArgs };
+  };
+
   var _l = function(str, args) {
     var localized = null;
     if (typeof gofrStrings !== 'undefined' && gofrStrings != null)
@@ -39,6 +62,11 @@ $().ready(function() {
 
     if (localized == null)
       localized = str; // No localization
+
+    var md = linkify(localized, args);
+    localized = md.html;
+    if (md.args.length)
+      args = md.args;
 
     if (args)
       return vsprintf(localized, args);
@@ -59,7 +87,7 @@ $().ready(function() {
 
   // Automatic pager
 
-  $('.entries-container').scroll(function() {
+  $('.gofr-entries-container').scroll(function() {
     var pagerHeight = $('.next-page').outerHeight();
     if (!pagerHeight)
       return; // No pager
@@ -67,7 +95,7 @@ $().ready(function() {
     if (lastContinued == continueFrom)
       return;
 
-    var offset = $('#entries').height() - ($('.entries-container').scrollTop() + $('.entries-container').height()) - pagerHeight;
+    var offset = $('#gofr-entries').height() - ($('.gofr-entries-container').scrollTop() + $('.gofr-entries-container').height()) - pagerHeight;
     if (offset < 36)
       $('.next-page').click();
   });
@@ -140,7 +168,7 @@ $().ready(function() {
     },
     'addPage': function(entries) {
       var subscription = this;
-      var idCounter = $('#entries').find('.entry').length;
+      var idCounter = $('#gofr-entries').find('.gofr-entry').length;
 
       $.each(entries, function() {
         var entry = this;
@@ -154,25 +182,25 @@ $().ready(function() {
         if (!entrySubscription)
           return true; // May have been deleted on server; don't add it if so
 
-        entry.domId = 'entry-' + idCounter++;
-        var $entry = $('<div />', { 'class' : 'entry ' + entry.domId})
+        entry.domId = 'gofr-entry-' + idCounter++;
+        var $entry = $('<div />', { 'class': 'gofr-entry ' + entry.domId})
           .data('entry', entry)
-          .append($('<div />', { 'class' : 'entry-item' })
+          .append($('<div />', { 'class' : 'gofr-entry-item' })
             .append($('<div />', { 'class' : 'action-star' })
               .click(function(e) {
                 entry.toggleStarred();
                 e.stopPropagation();
               }))
-            .append($('<span />', { 'class' : 'entry-source' })
+            .append($('<span />', { 'class' : 'gofr-entry-source' })
               .text(entrySubscription != null ? entrySubscription.title : null))
-            .append($('<a />', { 'class' : 'entry-link', 'href' : details.link, 'target' : '_blank' })
+            .append($('<a />', { 'class' : 'gofr-entry-link', 'href' : details.link, 'target' : '_blank' })
               .click(function(e) {
                 e.stopPropagation();
               }))
-            .append($('<span />', { 'class' : 'entry-pubDate' })
+            .append($('<span />', { 'class' : 'gofr-entry-pubDate' })
               .text(getPublishedDate(details.published)))
-            .append($('<div />', { 'class' : 'entry-excerpt' })
-              .append($('<h2 />', { 'class' : 'entry-title' })
+            .append($('<div />', { 'class' : 'gofr-entry-excerpt' })
+              .append($('<h2 />', { 'class' : 'gofr-entry-title' })
                 .text(details.title))))
           .click(function() {
             entry.select();
@@ -187,12 +215,12 @@ $().ready(function() {
           });
 
         if (details.summary) {
-          $entry.find('.entry-excerpt')
-            .append($('<span />', { 'class' : 'entry-spacer' }).text(' - '))
-            .append($('<span />', { 'class' : 'entry-summary' }).text(details.summary));
+          $entry.find('.gofr-entry-excerpt')
+            .append($('<span />', { 'class' : 'gofr-entry-spacer' }).text(' - '))
+            .append($('<span />', { 'class' : 'gofr-entry-summary' }).text(details.summary));
         }
 
-        $('#entries').append($entry);
+        $('#gofr-entries').append($entry);
 
         entry.syncView();
       });
@@ -202,7 +230,7 @@ $().ready(function() {
       ui.onEntryListUpdate();
 
       if (continueFrom) {
-        $('#entries')
+        $('#gofr-entries')
           .append($('<div />', { 'class' : 'next-page' })
             .text(_l('Continue'))
             .click(function(e) {
@@ -232,7 +260,7 @@ $().ready(function() {
       continueFrom = null;
       lastContinued = null;
 
-      $('#entries').empty();
+      $('#gofr-entries').empty();
       this.loadEntries();
     },
     'select': function(reloadItems /* = true */) {
@@ -245,12 +273,12 @@ $().ready(function() {
       if (reloadItems) {
         this.selectedEntry = null;
 
-        $('#entries').toggleClass('single-source', this.link != null);
+        $('#gofr-entries').toggleClass('single-source', this.link != null);
 
         if (!this.link)
-          $('.entries-header').text(this.title);
+          $('.gofr-entries-header').text(this.title);
         else
-          $('.entries-header').html($('<a />', { 'href' : this.link, 'target' : '_blank' })
+          $('.gofr-entries-header').html($('<a />', { 'href' : this.link, 'target' : '_blank' })
             .text(this.title)
             .append($('<span />')
               .text(' »')));
@@ -397,7 +425,7 @@ $().ready(function() {
       return subscriptionMap[this.source];
     },
     'getDom': function() {
-      return $('#entries').find('.' + this.domId);
+      return $('#gofr-entries').find('.' + this.domId);
     },
     'hasProperty': function(propertyName) {
       return $.inArray(propertyName, this.properties) > -1;
@@ -449,6 +477,36 @@ $().ready(function() {
     'isExpanded': function() {
       return this.getDom().hasClass('open');
     },
+    'resolveUrl': function(url) {
+      if (url.match(/^(?:[a-z]+:)?\/\//))
+        return url; // Already absolute
+
+      if (typeof this.articleRoot === 'undefined')
+      {
+        // Determine and store article root and path
+        var articleUrl = this.details.link;
+
+        this.articleRoot = articleUrl;
+        this.articlePath = articleUrl;
+
+        var m = articleUrl.match(/^([^:]+:\/\/[^/]+)\//);
+        if (m)
+          this.articleRoot = m[1];
+
+        m = articleUrl.match(/(\/[^\/]*)$/);
+        if (m && m.index >= this.articleRoot.length)
+          this.articlePath = articleUrl.substr(0, m.index);
+      }
+
+      if (url) {
+        if (url.substr(0, 1) == '/')
+          url = this.articleRoot + url;
+        else
+          url = this.articlePath + '/' + url;
+      }
+
+      return url;
+    },
     'expand': function() {
       var entry = this;
       var details = entry.details;
@@ -461,44 +519,56 @@ $().ready(function() {
       if (!this.hasProperty('read'))
         this.setProperty('read', true);
 
-      var content = 
-        $('<div />', { 'class' : 'entry-content' })
-          .append($('<div />', { 'class' : 'article' })
-            .append($('<a />', { 'href' : details.link, 'target' : '_blank', 'class' : 'article-title' })
+      var $content = 
+        $('<div />', { 'class' : 'gofr-entry-content' })
+          .append($('<div />', { 'class' : 'gofr-article' })
+            .append($('<a />', { 'href' : details.link, 'target' : '_blank', 'class' : 'gofr-article-title' })
               .append($('<h2 />')
                 .text(details.title)))
-            .append($('<div />', { 'class' : 'article-author' })
-              .append('from ')
-              .append($('<a />', { 'href' : subscription.link, 'target' : '_blank' })
-                .text(subscription.title)))
-            .append($('<div />', { 'class' : 'article-body' })
+            .append($('<div />', { 'class' : 'gofr-article-author' }))
+            .append($('<div />', { 'class' : 'gofr-article-body' })
               .append(details.content)))
-          .append($('<div />', { 'class' : 'entry-footer'})
+          .append($('<div />', { 'class' : 'gofr-entry-footer'})
             .append($('<span />', { 'class' : 'action-star' })
               .click(function(e) {
                 entry.toggleStarred();
               }))
             .append($('<span />', { 'class' : 'action-unread entry-action'})
-              .text(_l('Keep unread'))
+              .text(_l("Keep unread"))
               .click(function(e) {
                 entry.toggleUnread();
-              }))
-          )
+              })))
           .click(function(e) {
             e.stopPropagation();
           });
 
+      var template;
       if (details.author)
-        content.find('.article-author')
-          .append(' by ') // FIXME: localize
-          .append($('<span />')
-            .text(details.author));
+        template = _l("from (%s)[%s] by %s", [subscription.link, subscription.title, details.author]);
+      else
+        template = _l("from (%s)[%s]", [subscription.link, subscription.title]);
+
+      $content.find('.gofr-article-author').html(template);
+      if (!subscription.link)
+        $content.find('.gofr-article-author a').contents().unwrap();
 
       // Links in the content should open in a new window
-      content.find('.article-body a').attr('target', '_blank');
+      $content.find('.gofr-article-body a').attr('target', '_blank');
+
+      // Resolve relative URLs
+      $content.find('.gofr-article-body img').not('[src^="http"],[src^="https"]').each(function() {
+        $(this).attr('src', function(index, value) {
+          return entry.resolveUrl(value);
+        })
+      });
+      $content.find('.gofr-article-body a').not('[href^="http"],[href^="https"]').each(function() {
+        $(this).attr('href', function(index, value) {
+          return entry.resolveUrl(value);
+        })
+      });
 
       $entry.toggleClass('open', true);
-      $entry.append(content);
+      $entry.append($content);
     },
     'scrollIntoView': function() {
       this.getDom().scrollintoview({ duration: 0});
@@ -506,11 +576,11 @@ $().ready(function() {
     'collapse': function() {
       this.getDom()
         .removeClass('open')
-        .find('.entry-content')
+        .find('.gofr-entry-content')
           .remove();
     },
     'select': function() {
-      $('#entries').find('.entry.selected').removeClass('selected');
+      $('#gofr-entries').find('.gofr-entry.selected').removeClass('selected');
       this.getDom().addClass('selected');
     },
   };
@@ -521,7 +591,7 @@ $().ready(function() {
       var subscription = getSelectedSubscription();
       if (subscription != null)
         subscription.refresh();
-      onFilterChanged();
+      $('.mark-all-as-read').toggle(!$('#menu-filter').isSelected('.menu-starred-items'));
     } else if ($item.is('.menu-show-sidebar')) {
       ui.toggleSidebar(e.isChecked);
     } else if ($item.is('.menu-show-all-subs')) {
@@ -542,12 +612,9 @@ $().ready(function() {
     }
   });
 
-  var onFilterChanged = function() {
-    $('.mark-all-as-read').toggle(!$('#menu-filter').isSelected('.menu-starred-items'));
-  };
-
   var ui = {
     'init': function() {
+      this.localizeStatics();
       this.initHelp();
       this.initButtons();
       this.initMenus();
@@ -653,28 +720,28 @@ $().ready(function() {
       var categories = [{
         'title': _l('Navigation'),
         'shortcuts': [
-          { keys: _l('j/k'),       action: _l('open next/previous article') },
-          { keys: _l('n/p'),       action: _l('scan next/previous article') },
-          { keys: _l('Shift+n/p'), action: _l('scan next/previous subscription') },
-          { keys: _l('Shift+o'),   action: _l('open subscription or folder') },
-          { keys: _l('g, then a'), action: _l('open subscriptions') },
+          { keys: _l('j/k'),       action: _l("Open next/previous article") },
+          { keys: _l('n/p'),       action: _l("Move to next/previous article") },
+          { keys: _l('Shift+n/p'), action: _l("Move to next/previous subscription") },
+          { keys: _l('Shift+o'),   action: _l("Open subscription or folder") },
+          { keys: _l('g, then a'), action: _l("Open All Items") },
         ]}, {
         'title': _l('Application'),
         'shortcuts': [
-          { keys: _l('r'), action: _l('refresh') },
-          { keys: _l('u'), action: _l('toggle navigation mode') },
-          { keys: _l('a'), action: _l('add subscription') },
-          { keys: _l('?'), action: _l('help') },
+          { keys: _l('r'), action: _l("Refresh") },
+          { keys: _l('u'), action: _l("Toggle sidebar") },
+          { keys: _l('a'), action: _l("Add subscription") },
+          { keys: _l('?'), action: _l("Help") },
         ]}, {
         'title': _l('Articles'),
         'shortcuts': [
-          { keys: _l('m'),       action: _l('mark as read/unread') },
-          { keys: _l('s'),       action: _l('star article') },
-          { keys: _l('v'),       action: _l('open link') },
-          { keys: _l('o'),       action: _l('open article') },
-          // { keys: _l('t'),       action: _l('tag article') },
-          // { keys: _l('l'),       action: _l('like article') },
-          { keys: _l('Shift+a'), action: _l('mark all as read') },
+          { keys: _l('m'),       action: _l("Mark as read/unread") },
+          { keys: _l('s'),       action: _l("Star article") },
+          { keys: _l('v'),       action: _l("Open link") },
+          { keys: _l('o'),       action: _l("Open article") },
+          // { keys: _l('t'),       action: _l("Tag article") },
+          // { keys: _l('l'),       action: _l("Like article") },
+          { keys: _l('Shift+a'), action: _l("Mark all as read") },
         ]}];
 
       var maxColumns = 2; // Number of columns in the resulting table
@@ -694,14 +761,12 @@ $().ready(function() {
             if (k < 0) { // Header
               $row.append($('<th/>', { 'colspan': 2 })
                 .text(category.title));
-
               keepGoing = true;
             } else if (k < category.shortcuts.length) {
               $row.append($('<td/>', { 'class': 'sh-keys' })
                 .text(category.shortcuts[k].keys + ':'))
               .append($('<td/>', { 'class': 'sh-action' })
                 .text(category.shortcuts[k].action));
-
               keepGoing = true;
             } else { // Empty cell
               $row.append($('<td/>', { 'colspan': 2 }));
@@ -738,12 +803,12 @@ $().ready(function() {
           refresh();
         })
         .bind('keypress', 's', function() {
-          if ($('.entry.selected').length)
-            $('.entry.selected').data('entry').toggleStarred();
+          if ($('.gofr-entry.selected').length)
+            $('.gofr-entry.selected').data('entry').toggleStarred();
         })
         .bind('keypress', 'm', function() {
-          if ($('.entry.selected').length)
-            $('.entry.selected').data('entry').toggleUnread();
+          if ($('.gofr-entry.selected').length)
+            $('.gofr-entry.selected').data('entry').toggleUnread();
         })
         .bind('keypress', 'shift+n', function() {
           ui.highlightFeed(1);
@@ -772,17 +837,17 @@ $().ready(function() {
           ui.toggleSidebar();
         })
         .bind('keypress', 'v', function() {
-          if ($('.entry.selected').length)
-            $('.entry.selected').find('.entry-link')[0].click();
+          if ($('.gofr-entry.selected').length)
+            $('.gofr-entry.selected').find('.gofr-entry-link')[0].click();
         })
         // .bind('keypress', 'l', function()
         // {
-        //   if ($('.entry.selected').length)
-        //     toggleLiked($('.entry.selected'));
+        //   if ($('.gofr-entry.selected').length)
+        //     toggleLiked($('.gofr-entry.selected'));
         // })
         // .bind('keypress', 't', function()
         // {
-        //   editTags($('.entry.selected'));
+        //   editTags($('.gofr-entry.selected'));
         // })
         .bind('keypress', 'shift+a', function() {
           ui.markAllAsRead();
@@ -908,42 +973,42 @@ $().ready(function() {
     },
     'selectArticle': function(which, scrollIntoView) {
       if (which < 0) {
-        if ($('.entry.selected').prev('.entry').length > 0)
-          $('.entry.selected')
+        if ($('.gofr-entry.selected').prev('.gofr-entry').length > 0)
+          $('.gofr-entry.selected')
             .removeClass('selected')
-            .prev('.entry')
+            .prev('.gofr-entry')
             .addClass('selected');
       } else if (which > 0) {
         var $next = null;
-        var $selected = $('.entry.selected');
+        var $selected = $('.gofr-entry.selected');
 
         if ($selected.length < 1)
-          $next = $('#entries .entry:first');
+          $next = $('#gofr-entries .gofr-entry:first');
         else
-          $next = $selected.next('.entry');
+          $next = $selected.next('.gofr-entry');
 
-        $('.entry.selected').removeClass('selected');
+        $('.gofr-entry.selected').removeClass('selected');
         $next.addClass('selected');
 
-        if ($next.next('.entry').length < 1)
+        if ($next.next('.gofr-entry').length < 1)
           $('.next-page').click(); // Load another page - this is the last item
       }
 
       scrollIntoView = (typeof scrollIntoView !== 'undefined') ? scrollIntoView : true;
       if (scrollIntoView)
-        $('.entry.selected').scrollintoview({ duration: 0});
+        $('.gofr-entry.selected').scrollintoview({ duration: 0});
     },
     'openArticle': function(which) {
       this.selectArticle(which, false);
 
-      if (!$('.entry-content', $('.entry.selected')).length || which === 0)
-        $('.entry.selected')
+      if (!$('.gofr-entry-content', $('.gofr-entry.selected')).length || which === 0)
+        $('.gofr-entry.selected')
           .click()
           .scrollintoview();
     },
     'collapseAllEntries': function() {
-      $('.entry.open').removeClass('open');
-      $('.entry .entry-content').remove();
+      $('.gofr-entry.open').removeClass('open');
+      $('.gofr-entry .gofr-entry-content').remove();
     },
     'showToast': function(message, isError) {
       if (message) {
@@ -1008,7 +1073,7 @@ $().ready(function() {
       folder.removeFolder();
     },
     'removeSubscriptionEntries': function(subscription) {
-      $('#entries .entry').each(function() {
+      $('#gofr-entries .gofr-entry').each(function() {
         var $entry = $(this);
         var entry = $entry.data('entry');
 
@@ -1017,7 +1082,7 @@ $().ready(function() {
       });
     },
     'pruneDeadEntries': function() {
-      $('#entries .entry').each(function() {
+      $('#gofr-entries .gofr-entry').each(function() {
         var $entry = $(this);
         var entry = $entry.data('entry');
 
@@ -1029,7 +1094,7 @@ $().ready(function() {
     },
     'onEntryListUpdate': function() {
       var $centerMessage = $('.center-message');
-      if ($('#entries .entry').length)
+      if ($('#gofr-entries .gofr-entry').length)
         $centerMessage.hide();
       else {
         // List of entries is empty
@@ -1083,6 +1148,15 @@ $().ready(function() {
 
         $centerMessage.show();
       }
+    },
+    'localizeStatics': function() {
+      $('._l').each(function() {
+        var $el = $(this);
+        if ($el.text())
+          $el.html(function(index, text) { return _l(text); });
+        if ($el.attr('title'))
+          $el.attr('title', function(index, value) { return _l(value); });
+      });
     },
   };
 
@@ -1192,7 +1266,7 @@ $().ready(function() {
               $menu.openMenu(e.pageX, e.pageY, subscription.id);
               e.stopPropagation();
             }))
-          .append($('<div />', { 'class' : 'subscription-icon' }))
+          .append($('<img />', { 'class' : 'subscription-icon' }))
           .append($('<span />', { 'class' : 'subscription-title' })
             .text(subscription.title))
           .attr('title', subscription.title)
@@ -1207,6 +1281,10 @@ $().ready(function() {
         });
 
       if (!subscription.isFolder()) {
+        // Favicons
+        $subscription.find('.subscription-icon')
+          .attr('src', '/favicon?url=' + subscription.link);
+
         // Drag-and-drop code
         $subscription
           .mousedown(function(e) {
@@ -1309,16 +1387,12 @@ $().ready(function() {
     selectedSubscription.select(reloadItems);
   };
 
-  var loadSubscriptions = function() {
+  var refresh = function() {
     $.getJSON('subscriptions', {
     })
     .success(function(response) {
       resetSubscriptionDom(response);
     });
-  };
-
-  var refresh = function() {
-    loadSubscriptions();
   };
 
   var initChannels = function() {
@@ -1363,5 +1437,5 @@ $().ready(function() {
   ui.init();
   initChannels();
 
-  loadSubscriptions();
+  refresh();
 });

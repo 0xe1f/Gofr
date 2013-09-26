@@ -74,6 +74,12 @@ type Entry struct {
   Summary string `json:"summary"`
 }
 
+type FavIcon struct {
+  Data []byte
+  MimeType string
+  LastUpdated time.Time
+}
+
 type UserSubscriptions struct {
   Subscriptions []Subscription `json:"subscriptions"`
   Folders []Folder             `json:"folders"`
