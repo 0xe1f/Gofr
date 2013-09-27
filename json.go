@@ -124,18 +124,13 @@ func subscriptions(pfc *PFContext) (interface{}, error) {
 func articles(pfc *PFContext) (interface{}, error) {
   r := pfc.R
 
-  filter := storage.ArticleFilter {
-    ArticleScope: storage.ArticleScope {
-      FolderRef: storage.FolderRef {
-        UserID: pfc.UserID,
-        FolderID: r.FormValue("folder"),
-      },
-      SubscriptionID: r.FormValue("subscription"),
-    },
+  filter, err := storage.ArticleFilterFromJSON(pfc.UserID, r.FormValue("filter"))
+  if err != nil {
+    return nil, err
   }
 
-  if filterProperty := r.FormValue("filter"); validProperties[filterProperty] {
-    filter.Property = filterProperty
+  if !validProperties[filter.Property] {
+    filter.Property = ""
   }
 
   return storage.NewArticlePage(pfc.C, filter, r.FormValue("continue"))
@@ -174,38 +169,37 @@ func rename(pfc *PFContext) (interface{}, error) {
     return nil, NewReadableError(_l("Name not specified"), nil)
   }
 
-  folderID := r.PostFormValue("folder")
+  ref, err := storage.SubscriptionRefFromJSON(pfc.UserID, r.PostFormValue("ref"))
+  if err != nil {
+    return nil, err
+  }
 
-  if subscriptionID := r.PostFormValue("subscription"); subscriptionID != "" {
-    // Rename subscription
-    ref := storage.SubscriptionRef {
-      FolderRef: storage.FolderRef {
-        UserID: pfc.UserID,
-        FolderID: folderID,
-      },
-      SubscriptionID: subscriptionID,
-    }
-    if err := storage.RenameSubscription(pfc.C, ref, title); err != nil {
-      return nil, NewReadableError(_l("Error renaming folder"), &err)
-    }
-  } else if folderID != "" {
-    // Rename folder
-    if exists, err := storage.IsFolderDuplicate(pfc.C, pfc.UserID, title); err != nil {
+  if ref.IsSubscriptionExplicit() {
+    if exists, err := storage.SubscriptionExists(pfc.C, ref); err != nil {
       return nil, err
-    } else if exists {
+    } else if !exists {
+      return nil, NewReadableError(_l("Subscription not found"), nil)
+    }
+
+    if err := storage.RenameSubscription(pfc.C, ref, title); err != nil {
+      return nil, NewReadableError(_l("Error renaming subscription"), &err)
+    }
+  } else {
+    if exists, err := storage.FolderExists(pfc.C, ref.FolderRef); err != nil {
+      return nil, err
+    } else if !exists {
+      return nil, NewReadableError(_l("Folder not found"), nil)
+    }
+
+    if isDupe, err := storage.IsFolderDuplicate(pfc.C, pfc.UserID, title); err != nil {
+      return nil, err
+    } else if isDupe {
       return nil, NewReadableError(_l("A folder with that name already exists"), nil)
     }
 
-    ref := storage.FolderRef {
-      UserID: pfc.UserID,
-      FolderID: folderID,
-    }
-
-    if err := storage.RenameFolder(pfc.C, ref, title); err != nil {
+    if err := storage.RenameFolder(pfc.C, ref.FolderRef, title); err != nil {
       return nil, NewReadableError(_l("Error renaming folder"), &err)
     }
-  } else {
-    return nil, NewReadableError(_l("Nothing to rename"), nil)
   }
 
   return storage.NewUserSubscriptions(pfc.C, pfc.UserID)

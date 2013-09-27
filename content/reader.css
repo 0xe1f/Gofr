@@ -109,12 +109,12 @@ a {
   box-shadow: 2px 2px 5px #aaa;
 }
 
-#entries {
+#gofr-entries {
   margin-left: 0.25em;
   margin-right: 0.75em;
 }
 
-.entries-header {
+.gofr-entries-header {
   font-size: 10.5pt;
   font-weight: bold;
   padding: 0.5em;
@@ -123,12 +123,12 @@ a {
   border-bottom: solid 1px #ccc;
 }
 
-.entries-header a {
+.gofr-entries-header a {
   color: #444;
   text-decoration: none;
 }
 
-.entries-container {
+.gofr-entries-container {
   position: absolute;
   left: 280px;
   top: 0;
@@ -137,23 +137,23 @@ a {
   overflow: auto;
 }
 
-.floated-nav .entries-container {
+.floated-nav .gofr-entries-container {
   left: 0;
 }
 
-.entry {
+.gofr-entry {
   cursor: pointer;
   clear: both;
   border-bottom: solid 1px #ccc;
   border-left: solid 1px transparent;
 }
 
-.entry.open {
+.gofr-entry.open {
   border-left-color: #4d90f0;
 }
 
-.entry-item,
-.entry.selected.open .entry-item {
+.gofr-entry-item,
+.gofr-entry.selected.open .gofr-entry-item {
   padding-left: 0.5em;
   padding-right: 0.5em;
   height: 37px;
@@ -162,16 +162,16 @@ a {
   position: relative;
 }
 
-.entry.read .entry-item,
-.entry.read.open .entry-item {
+.gofr-entry.read .gofr-entry-item,
+.gofr-entry.read.open .gofr-entry-item {
   background-color: #eee;
 }
 
-.entry.selected .entry-item {
+.gofr-entry.selected .gofr-entry-item {
   background-color: #ffffcc;
 }
 
-.entry-source {
+.gofr-entry-source {
   overflow: hidden;
   white-space: nowrap;
   margin-left: 20px;
@@ -180,11 +180,11 @@ a {
   position: absolute;
 }
 
-.single-source .entry-source {
+.single-source .gofr-entry-source {
   display: none;
 }
 
-.entry-excerpt {
+.gofr-entry-excerpt {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -192,11 +192,11 @@ a {
   margin-right: 7em;
 }
 
-.single-source .entry-excerpt {
+.single-source .gofr-entry-excerpt {
   margin-left: 20px;
 }
 
-.entry-link {
+.gofr-entry-link {
   display: block;
   width: 15px;
   height: 15px;
@@ -210,7 +210,7 @@ a {
   white-space: nowrap;
 }
 
-.entry-pubDate {
+.gofr-entry-pubDate {
   display: block;
   position: absolute;
   right: 32px;
@@ -218,63 +218,68 @@ a {
   width: 6em;
 }
 
-.entry-title {
+.gofr-entry-title {
   font-size: 10pt;
   display: inline;
   margin: 0;
 }
 
-.entry.read .entry-title {
+.gofr-entry.read .gofr-entry-title {
   font-weight: normal;
 }
 
-.article-title, 
-.article-author a {
+.gofr-article-title, 
+.gofr-article-author a {
   color: rgb(17, 85, 204);
   text-decoration: none;
 }
 
-.article-title h2 {
+.gofr-article-title h2 {
   font-size: 14pt;
   margin: 0;
 }
 
-.article-body {
+.gofr-article-body {
   margin: 0.7em 0;
 }
 
-.entry-summary {
+.gofr-article-body a {
+  color: #0000ff;
+  text-decoration: underline;
+}
+
+.gofr-entry-summary {
     color: #777;
 }
 
-.entry-content {
+.gofr-entry-content {
   display: block;
   cursor: auto;
 }
 
-.article {
+.gofr-article {
   margin: 0.5em 1em;
 }
 
-.entry-footer {
+.gofr-entry-footer {
   padding: 0.5em 0.5em;
   border-top: solid 1px #ebebeb;
   background-color: #fafafa;
 }
 
-.entry-action {
+.gofr-entry-action {
   background-repeat: no-repeat;
   padding-left: 20px;
   margin-left: 1em;
   cursor: pointer;
 }
 
-.entry-action a {
+.gofr-entry-action a {
   text-decoration: none;
   color: #000;
 }
 
-.entry-action a span {
+.gofr-entry-action a span {
   margin-left: 5px;
 }
 
@@ -292,7 +297,7 @@ a {
   background-position: -105px -105px;
 }
 
-.entry.read .action-unread {
+.gofr-entry.read .action-unread {
   background-position: 0 0;
 }
 
@@ -318,11 +323,11 @@ a {
   background-position: -75px -75px;
 }
 
-.entry-footer .action-star {
+.gofr-entry-footer .action-star {
   margin-right: 3em;
 }
 
-.entry-item .action-star {
+.gofr-entry-item .action-star {
   top: 50%;
   margin-top: -8px;
   white-space: nowrap;
@@ -355,8 +360,6 @@ ul#subscriptions,
   height: 15px;
   float: left;
   margin-right: 5px;
-  background-image: url(sprites.png);
-  background-position: -150px -150px;
 }
 
 .subscription-item {
@@ -378,15 +381,17 @@ ul#subscriptions,
 }
 
 .subscription.root .subscription-icon {
+  background-image: url(sprites.png);
   background-position: -165px -165px;
 }
 
 .subscription.folder .subscription-icon {
+  background-image: url(sprites.png);
   background-position: -135px -135px;
 }
 
 .subscription.leaf .subscription-icon {
-  background-position: -150px -150px;
+  background-image: none;
 }
 
 .subscription-item:hover {
@@ -712,10 +717,10 @@ ul.menu {
 }
 
 #about h1 {
-  font-size: 24pt;
+  font-size: 20pt;
 }
 
 #about p {
-  font-size: 14pt;
+  font-size: 12pt;
   line-height: 1.4;
 }

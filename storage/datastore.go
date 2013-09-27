@@ -481,6 +481,28 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
   return article.Properties, nil
 }
 
+func LoadFavIcon(c appengine.Context, url string) (*FavIcon, error) {
+  key := datastore.NewKey(c, "FavIcon", url, 0, nil)
+  favIcon := new(FavIcon)
+
+  if err := datastore.Get(c, key, favIcon); err == datastore.ErrNoSuchEntity {
+    return nil, nil
+  } else if err != nil {
+    return nil, err
+  } else {
+    return favIcon, nil
+  }
+}
+
+func (favIcon FavIcon) Save(c appengine.Context, url string) error {
+  key := datastore.NewKey(c, "FavIcon", url, 0, nil)
+  if _, err := datastore.Put(c, key, &favIcon); err != nil {
+    return err
+  }
+
+  return nil
+}
+
 func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
   key, err := scope.key(c)
   if err != nil {

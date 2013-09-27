@@ -25,6 +25,7 @@ package storage
 
 import (
   "appengine/datastore"
+  "encoding/json"
   "time"
 )
 
@@ -74,6 +75,12 @@ type Entry struct {
   Summary string `json:"summary"`
 }
 
+type FavIcon struct {
+  Data []byte
+  MimeType string
+  LastUpdated time.Time
+}
+
 type UserSubscriptions struct {
   Subscriptions []Subscription `json:"subscriptions"`
   Folders []Folder             `json:"folders"`
@@ -83,19 +90,48 @@ type UserID string
 
 type FolderRef struct {
   UserID UserID
-  FolderID string
+  FolderID string `json:"f"`
 }
 
 type SubscriptionRef struct {
   FolderRef
-  SubscriptionID string
+  SubscriptionID string  `json:"s"`
 }
 
 type ArticleScope SubscriptionRef
 
+func SubscriptionRefFromJSON(userID UserID, refAsJSON string) (SubscriptionRef, error) {
+  ref := SubscriptionRef{}
+  if err := json.Unmarshal([]byte(refAsJSON), &ref); err != nil {
+    return ref, err
+  }
+
+  ref.UserID = userID
+  return ref, nil
+}
+
+func ArticleScopeFromJSON(userID UserID, scopeAsJSON string) (ArticleScope, error) {
+  ref, err := SubscriptionRefFromJSON(userID, scopeAsJSON)
+  return ArticleScope(ref), err
+}
+
+func ArticleFilterFromJSON(userID UserID, filterAsJSON string) (ArticleFilter, error) {
+  filter := ArticleFilter{}
+  if err := json.Unmarshal([]byte(filterAsJSON), &filter); err != nil {
+    return filter, err
+  }
+
+  filter.UserID = userID
+  return filter, nil
+}
+
+func (ref SubscriptionRef)IsSubscriptionExplicit() bool {
+  return ref.SubscriptionID != ""
+}
+
 type ArticleFilter struct {
   ArticleScope
-  Property string
+  Property string `json:"p"`
 }
 
 type ArticleRef struct {
