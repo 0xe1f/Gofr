@@ -230,8 +230,8 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 
     if feedMultiError == nil || feedMultiError[i] == nil {
       subscription.Link = feeds[i].Link
-    } else if feedMultiError != nil && feedMultiError[i] != nil {
-      c.Warningf("MultiError for feed %s: %s", subscription.ID, feedMultiError[i])
+    // } else if feedMultiError != nil && feedMultiError[i] != nil {
+    //   c.Warningf("MultiError for feed %s: %s", subscription.ID, feedMultiError[i])
     }
 
     if subscriptionKey.Parent().Kind() == "Folder" {

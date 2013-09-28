@@ -9,6 +9,4 @@ while the rest is done in a background task:
     Task: Set properties to 'read'
     Client: just mark all in scope as 'read' without refreshing
 
-Broken due to encoding: http://www.qwantz.com/index.php
-Shift+N/P: always skips only to unread subs
-Continue: broken for second page(?)
+Production: Cache-control seems to be ignored for favicons(?)

@@ -264,8 +264,9 @@ $().ready(function() {
       var selectedFilter = $('.group-filter.selected-menu-item').data('value');
 
       $.getJSON('articles', {
-        'filter': JSON.stringify(subscription.getFilter(selectedFilter)),
-        'client': clientId,
+        'filter':   JSON.stringify(subscription.getFilter(selectedFilter)),
+        'continue': continueFrom ? continueFrom : undefined,
+        'client':   clientId,
       })
       .success(function(response) {
         continueFrom = response.continue;
@@ -724,7 +725,7 @@ $().ready(function() {
           .append($('<li />', { 'class': 'menu-show-sidebar checkable' })
             .append($('<span />').text(_l("Show sidebar"))))
           .append($('<li />', { 'class': 'menu-show-all-subs checkable' })
-            .append($('<span />').text(_l("Show all subscriptions")))))
+            .append($('<span />').text(_l("Show read subscriptions")))))
         .append($('<ul />', { 'id': 'menu-folder', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…")))
           .append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
@@ -831,10 +832,10 @@ $().ready(function() {
             $('.gofr-entry.selected').data('entry').toggleUnread();
         })
         .bind('keypress', 'shift+n', function() {
-          ui.highlightFeed(1);
+          ui.highlightSubscription(1);
         })
         .bind('keypress', 'shift+p', function() {
-          ui.highlightFeed(-1);
+          ui.highlightSubscription(-1);
         })
         .bind('keypress', 'shift+o', function() {
           if ($('.subscription.highlighted').length) {
@@ -957,26 +958,22 @@ $().ready(function() {
 
       document.title = title;
     },
-    'highlightFeed': function(which, scrollIntoView) {
+    'highlightSubscription': function(which, scrollIntoView) {
       var $highlighted = $('.subscription.highlighted');
       if (!$highlighted.length)
         $highlighted = $('.subscription.selected');
 
       var $next = null;
+      var $allFeeds = $('#subscriptions .subscription:visible');
+      var highlightedIndex = $allFeeds.index($highlighted);
 
       if (which < 0) {
-        var $allFeeds = $('#subscriptions .subscription').not('.no-unread');
-        var highlightedIndex = $allFeeds.index($highlighted);
-
         if (highlightedIndex - 1 >= 0)
           $next = $($allFeeds[highlightedIndex - 1]);
       } else if (which > 0) {
         if ($highlighted.length < 1)
-          $next = $('#subscriptions .subscription:first').not('.no-unread');
+          $next = $($allFeeds[0]);
         else {
-          var $allFeeds = $('#subscriptions .subscription').not('.no-unread');
-          var highlightedIndex = $allFeeds.index($highlighted);
-
           if (highlightedIndex + 1 < $allFeeds.length)
             $next = $($allFeeds[highlightedIndex + 1]);
         }

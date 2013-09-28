@@ -53,14 +53,16 @@ func ExtractRSSLink(c appengine.Context, sourceURL string, html string) (string,
     }
   }
 
-  if refURL, err := url.Parse(linkURL); err != nil {
-    return "", err
-  } else if !refURL.IsAbs() {
-    // URL is not absolute. Resolve it.
-    if asURL, err := url.Parse(sourceURL); err != nil {
+  if linkURL != "" {
+    if refURL, err := url.Parse(linkURL); err != nil {
       return "", err
-    } else {
-      linkURL = asURL.ResolveReference(refURL).String()
+    } else if !refURL.IsAbs() {
+      // URL is not absolute. Resolve it.
+      if asURL, err := url.Parse(sourceURL); err != nil {
+        return "", err
+      } else {
+        linkURL = asURL.ResolveReference(refURL).String()
+      }
     }
   }
 

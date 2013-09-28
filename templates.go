@@ -23,12 +23,64 @@
  
 package gofr
 
-const indexTemplateHTML = `
+const introTemplateHTML = `
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head profile="http://www.w3.org/2005/10/profile">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <link href="/content/intro.css" type="text/css" rel="stylesheet"/>
+    <title>Gofr</title>
+  </head>
+  <body>
+    <div class="content">
+      <div class="header">
+        <button class="sign-in" onclick="window.location='/reader';">Sign in with Google</button>
+        <h1>Gofr</h1>
+      </div>
+      <div class="stripe">
+        <div class="text">
+          <img src="/content/logo.png" alt="Logo" />
+          <h1>Feedlicious RSS</h1>
+          <h3>Gofr is a cloud-based RSS reader for Google App Engine. 
+            It's free and open source.</h3>
+        </div>
+      </div>
+      <div class="features">
+        <div class="boxen">
+          <div class="box">
+            <h3>It's flexible</h3>
+            <p>Navigate by using mouse or keyboard, with support for most of Google Reader's shortcut keys.</p>
+          </div>
+          <div class="box">
+            <h3>It's portable</h3>
+            <p>Subscribe to individual feeds, or import all your existing subscriptions - up to 400.</p>
+          </div>
+          <div class="box">
+            <h3>It's extensible</h3>
+            <p>Gofr is open source, and available on <a href="https://github.com/melllvar/Gofr">GitHub</a> - use it as-is, or improve it and share with everyone else.</p>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="bottom">
+          <img class="screenshot" src="/content/screenshot.png" alt="Screenshot" />
+        </div>
+      </div>
+      <div class="footer">
+        &copy; 2013 <a href="http://www.akop.org/">Akop Karapetyan</a>
+        &bull; <a class="license" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
+        &bull; <a class="source" href="https://github.com/melllvar/Gofr">Source</a>
+      </div>
+    </div>
+  </body>
+</html>
+`
+const readerTemplateHTML = `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
   <head profile="http://www.w3.org/2005/10/profile">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <link href="content/reader.css" type="text/css" rel="stylesheet"/>
+    <link href="content/mobile.css" type="text/css" rel="stylesheet"/>
     <script type="text/javascript" src="/_ah/channel/jsapi"></script>
     <script src="content/sprintf.min.js" type="text/javascript"></script>
     <script src="content/jquery-1.9.1.min.js" type="text/javascript"></script>
@@ -48,6 +100,7 @@ const indexTemplateHTML = `
       <h1>Gofr</h1>
       <div class="navbar">
         <div class="right-aligned">
+          <a class="sign-out _l" href="{{.LogOutURL}}">Sign out</a>
         </div>
         <a class="import-subscriptions _l" href="#">Import subscriptions</a>
         <a class="show-about _l" href="#">About</a>
@@ -79,9 +132,11 @@ const indexTemplateHTML = `
     <div id="import-subscriptions" class="modal">
       <div class="modal-inner">
         <h1 class="_l">Upload OPML file</h1>
-        <form enctype="multipart/form-data" action="#" method="POST">
-          <input name="opml" type="file" />
-          <input name="client" type="hidden" value="" />
+        <form enctype="multipart/form-data" action="#" method="post">
+          <div>
+            <input name="opml" type="file" />
+            <input name="client" type="hidden" value="" />
+          </div>
         </form>
         <div class="buttons">
           <button class="modal-cancel _l">Cancel</button>
@@ -93,7 +148,7 @@ const indexTemplateHTML = `
       <div class="modal-inner">
         <h1>About Gofr</h1>
         <p class="_l">Gofr (pronounced &#8220;gopher&#8221;) is an open source Feed Reader 
-        (Google Reader clone) for (http://appengine.google.com)[Google App Engine], with code 
+        (Google Reader clone) for (https://developers.google.com/appengine/)[Google App Engine], with code 
         available on (https://github.com/melllvar/Gofr)[GitHub]. 
         It's loosely based on (https://github.com/melllvar/grr)[grr], 
         an initial version written for PHP/MySQL, also available on GitHub.</p>

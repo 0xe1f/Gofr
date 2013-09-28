@@ -31,6 +31,7 @@ import (
 
 type User struct {
   ID string
+  EmailAddress string
   LastSubscriptionUpdate time.Time
 }
 

@@ -325,7 +325,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
         // Parse failed. Assume it's an HTML document and 
         // try to pull out an RSS <link />
         if linkURL, err := rss.ExtractRSSLink(c, subscriptionURL, body); linkURL == "" || err != nil {
-          return nil, NewReadableError(_l("RSS content not found"), &err)
+          return nil, NewReadableError(_l("RSS content not found (and no RSS links to follow)"), &err)
         } else {
           // Validate the RSS file
           if response, err := client.Get(linkURL); err != nil {

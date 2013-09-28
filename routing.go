@@ -85,7 +85,7 @@ func (handler htmlRequestHandler)handleRequest(pfc *PFContext) {
     return
   } else if aeUser != nil {
     pfc.UserID = storage.UserID(aeUser.ID)
-    if user, err := loadUser(pfc.C, pfc.UserID); err != nil {
+    if user, err := loadUser(pfc.C, aeUser); err != nil {
       pfc.C.Errorf("Error loading user: %s", err)
       http.Error(w, "Unexpected error", http.StatusInternalServerError)
       return
@@ -117,7 +117,7 @@ func (handler jsonRequestHandler)handleRequest(pfc *PFContext) {
       }
     }
 
-    if user, err := loadUser(pfc.C, pfc.UserID); err != nil {
+    if user, err := loadUser(pfc.C, aeUser); err != nil {
       c.Errorf("Error loading user: %s", err)
       http.Error(w, "Unexpected error", http.StatusInternalServerError)
       return
@@ -167,7 +167,7 @@ func (handler taskRequestHandler)handleRequest(pfc *PFContext) {
       pfc.ChannelID = channelID
     }
 
-    if user, err := loadUser(pfc.C, pfc.UserID); err != nil {
+    if user, err := storage.UserByID(pfc.C, pfc.UserID); err != nil {
       pfc.C.Errorf("Error loading user: %s", err)
       http.Error(pfc.W, "Unexpected error", http.StatusInternalServerError)
       return
@@ -243,6 +243,17 @@ func RegisterJSONRouteSansPreparse(pattern string, handler JSONRouteHandler) {
   routes = append(routes, route)
 }
 
+func RegisterAnonHTMLRoute(pattern string, handler HTMLRouteHandler) {
+  route := route {
+    Pattern: pattern,
+    Handler: htmlRequestHandler {
+      RouteHandler: handler,
+    },
+  }
+
+  routes = append(routes, route)
+}
+
 func RegisterHTMLRoute(pattern string, handler HTMLRouteHandler) {
   route := route {
     Pattern: pattern,
@@ -277,13 +288,14 @@ func RegisterCronRoute(pattern string, handler CronRouteHandler) {
   routes = append(routes, route)
 }
 
-func loadUser(c appengine.Context, userID storage.UserID) (*storage.User, error) {
-  if u, err := storage.UserByID(c, userID); err != nil {
+func loadUser(c appengine.Context, user *user.User) (*storage.User, error) {
+  if u, err := storage.UserByID(c, storage.UserID(user.ID)); err != nil {
     return nil, err
   } else if u == nil {
     // New user
     newUser := storage.User {
-      ID: string(userID),
+      ID: user.ID,
+      EmailAddress: user.Email,
     }
     if err := newUser.Save(c); err != nil {
       return nil, err

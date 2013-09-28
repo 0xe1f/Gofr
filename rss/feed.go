@@ -25,6 +25,8 @@ package rss
 
 import (
   "bytes"
+  "code.google.com/p/go-charset/charset"
+  _ "code.google.com/p/go-charset/data"
   "encoding/xml"
   "errors"
   "html"
@@ -32,7 +34,6 @@ import (
   "io/ioutil"
   "regexp"
   "sanitize"
-  "strings"
   "sort"
   "time"
 )
@@ -146,14 +147,6 @@ type GenericFeed struct {
   XMLName xml.Name
 }
 
-func charsetReader(charset string, r io.Reader) (io.Reader, error) {
-  // FIXME: This hardly does anything useful at the moment
-  if strings.ToLower(charset) == "iso-8859-1" {
-    return r, nil
-  }
-  return nil, errors.New("Unsupported encoding: " + charset)
-}
-
 func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
   // Read the stream into memory (we'll need to parse it twice)
   var contentReader *bytes.Reader
@@ -166,7 +159,7 @@ func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
   genericFeed := GenericFeed{}
 
   decoder := xml.NewDecoder(contentReader)
-  decoder.CharsetReader = charsetReader
+  decoder.CharsetReader = charset.NewReader
 
   if err := decoder.Decode(&genericFeed); err != nil {
      return nil, err
@@ -188,7 +181,7 @@ func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
   contentReader.Seek(0, 0)
 
   decoder = xml.NewDecoder(contentReader)
-  decoder.CharsetReader = charsetReader
+  decoder.CharsetReader = charset.NewReader
 
   if err := decoder.Decode(xmlFeed); err != nil {
     return nil, err

@@ -26,6 +26,7 @@ package gofr
 import (
   "appengine"
   "appengine/urlfetch"
+  "appengine/user"
   "fmt"
   "html/template"
   "io/ioutil"
@@ -36,14 +37,33 @@ import (
 )
 
 func registerWeb() {
-  RegisterHTMLRoute("/", index)
+  RegisterHTMLRoute("/reader", reader)
   RegisterHTMLRoute("/favicon", favicon)
+  RegisterAnonHTMLRoute("/", intro)
 }
 
-var indexTemplate = template.Must(template.New("index").Parse(indexTemplateHTML))
+var readerTemplate = template.Must(template.New("reader").Parse(readerTemplateHTML))
+var introTemplate = template.Must(template.New("intro").Parse(introTemplateHTML))
 
-func index(pfc *PFContext) {
-  if err := indexTemplate.Execute(pfc.W, nil); err != nil {
+func intro(pfc *PFContext) {
+  if pfc.User != nil {
+    pfc.W.Header().Set("Location", "/reader")
+    pfc.W.WriteHeader(http.StatusFound)
+    return
+  }
+
+  if err := introTemplate.Execute(pfc.W, nil); err != nil {
+    http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
+  }
+}
+
+func reader(pfc *PFContext) {
+  content := map[string]string {}
+  if logoutURL, err := user.LogoutURL(pfc.C, "/"); err == nil {
+    content["LogOutURL"] = logoutURL
+  }
+
+  if err := readerTemplate.Execute(pfc.W, content); err != nil {
     http.Error(pfc.W, err.Error(), http.StatusInternalServerError)
   }
 }
