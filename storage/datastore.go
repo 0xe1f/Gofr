@@ -768,6 +768,73 @@ func Subscribe(c appengine.Context, ref FolderRef, url string, title string) (Su
   }, nil
 }
 
+func SubscriptionsAsOPML(c appengine.Context, userID UserID) (*rss.OPML, error) {
+  userKey, err := userID.key(c)
+  if err != nil {
+    return nil, err
+  }
+
+  opml := rss.NewOPML()
+  folderMap := map[string]*rss.Outline{}
+  q := datastore.NewQuery("Folder").Ancestor(userKey).Limit(defaultBatchSize)
+
+  var folders []Folder
+  if folderKeys, err := q.GetAll(c, &folders); err != nil {
+    return nil, err
+  } else if folders != nil {
+    for i, folder := range folders {
+      opmlFolder := rss.NewFolder(folder.Title)
+      folderMap[folderKeys[i].String()] = opmlFolder
+      opml.Add(opmlFolder)
+    }
+  }
+
+  q = datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
+
+  var subscriptions []Subscription
+  if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
+    return nil, err
+  } else {
+    feedKeys := make([]*datastore.Key, len(subscriptions))
+    for i, subscription := range subscriptions {
+      feedKeys[i] = subscription.Feed
+    }
+
+    var multiError appengine.MultiError
+    feeds := make([]Feed, len(subscriptions))
+
+    if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
+      if me, ok := err.(appengine.MultiError); ok {
+        multiError = me
+      } else {
+        return nil, err
+      }
+    }
+
+    for i, subscription := range subscriptions {
+      subscriptionKey := subscriptionKeys[i]
+      parentKey := subscriptionKey.Parent()
+
+      opmlSub := rss.NewSubscription(subscription.Title, subscriptionKey.StringID(), "")
+      if parentKey.Kind() != "Folder" {
+        opml.Add(opmlSub)
+      } else {
+        if folder := folderMap[parentKey.String()]; folder != nil {
+          folder.Add(opmlSub)
+        } else {
+          opml.Add(opmlSub) // Orphaned folder
+        }
+      }
+
+      if multiError == nil || multiError[i] == nil {
+        opmlSub.WebURL = feeds[i].Link
+      }
+    }
+  }
+
+  return &opml, nil
+}
+
 func Unsubscribe(c appengine.Context, ref SubscriptionRef) error {
   subscriptionKey, err := ref.key(c)
   if err != nil {

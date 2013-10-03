@@ -32,15 +32,21 @@ $().ready(function() {
 
     if ($menu.hasClass('selectable')) {
       var $selected = $menu.find('.selected-menu-item');
-      if ($selected.length)
+      if ($selected.length) {
         topOffset += $selected.position().top;
+        $selected.addClass('hovered').mouseout(function() {
+          $selected.removeClass('hovered').unbind('mouseout');
+        });
+      }
+    } else {
+      topOffset -= $button.outerHeight() - 1; // 1 pixel for the border
     }
 
     $menu.css({ 'top': $button.offset().top - topOffset });
     if ($button.offset().left + $menu.width() >= $(window).width())
-      $menu.css({ 'right': 0 });
+      $menu.css({ 'right': $(window).width() - ($button.offset().left + $button.outerWidth()) });
     else
-      $menu.css({ 'left': $button.offset().left })
+      $menu.css({ 'left': $button.offset().left });
 
     e.stopPropagation();
   });

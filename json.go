@@ -30,7 +30,6 @@ import (
   "appengine/urlfetch"
   "io/ioutil"
   "net/url"
-  "opml"
   "regexp"
   "rss"
   "storage"
@@ -44,9 +43,7 @@ const (
   importQueue = "imports"
   refreshQueue = "refreshes"
   modificationQueue = "modifications"
-)
 
-const (
   subscriptionStalePeriodInMinutes = 5
 )
 
@@ -420,8 +417,7 @@ func importOPML(pfc *PFContext) (interface{}, error) {
     blobKey = blobInfos[0].BlobKey
     reader := blobstore.NewReader(c, blobKey)
 
-    var doc opml.Document
-    if err := opml.Parse(reader, &doc); err != nil {
+    if _, err := rss.ParseOPML(reader); err != nil {
       if err := blobstore.Delete(c, blobKey); err != nil {
         c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
       }

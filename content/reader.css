@@ -35,6 +35,9 @@ body {
 }
 
 #header h1 {
+  font-size: 24px;
+  color: #222;
+  text-shadow: 0px 1px 1px #fff;
   margin: 0.25em 0;
 }
 
@@ -56,15 +59,10 @@ a {
   margin: 3px;
 }
 
-.navbar a {
-  font-size: 12pt;
+.infobar a {
+  font-size: 10pt;
   font-weight: bold;
   text-decoration: none;
-  margin-left: 2em;
-}
-
-.navbar a.import-subscriptions {
-  margin-left: 0;
 }
 
 .logout {
@@ -436,19 +434,14 @@ ul#subscriptions,
   display: none;
 }
 
-#navbar {
+.navbar {
   padding: 10px;
 }
 
-.navbar .right-aligned,
-#navbar .right-aligned {
+.infobar .right-aligned,
+.navbar .right-aligned {
   position: absolute;
   right: 10px;
-}
-
-.settings {
-  position: absolute;
-  right: 90px;
 }
 
 button {
@@ -480,7 +473,13 @@ button.dropdown {
 }
 
 .navigate {
+  width: 40px;
   display: none;
+  background: url(sprites.png) no-repeat -115px -240px #eee;
+}
+
+.navigate:hover {
+  background: url(sprites.png) no-repeat -145px -240px #eee;
 }
 
 .floated-nav .navigate {
@@ -553,7 +552,7 @@ button.subscribe {
   background-color: #D14836;
 }
 
-#navbar .spacer {
+.navbar .spacer {
   margin-left: 20px;
 }
 
@@ -619,11 +618,12 @@ ul.menu {
 
 .menu li {
   color: #555;
-  cursor: pointer;
   padding: 0.5em 1em;
 }
 
-.menu li:hover {
+.menu li:hover,
+.menu li.hovered {
+  cursor: pointer;
   background-color: #ccc;
 }
 
@@ -723,4 +723,15 @@ ul.menu {
 #about p {
   font-size: 12pt;
   line-height: 1.4;
+}
+
+.key {
+  display: inline-block;
+  color: #000;
+  padding: 0.1em 1em;
+  margin: 0 1em;
+  border: solid 3px #fff;
+  border-radius: 3px;
+  background-color: ivory;
+  font-size: 10pt;
 }

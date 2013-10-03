@@ -224,16 +224,20 @@ func substr(s string, pos int, length int) string {
 
 var extraSpaceStripper *regexp.Regexp = regexp.MustCompile(`\s\s+`)
 
-func (entry Entry)GenerateSummary() string {
+func DeHTMLize(str string) string {
   // TODO: This process should be streamlined to do
   // more things with fewer passes
-  sanitized := sanitize.StripTags(entry.Content)
+  sanitized := sanitize.StripTags(str)
   unescaped := html.UnescapeString(sanitized)
-  stripped := extraSpaceStripper.ReplaceAllString(unescaped, "")
 
-  if runes := []rune(stripped); len(runes) > maxSummaryLength {
+  return extraSpaceStripper.ReplaceAllString(unescaped, "")
+}
+
+func (entry Entry)GenerateSummary() string {
+  summary := DeHTMLize(entry.Content)
+  if runes := []rune(summary); len(runes) > maxSummaryLength {
     return string(runes[:maxSummaryLength])
   } else {
-    return stripped
+    return summary
   }
 }

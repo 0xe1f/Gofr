@@ -30,7 +30,6 @@ import (
   "appengine/urlfetch"
   "errors"
   "net/url"
-  "opml"
   "rss"
   "storage"
   "time"
@@ -66,9 +65,9 @@ func startTask(pfc *PFContext, taskName string, params taskParams, queueName str
   return nil
 }
 
-func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, folderRef storage.FolderRef, opmlSubscription *opml.Subscription) {
+func importSubscription(pfc *PFContext, ch chan<- *rss.Outline, userID storage.UserID, folderRef storage.FolderRef, outline *rss.Outline) {
   c := pfc.C
-  subscriptionURL := opmlSubscription.URL
+  subscriptionURL := outline.FeedURL
 
   if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, userID, subscriptionURL); err != nil {
     c.Errorf("Cannot determine if '%s' is duplicate: %s", subscriptionURL, err)
@@ -99,7 +98,7 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
     }
   }
 
-  if subscriptionRef, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, opmlSubscription.Title); err != nil {
+  if subscriptionRef, err := storage.Subscribe(pfc.C, folderRef, subscriptionURL, outline.Title); err != nil {
     c.Errorf("Error subscribing to feed %s: %s", subscriptionURL, err)
     goto done
   } else {
@@ -110,32 +109,30 @@ func importSubscription(pfc *PFContext, ch chan<- *opml.Subscription, userID sto
   }
 
 done:
-  ch<- opmlSubscription
+  ch<- outline
 }
 
-func importSubscriptions(pfc *PFContext, ch chan<- *opml.Subscription, userID storage.UserID, parentRef storage.FolderRef, subscriptions []*opml.Subscription) int {
+func importSubscriptions(pfc *PFContext, ch chan<- *rss.Outline, userID storage.UserID, parentRef storage.FolderRef, outlines []*rss.Outline) int {
   c := pfc.C
 
   count := 0
-  for _, subscription := range subscriptions {
-    if subscription.URL != "" {
-      go importSubscription(pfc, ch, userID, parentRef, subscription)
+  for _, outline := range outlines {
+    if outline.IsSubscription() {
+      go importSubscription(pfc, ch, userID, parentRef, outline)
       count++
-    }
-
-    if subscription.Subscriptions != nil {
-      folderRef, err := storage.FolderByTitle(pfc.C, userID, subscription.Title)
+    } else if outline.IsFolder() {
+      folderRef, err := storage.FolderByTitle(pfc.C, userID, outline.Title)
       if err != nil {
         c.Warningf("Error locating folder: %s", err)
         continue
       } else if folderRef.IsZero() {
-        if folderRef, err = storage.CreateFolder(pfc.C, userID, subscription.Title); err != nil {
+        if folderRef, err = storage.CreateFolder(pfc.C, userID, outline.Title); err != nil {
           c.Warningf("Error locating folder: %s", err)
           continue
         }
       }
 
-      count += importSubscriptions(pfc, ch, userID, folderRef, subscription.Subscriptions)
+      count += importSubscriptions(pfc, ch, userID, folderRef, outline.Outlines)
     }
   }
 
@@ -145,7 +142,6 @@ func importSubscriptions(pfc *PFContext, ch chan<- *opml.Subscription, userID st
 func importOPMLTask(pfc *PFContext) (TaskMessage, error) {
   c := pfc.C
 
-  var doc opml.Document
   var blobKey appengine.BlobKey
   if blobKeyString := pfc.R.PostFormValue("opmlBlobKey"); blobKeyString == "" {
     return TaskMessage{}, errors.New("Missing blob key")
@@ -154,7 +150,9 @@ func importOPMLTask(pfc *PFContext) (TaskMessage, error) {
   }
 
   reader := blobstore.NewReader(c, blobKey)
-  if err := opml.Parse(reader, &doc); err != nil {
+
+  opml, err := rss.ParseOPML(reader)
+  if err != nil {
     // Remove the blob
     if err := blobstore.Delete(c, blobKey); err != nil {
       c.Warningf("Error deleting blob (key %s): %s", blobKey, err)
@@ -174,8 +172,8 @@ func importOPMLTask(pfc *PFContext) (TaskMessage, error) {
     UserID: pfc.UserID,
   }
 
-  doneChannel := make(chan *opml.Subscription)
-  importing := importSubscriptions(pfc, doneChannel, pfc.UserID, parentRef, doc.Subscriptions)
+  doneChannel := make(chan *rss.Outline)
+  importing := importSubscriptions(pfc, doneChannel, pfc.UserID, parentRef, opml.Outlines())
 
   for i := 0; i < importing; i++ {
     subscription := <-doneChannel;

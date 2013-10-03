@@ -27,6 +27,7 @@ import (
   "appengine"
   "appengine/urlfetch"
   "appengine/user"
+  "encoding/xml"
   "fmt"
   "html/template"
   "io/ioutil"
@@ -39,7 +40,9 @@ import (
 func registerWeb() {
   RegisterHTMLRoute("/reader", reader)
   RegisterHTMLRoute("/favicon", favicon)
-  RegisterAnonHTMLRoute("/", intro)
+  RegisterHTMLRoute("/export",  exportOPML)
+
+  RegisterAnonHTMLRoute("/",    intro)
 }
 
 var readerTemplate = template.Must(template.New("reader").Parse(readerTemplateHTML))
@@ -58,7 +61,9 @@ func intro(pfc *PFContext) {
 }
 
 func reader(pfc *PFContext) {
-  content := map[string]string {}
+  content := map[string]string {
+    "UserEmail": pfc.User.EmailAddress,
+  }
   if logoutURL, err := user.LogoutURL(pfc.C, "/"); err == nil {
     content["LogOutURL"] = logoutURL
   }
@@ -188,4 +193,28 @@ func fetchFavIcon(c appengine.Context, favIconURL string) (*storage.FavIcon, err
 
   // No image available
   return nil, nil
+}
+
+func exportOPML(pfc *PFContext) {
+  c := pfc.C
+  w := pfc.W
+
+  if opml, err := storage.SubscriptionsAsOPML(c, pfc.UserID); err != nil {
+    c.Errorf("Error retrieving list of subscriptions: %s", err)
+    http.Error(w, _l("Error retrieving list of subscriptions"), http.StatusInternalServerError)
+    return
+  } else {
+    opml.SetTitle(_l("Gofr subscriptions for %s", pfc.User.EmailAddress))
+
+    if output, err := xml.MarshalIndent(opml, "", "    "); err != nil {
+      c.Errorf("Error generating XML: %s", err)
+      http.Error(w, _l("Error generating subscriptions"), http.StatusInternalServerError)
+    } else {
+      w.Header().Set("Content-disposition", "attachment; filename=subscriptions.xml");
+      w.Header().Set("Content-type", "application/xml; charset=utf-8")
+
+      w.Write([]byte(xml.Header))
+      w.Write(output)
+    }
+  }
 }

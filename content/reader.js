@@ -615,6 +615,10 @@ $().ready(function() {
       $('.mark-all-as-read').toggle(!$('#menu-filter').isSelected('.menu-starred-items'));
     } else if ($item.is('.menu-show-sidebar')) {
       ui.toggleSidebar(e.isChecked);
+    } else if ($item.is('.menu-import-subscriptions')) {
+      ui.showImportSubscriptionsModal();
+    } else if ($item.is('.menu-export-subscriptions')) {
+      ui.exportSubscriptions();
     } else if ($item.is('.menu-show-all-subs')) {
       ui.toggleReadSubscriptions(e.isChecked);
     } else if ($item.is('.menu-create-folder')) {
@@ -642,11 +646,6 @@ $().ready(function() {
       this.initShortcuts();
       this.initModals();
 
-      $('a.import-subscriptions').click(function() {
-        ui.showImportSubscriptionsModal();
-        return false;
-      });
-
       $('a.show-about').click(function() {
         ui.showAbout();
         return false;
@@ -656,6 +655,12 @@ $().ready(function() {
 
       this.toggleSidebar($.cookie('show-sidebar') !== 'false');
       this.toggleReadSubscriptions($.cookie('show-all-subs') !== 'false');
+
+      var email = $('.user-options').attr('title');
+      if (email.length > 15)
+        email = email.substr(0, 7) + "…" + email.substr(email.length - 7, email.length);
+
+      $('.user-options').text(email);
     },
     'initButtons': function() {
       $('button.refresh').click(function() {
@@ -726,6 +731,11 @@ $().ready(function() {
             .append($('<span />').text(_l("Show sidebar"))))
           .append($('<li />', { 'class': 'menu-show-all-subs checkable' })
             .append($('<span />').text(_l("Show read subscriptions")))))
+        .append($('<ul />', { 'id': 'menu-user-options', 'class': 'menu' })
+          .append($('<li />', { 'class': 'menu-import-subscriptions' })
+            .append($('<span />').text(_l("Import subscriptions…"))))
+          .append($('<li />', { 'class': 'menu-export-subscriptions' })
+            .append($('<span />').text(_l("Export subscriptions")))))
         .append($('<ul />', { 'id': 'menu-folder', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…")))
           .append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
@@ -741,28 +751,28 @@ $().ready(function() {
       var categories = [{
         'title': _l('Navigation'),
         'shortcuts': [
-          { keys: _l('j/k'),       action: _l("Open next/previous article") },
-          { keys: _l('n/p'),       action: _l("Move to next/previous article") },
-          { keys: _l('Shift+n/p'), action: _l("Move to next/previous subscription") },
-          { keys: _l('Shift+o'),   action: _l("Open subscription or folder") },
-          { keys: _l('g, then a'), action: _l("Open All Items") },
+          { keys: _l('[j]/[k]'),       action: _l("Open next/previous article") },
+          { keys: _l('[n]/[p]'),       action: _l("Move to next/previous article") },
+          { keys: _l('[Shift]+[n]/[p]'), action: _l("Move to next/previous subscription") },
+          { keys: _l('[Shift]+[o]'),   action: _l("Open subscription or folder") },
+          { keys: _l('[g] then [a]'), action: _l("Open All Items") },
         ]}, {
         'title': _l('Application'),
         'shortcuts': [
-          { keys: _l('r'), action: _l("Refresh") },
-          { keys: _l('u'), action: _l("Toggle sidebar") },
-          { keys: _l('a'), action: _l("Add subscription") },
-          { keys: _l('?'), action: _l("Help") },
+          { keys: _l('[r]'), action: _l("Refresh") },
+          { keys: _l('[u]'), action: _l("Toggle sidebar") },
+          { keys: _l('[a]'), action: _l("Add subscription") },
+          { keys: _l('[?]'), action: _l("Help") },
         ]}, {
         'title': _l('Articles'),
         'shortcuts': [
-          { keys: _l('m'),       action: _l("Mark as read/unread") },
-          { keys: _l('s'),       action: _l("Star article") },
-          { keys: _l('v'),       action: _l("Open link") },
-          { keys: _l('o'),       action: _l("Open article") },
+          { keys: _l('[m]'),       action: _l("Mark as read/unread") },
+          { keys: _l('[s]'),       action: _l("Star article") },
+          { keys: _l('[v]'),       action: _l("Open link") },
+          { keys: _l('[o]'),       action: _l("Open article") },
           // { keys: _l('t'),       action: _l("Tag article") },
           // { keys: _l('l'),       action: _l("Like article") },
-          { keys: _l('Shift+a'), action: _l("Mark all as read") },
+          { keys: _l('[Shift]+[a]'), action: _l("Mark all as read") },
         ]}];
 
       var maxColumns = 2; // Number of columns in the resulting table
@@ -784,8 +794,18 @@ $().ready(function() {
                 .text(category.title));
               keepGoing = true;
             } else if (k < category.shortcuts.length) {
+              var words = category.shortcuts[k].keys.split(/\[|\]/) ;
+              var $div = $('<div />');
+
+              for (var w = 0; w < words.length; w++) {
+                if (w % 2)
+                  $div.append($('<span />', { 'class': 'key' }).text(words[w]));
+                else
+                  $div.append(words[w]);
+              }
+
               $row.append($('<td/>', { 'class': 'sh-keys' })
-                .text(category.shortcuts[k].keys + ':'))
+                .append($div))
               .append($('<td/>', { 'class': 'sh-action' })
                 .text(category.shortcuts[k].action));
               keepGoing = true;
@@ -902,6 +922,9 @@ $().ready(function() {
     'showImportSubscriptionsModal': function() {
       $('#import-subscriptions').find('form')[0].reset();
       $('#import-subscriptions').showModal(true);
+    },
+    'exportSubscriptions': function() {
+      window.location.href = '/export';
     },
     'showAbout': function() {
       $('#about').showModal(true);

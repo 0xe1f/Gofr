@@ -98,20 +98,21 @@ const readerTemplateHTML = `
     <div id="toast"><span></span></div>
     <div id="header">
       <h1>Gofr</h1>
-      <div class="navbar">
+      <div class="infobar">
         <div class="right-aligned">
-          <a class="sign-out _l" href="{{.LogOutURL}}">Sign out</a>
+          <span class="email">{{.UserEmail}}</span>
+          <a class="sign-out _l" href="{{.LogOutURL}}">sign out</a>
         </div>
-        <a class="import-subscriptions _l" href="#">Import subscriptions</a>
         <a class="show-about _l" href="#">About</a>
       </div>
     </div>
-    <div id="navbar">
+    <div class="navbar">
       <div class="right-aligned">
-        <button class="settings dropdown _l" data-dropdown="menu-settings" title="Options"></button>
-        <button class="select-article up _l" title="Previous Article"></button><button class="select-article down _l" title="Next Article"></button>
+        <button class="settings dropdown _l" data-dropdown="menu-settings" title="Settings">&nbsp;</button>
+        <button class="user-options dropdown _l" data-dropdown="menu-user-options" title="Account">Account</button>
+        <button class="select-article up _l" title="Previous Article">&nbsp;</button><button class="select-article down _l" title="Next Article">&nbsp;</button>
       </div>
-      <button class="navigate _l">Navigate</button>
+      <button class="navigate _l">&nbsp;</button>
       <button class="refresh _l" title="Refresh">&nbsp;</button>
       <button class="filter dropdown _l" data-dropdown="menu-filter">All Items</button>
       <button class="mark-all-as-read _l">Mark all as read</button>
