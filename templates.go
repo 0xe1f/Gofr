@@ -35,33 +35,40 @@ const introTemplateHTML = `
     <div class="content">
       <div class="header">
         <button class="sign-in" onclick="window.location='/reader';">Sign in with Google</button>
-        <h1>Gofr</h1>
+        <div class="clear"></div>
       </div>
       <div class="stripe">
         <div class="text">
           <img src="/content/logo.png" alt="Logo" />
-          <h1>Feedlicious RSS</h1>
-          <h3>Gofr is a cloud-based RSS reader for Google App Engine. 
-            It's free and open source.</h3>
+          <h1>Gofr</h1>
+          <h3>A cloud-based RSS reader that's free and open source.</h3>
         </div>
       </div>
       <div class="features">
         <div class="boxen">
           <div class="box">
-            <h3>It's flexible</h3>
+            <h3>Flexible.</h3>
             <p>Navigate by using mouse or keyboard, with support for most of Google Reader's shortcut keys.</p>
           </div>
           <div class="box">
-            <h3>It's portable</h3>
+            <h3>Portable.</h3>
             <p>Subscribe to individual feeds, or import all your existing subscriptions - up to 400.</p>
           </div>
           <div class="box">
-            <h3>It's extensible</h3>
+            <h3>Extensible.</h3>
             <p>Gofr is open source, and available on <a href="https://github.com/melllvar/Gofr">GitHub</a> - use it as-is, or improve it and share with everyone else.</p>
           </div>
         </div>
         <div class="hr"></div>
         <div class="bottom">
+          <div class="box">
+            <img src="https://developers.google.com/appengine/images/appengine-noborder-120x30.gif" alt="Powered by Google App Engine" />
+            <h3>Runs on <a href="https://developers.google.com/appengine/">Google App Engine</a></h3>
+          </div>
+          <div class="box">
+            <img src="content/logo-golang.png" alt="Written in Go" />
+            <h3>Written in <a href="http://www.golang.org/">Go</a> and <a href="http://jquery.com/">jQuery</a></h3>
+          </div>
           <img class="screenshot" src="/content/screenshot.png" alt="Screenshot" />
         </div>
       </div>
@@ -100,16 +107,14 @@ const readerTemplateHTML = `
       <h1>Gofr</h1>
       <div class="infobar">
         <div class="right-aligned">
-          <span class="email">{{.UserEmail}}</span>
-          <a class="sign-out _l" href="{{.LogOutURL}}">sign out</a>
+          <button class="user-options dropdown" data-dropdown="menu-user-options" title="{{.UserEmail}}">{{.UserEmail}}</button>
+          <a id="sign-out" href="{{.LogOutURL}}">sign out</a>
         </div>
-        <a class="show-about _l" href="#">About</a>
       </div>
     </div>
     <div class="navbar">
       <div class="right-aligned">
         <button class="settings dropdown _l" data-dropdown="menu-settings" title="Settings">&nbsp;</button>
-        <button class="user-options dropdown _l" data-dropdown="menu-user-options" title="Account">Account</button>
         <button class="select-article up _l" title="Previous Article">&nbsp;</button><button class="select-article down _l" title="Next Article">&nbsp;</button>
       </div>
       <button class="navigate _l">&nbsp;</button>
@@ -128,34 +133,38 @@ const readerTemplateHTML = `
         <div id="gofr-entries"></div>
       </div>
     </div>
+    <div id="footer">
+      <a class="about _l" href="http://www.akop.org/">About</a>
+      &bull; <a class="license _l" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
+      &bull; <a class="source _l" href="https://github.com/melllvar/Gofr">Source</a>
+    </div>
     <div id="floating-nav"></div>
     <div class="modal-blocker"></div>
     <div id="import-subscriptions" class="modal">
-      <div class="modal-inner">
-        <h1 class="_l">Upload OPML file</h1>
-        <form enctype="multipart/form-data" action="#" method="post">
-          <div>
-            <input name="opml" type="file" />
-            <input name="client" type="hidden" value="" />
-          </div>
-        </form>
-        <div class="buttons">
-          <button class="modal-cancel _l">Cancel</button>
-          <button class="modal-ok _l">Upload</button>
+      <h1 class="_l">Upload OPML file</h1>
+      <form enctype="multipart/form-data" action="#" method="post">
+        <div>
+          <input name="opml" type="file" />
+          <input name="client" type="hidden" value="" />
         </div>
+      </form>
+      <div class="buttons">
+        <button class="modal-cancel _l">Cancel</button>
+        <button class="modal-ok _l">Upload</button>
       </div>
     </div>
     <div id="about" class="modal">
-      <div class="modal-inner">
-        <h1>About Gofr</h1>
-        <p class="_l">Gofr (pronounced &#8220;gopher&#8221;) is an open source Feed Reader 
-        (Google Reader clone) for (https://developers.google.com/appengine/)[Google App Engine], with code 
-        available on (https://github.com/melllvar/Gofr)[GitHub]. 
-        It's loosely based on (https://github.com/melllvar/grr)[grr], 
-        an initial version written for PHP/MySQL, also available on GitHub.</p>
-        <p class="_l">Gofr is written by (http://www.akop.org/)[Akop Karapetyan].</p>
-        <button class="modal-cancel _l">Close</button>
-      </div>
+      <p><b>Gofr</b> is an open source Feed Reader 
+      (Google Reader clone) for 
+      <a href="https://developers.google.com/appengine/">Google App Engine</a>, 
+      with source code available on 
+      <a href="https://github.com/melllvar/Gofr">GitHub</a>.</p>
+      <p>It's written in <a href="http://golang.org/">Go</a> and JavaScript 
+      (using <a href="http://jquery.com/">jQuery</a>) and is loosely based on 
+      <a href="https://github.com/melllvar/grr">grr</a> - 
+      an initial implementation written for PHP/MySQL.</p>
+      <p>Gofr is written by <a href="http://www.akop.org/">Akop Karapetyan</a>.</p>
+      <button class="modal-cancel _l">Close</button>
     </div>
   </body>
 </html>

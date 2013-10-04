@@ -35,6 +35,10 @@ body {
   padding: 0.5em 3em;
 }
 
+.header .clear {
+  clear: both;
+}
+
 .header h1 {
   font-size: 24px;
   color: #222;
@@ -49,7 +53,7 @@ body {
 }
 
 .stripe h1 {
-  font-weight: normal;
+  font-weight: bold;
   font-size: 36pt;
   margin-bottom: 0.25em;
 }
@@ -134,8 +138,14 @@ button.sign-in:active {
 }
 
 .bottom {
-  padding-top: 160px;
+  padding-top: 60px;
   background-color: #fff;
+}
+
+.bottom h3 {
+  font-weight: normal;
+  font-size: 12pt;
+  margin: 0.75em;
 }
 
 .screenshot {

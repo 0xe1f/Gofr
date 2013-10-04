@@ -623,6 +623,10 @@ $().ready(function() {
       ui.toggleReadSubscriptions(e.isChecked);
     } else if ($item.is('.menu-create-folder')) {
       ui.createFolder();
+    } else if ($item.is('.menu-sign-out')) {
+      $('#sign-out')[0].click();
+    } else if ($item.is('.menu-shortcuts')) {
+      $('.shortcuts').show();
     } else if ($item.is('.menu-subscribe, .menu-rename, .menu-unsubscribe, .menu-delete')) {
       var subscription = subscriptionMap[e.context];
       if ($item.is('.menu-subscribe')) {
@@ -646,21 +650,12 @@ $().ready(function() {
       this.initShortcuts();
       this.initModals();
 
-      $('a.show-about').click(function() {
-        ui.showAbout();
-        return false;
-      });
-
       $('#menu-filter').selectItem('.menu-all-items');
 
       this.toggleSidebar($.cookie('show-sidebar') !== 'false');
       this.toggleReadSubscriptions($.cookie('show-all-subs') !== 'false');
 
-      var email = $('.user-options').attr('title');
-      if (email.length > 15)
-        email = email.substr(0, 7) + "…" + email.substr(email.length - 7, email.length);
-
-      $('.user-options').text(email);
+      $('a').not('#sign-out').attr('target', '_blank');
     },
     'initButtons': function() {
       $('button.refresh').click(function() {
@@ -720,22 +715,19 @@ $().ready(function() {
     'initMenus': function() {
       $('body')
         .append($('<ul />', { 'id': 'menu-filter', 'class': 'menu selectable' })
-          .append($('<li />', { 'class': 'menu-all-items group-filter' })
-            .append($('<span />').text(_l("All items"))))
-          .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' })
-            .append($('<span />').text(_l("New items"))))
-          .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' })
-            .append($('<span />').text(_l("Starred")))))
+          .append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
+          .append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
+          .append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
         .append($('<ul />', { 'id': 'menu-settings', 'class': 'menu' })
-          .append($('<li />', { 'class': 'menu-show-sidebar checkable' })
-            .append($('<span />').text(_l("Show sidebar"))))
-          .append($('<li />', { 'class': 'menu-show-all-subs checkable' })
-            .append($('<span />').text(_l("Show read subscriptions")))))
+          .append($('<li />', { 'class': 'menu-show-sidebar checkable' }).text(_l("Show sidebar")))
+          .append($('<li />', { 'class': 'menu-show-all-subs checkable' }).text(_l("Show read subscriptions")))
+          .append($('<li />', { 'class': 'divider' }))
+          .append($('<li />', { 'class': 'menu-shortcuts' }).text(_l("View shortcut keys…"))))
         .append($('<ul />', { 'id': 'menu-user-options', 'class': 'menu' })
-          .append($('<li />', { 'class': 'menu-import-subscriptions' })
-            .append($('<span />').text(_l("Import subscriptions…"))))
-          .append($('<li />', { 'class': 'menu-export-subscriptions' })
-            .append($('<span />').text(_l("Export subscriptions")))))
+          .append($('<li />', { 'class': 'menu-import-subscriptions' }).text(_l("Import subscriptions…")))
+          .append($('<li />', { 'class': 'menu-export-subscriptions' }).text(_l("Export subscriptions")))
+          .append($('<li />', { 'class': 'divider' }))
+          .append($('<li />', { 'class': 'menu-sign-out' }).text(_l("Sign out"))))
         .append($('<ul />', { 'id': 'menu-folder', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…")))
           .append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
@@ -746,6 +738,8 @@ $().ready(function() {
         .append($('<ul />', { 'id': 'menu-leaf', 'class': 'menu' })
           .append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
           .append($('<li />', { 'class': 'menu-unsubscribe' }).text(_l("Unsubscribe…"))));
+
+        $('.menu li').not('.divider').wrapInner('<span />');
     },
     'initHelp': function() {
       var categories = [{
@@ -815,6 +809,11 @@ $().ready(function() {
           }
         }
       }
+
+      $('.about').click(function() {
+        ui.showAbout();
+        return false;
+      });
 
       $('body').append($('<div />', { 'class': 'shortcuts' }).append($table));
     },
@@ -899,7 +898,7 @@ $().ready(function() {
     },
     'initModals': function() {
       $('.modal-blocker').hide();
-      $('.modal').hide();
+      $('.modal').wrapInner('<div class="modal-inner"></div>').hide();
 
       $.fn.showModal = function(show) {
         if (!$(this).hasClass('modal'))
