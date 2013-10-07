@@ -1444,9 +1444,6 @@ $().ready(function() {
 
     $('#subscriptions').replaceWith($newSubscriptions)
 
-    if (subscriptionMap != null)
-      delete subscriptionMap;
-
     subscriptionMap = newSubscriptionMap;
 
     _.each(newSubscriptions, function(subscription) {
