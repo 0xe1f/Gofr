@@ -69,8 +69,8 @@ type TaskMessage struct {
   Message string   `json:"message"`
   Refresh bool     `json:"refresh"`
   Silent bool      `json:"-"`
-  Code int         `json:"code"`
-  Data interface{} `json:"data"`
+  Code int         `json:"code,omitempty"`
+  Subscriptions interface{} `json:"subscriptions,omitempty"`
 }
 
 var routes []route = make([]route, 0, 100)

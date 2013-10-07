@@ -32,6 +32,7 @@ $().ready(function() {
   var lastContinued = null;
   var lastGPressTime = 0;
   var channel;
+  var syncInitted = false;
 
   var linkify = function(str, args) {
     var re = /\(((?:[a-z]+:\/\/|%s)[^\)]*)\)\[([^\]]*)\]/g;
@@ -106,7 +107,7 @@ $().ready(function() {
   $('html')
     .click(function() {
       $('.shortcuts').hide();
-      $('#floating-nav').hide();
+      ui.toggleNavBar(false);
       $$menu.hideAll();
     })
     .mouseup(function(e) {
@@ -301,17 +302,19 @@ $().ready(function() {
               .text(' »')));
 
         this.refresh();
-        ui.updateUnreadCount();
       }
+
+      if (!syncInitted)
+        initSync();
     },
-    'syncView': function() {
-      var $feed = this.getDom();
-      var $item = $feed.find('> .subscription-item');
+    'syncView': function($sub) {
+      var $sub = this.getDom();
+      var $item = $sub.find('> .subscription-item');
 
       $item.find('.subscription-title').text(this.title);
       $item.find('.subscription-unread-count').text('(' + this.unread + ')');
       $item.toggleClass('has-unread', this.unread > 0);
-      $feed.toggleClass('no-unread', this.unread < 1);
+      $sub.toggleClass('no-unread', this.unread < 1);
 
       var parent = this.getParent();
       if (parent)
@@ -657,6 +660,23 @@ $().ready(function() {
 
       $('a').not('#sign-out').attr('target', '_blank');
     },
+    'isNavBarVisible': function() {
+      return $('#floating-nav').is(":visible");
+    },
+    'toggleNavBar': function(show) {
+      if (typeof show === 'undefined')
+        show = !ui.isNavBarVisible();
+
+      if (show)
+        $('#floating-nav')
+          .css('left', -280)
+          .show()
+          .animate({ left: 0 }, 100);
+      else
+        $('#floating-nav')
+          .animate({ left: -280 }, { duration: 50, complete: function() { $('#floating-nav').hide(); } });
+          // .hide();
+    },
     'initButtons': function() {
       $('button.refresh').click(function() {
         refresh();
@@ -665,10 +685,7 @@ $().ready(function() {
         ui.subscribe();
       });
       $('button.navigate').click(function(e) {
-        $('#floating-nav')
-          .css( { top: $('button.navigate').offset().top, left: $('button.navigate').offset().left })
-          .show();
-
+        ui.toggleNavBar(true);
         e.stopPropagation();
       });
       $('.select-article.up').click(function() {
@@ -819,9 +836,11 @@ $().ready(function() {
     },
     'initShortcuts': function() {
       $(document)
-        .bind('keypress', '', function() {
+        .bind('keypress', '', function(e) {
+          if (!ui.isNavBarVisible() || !_.contains([78, 79, 80], e.charCode))
+            ui.toggleNavBar(false);
+
           $('.shortcuts').hide();
-          $('#floating-nav').hide();
           $$menu.hideAll();
         })
         .bind('keypress', 'n', function() {
@@ -1287,12 +1306,9 @@ $().ready(function() {
     if (selectedSubscription != null)
       selectedSubscriptionId = selectedSubscription.id;
 
-    $('#subscriptions').empty();
-
-    if (subscriptionMap != null)
-      delete subscriptionMap;
-
-    subscriptionMap = {};
+    var $newSubscriptions = $('<ul />', { 'id': 'subscriptions' });
+    var newSubscriptionMap = {};
+    var newSubscriptions = [];
 
     var subMap = generateSubscriptionMap(userSubscriptions);
     var createSubDom = function(subscription) {
@@ -1412,8 +1428,8 @@ $().ready(function() {
           }
         }
 
-        subscriptionMap[subscription.id] = subscription;
-        subscription.syncView();
+        newSubscriptionMap[subscription.id] = subscription;
+        newSubscriptions.push(subscription);
 
         if (selectedSubscriptionId == subscription.id)
           selectedSubscription = subscription;
@@ -1424,17 +1440,47 @@ $().ready(function() {
       });
     };
 
-    buildDom($('#subscriptions'), subMap[""]);
+    buildDom($newSubscriptions, subMap[""]);
 
+    $('#subscriptions').replaceWith($newSubscriptions)
+
+    if (subscriptionMap != null)
+      delete subscriptionMap;
+
+    subscriptionMap = newSubscriptionMap;
+
+    _.each(newSubscriptions, function(subscription) {
+      subscription.syncView();
+    });
+
+    ui.updateUnreadCount();
     selectedSubscription.select(reloadItems);
   };
 
-  var refresh = function() {
+  var refresh = function(reloadItems) {
     $.getJSON('subscriptions', {
     })
     .success(function(response) {
-      resetSubscriptionDom(response);
+      resetSubscriptionDom(response, reloadItems);
     });
+  };
+
+  var initSync = function() {
+    (function feedUpdater() {
+      $.post('syncFeeds', {
+        'client': clientId,
+      },
+      function(response) {
+        resetSubscriptionDom(response, false);
+        if (console && console.debug)
+          console.debug("Refresh succeeded");
+      }, 'json')
+      .always(function() {
+        setTimeout(feedUpdater, 600000); // 10 minutes
+      });
+
+      syncInitted = true;
+    })();
   };
 
   var initChannels = function() {
@@ -1466,7 +1512,9 @@ $().ready(function() {
           if (obj.message)
             ui.showToast(obj.message, false);
           if (obj.refresh)
-            refresh();
+            refresh(false);
+          if (obj.subscriptions)
+            resetSubscriptionDom(response, false);
         }
       };
       socket.onerror = function(error) {

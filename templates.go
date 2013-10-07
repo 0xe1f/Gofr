@@ -41,7 +41,7 @@ const introTemplateHTML = `
         <div class="text">
           <img src="/content/logo.png" alt="Logo" />
           <h1>Gofr</h1>
-          <h3>A cloud-based RSS reader that's free and open source.</h3>
+          <h3>An open source RSS reader for the cloud.</h3>
         </div>
       </div>
       <div class="features">
@@ -51,8 +51,10 @@ const introTemplateHTML = `
             <p>Navigate by using mouse or keyboard, with support for most of Google Reader's shortcut keys.</p>
           </div>
           <div class="box">
-            <h3>Portable.</h3>
-            <p>Subscribe to individual feeds, or import all your existing subscriptions - up to 400.</p>
+            <h3>Scalable.</h3>
+            <p>Written in <a href="http://www.golang.org/">Go</a> for the 
+            <a href="https://developers.google.com/appengine">Google App Engine</a>, 
+            with the Cloud Datastore as the data backend.</p>
           </div>
           <div class="box">
             <h3>Extensible.</h3>
@@ -61,19 +63,11 @@ const introTemplateHTML = `
         </div>
         <div class="hr"></div>
         <div class="bottom">
-          <div class="box">
-            <img src="https://developers.google.com/appengine/images/appengine-noborder-120x30.gif" alt="Powered by Google App Engine" />
-            <h3>Runs on <a href="https://developers.google.com/appengine/">Google App Engine</a></h3>
-          </div>
-          <div class="box">
-            <img src="content/logo-golang.png" alt="Written in Go" />
-            <h3>Written in <a href="http://www.golang.org/">Go</a> and <a href="http://jquery.com/">jQuery</a></h3>
-          </div>
           <img class="screenshot" src="/content/screenshot.png" alt="Screenshot" />
         </div>
       </div>
       <div class="footer">
-        &copy; 2013 <a href="http://www.akop.org/">Akop Karapetyan</a>
+        Written by <a href="http://www.akop.org/">Akop Karapetyan</a>
         &bull; <a class="license" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
         &bull; <a class="source" href="https://github.com/melllvar/Gofr">Source</a>
       </div>
@@ -87,8 +81,8 @@ const readerTemplateHTML = `
   <head profile="http://www.w3.org/2005/10/profile">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <link href="content/reader.css" type="text/css" rel="stylesheet"/>
-    <link href="content/mobile.css" type="text/css" rel="stylesheet"/>
     <script type="text/javascript" src="/_ah/channel/jsapi"></script>
+    <script src="content/underscore-min.js" type="text/javascript"></script>
     <script src="content/sprintf.min.js" type="text/javascript"></script>
     <script src="content/jquery-1.9.1.min.js" type="text/javascript"></script>
     <script src="content/jquery.hotkeys.js" type="text/javascript"></script>

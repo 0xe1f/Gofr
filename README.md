@@ -1,7 +1,7 @@
 Gofr
 ==========
 
-**Gofr** (pronounced "gopher") is a Feed Reader (Google Reader clone) for [Google App Engine] [1]. It grew out of my frustration with the relational backend of [**grr**] [2] and my inability to optimize it beyond unsatisfactory results. 
+**Gofr** is a Feed Reader (Google Reader clone) for [Google App Engine] [1]. It grew out of my frustration with the relational backend of [grr] [2] and my inability to optimize it beyond unsatisfactory results. 
 
 Gofr is written in [Go] [3], and uses the [Google Cloud Datastore] [4].
 
@@ -24,7 +24,7 @@ To deploy:
 Dev Server Notes
 ----------------
 
-When running in production, **Gofr** routinely (every 10 minutes, configurable in [cron.yaml](cron.yaml)) runs a cron job to update feeds. Since the development server does not support cron jobs, the feeds will never update by themselves. To update the feeds, log in to the application as an Administrator, and open the cron job URL in a web browser: `http://localhost:8080/cron/updateFeeds`.
+When running in production, Gofr routinely (every 10 minutes, configurable in [cron.yaml](cron.yaml)) runs a cron job to update feeds. Since the development server does not support cron jobs, the feeds will never update by themselves. To update the feeds, log in to the application as an Administrator, and open the cron job URL in a web browser: `http://localhost:8080/cron/updateFeeds`.
 
   [1]: https://developers.google.com/appengine/
   [2]: https://github.com/melllvar/grr/

@@ -20,7 +20,7 @@
  **
  ******************************************************************************
  */
- 
+
 body {
   font-family: helvetica, arial, sans-serif;
   font-size: 10pt;
@@ -138,14 +138,14 @@ button.sign-in:active {
 }
 
 .bottom {
-  padding-top: 60px;
   background-color: #fff;
+  padding-top: 30px;
 }
 
-.bottom h3 {
+.bottom .prop {
+  display: block;
   font-weight: normal;
   font-size: 12pt;
-  margin: 0.75em;
 }
 
 .screenshot {

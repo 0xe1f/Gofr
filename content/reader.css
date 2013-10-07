@@ -113,8 +113,9 @@ a {
   display: none;
   position: absolute;
   width: 280px;
+  left: 0;
+  top: 0;
   bottom: 0;
-  margin: 4px;
   background-color: white;
   border: solid 1px #ccc;
   box-shadow: 2px 2px 5px #aaa;

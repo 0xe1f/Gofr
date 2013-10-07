@@ -44,7 +44,7 @@ const (
   refreshQueue = "refreshes"
   modificationQueue = "modifications"
 
-  subscriptionStalePeriodInMinutes = 5
+  subscriptionStalePeriodInMinutes = 10
 )
 
 var validProperties = map[string]bool {
@@ -55,6 +55,7 @@ var validProperties = map[string]bool {
 }
 
 func registerJson() {
+  RegisterJSONRoute("/syncFeeds",     syncFeeds)
   RegisterJSONRoute("/subscriptions", subscriptions)
   RegisterJSONRoute("/articles",      articles)
   RegisterJSONRoute("/createFolder",  createFolder)
@@ -76,17 +77,21 @@ func registerJson() {
 }
 
 func subscriptions(pfc *PFContext) (interface{}, error) {
-  c := pfc.C
+  return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
+}
 
-  userSubscriptions, err := storage.NewUserSubscriptions(c, pfc.UserID)
-  if err != nil {
-    return nil, err
-  }
+func syncFeeds(pfc *PFContext) (interface{}, error) {
+  c := pfc.C
 
   staleDuration := time.Duration(subscriptionStalePeriodInMinutes) * time.Minute
   if appengine.IsDevAppServer() {
     // On dev server, stale period is 1 minute
     staleDuration = time.Duration(1) * time.Minute
+  }
+
+  userSubscriptions, err := storage.NewUserSubscriptions(c, pfc.UserID)
+  if err != nil {
+    return nil, err
   }
 
   if time.Since(pfc.User.LastSubscriptionUpdate) > staleDuration {
@@ -104,7 +109,7 @@ func subscriptions(pfc *PFContext) (interface{}, error) {
           c.Debugf("Subscriptions need update; initiating a refresh (took %s)", time.Since(started))
         }
 
-        if err := startTask(pfc, "refresh", nil, refreshQueue); err != nil {
+        if err := startTask(pfc, "syncFeeds", nil, refreshQueue); err != nil {
           c.Warningf("Could not initiate the refresh task: %s", err)
         }
       } else {

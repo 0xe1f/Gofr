@@ -43,7 +43,7 @@ func registerTasks() {
   RegisterTaskRoute("/tasks/unsubscribe",   unsubscribeTask)
   RegisterTaskRoute("/tasks/markAllAsRead", markAllAsReadTask)
   RegisterTaskRoute("/tasks/moveSubscription", moveSubscriptionTask)
-  RegisterTaskRoute("/tasks/refresh",       refreshTask)
+  RegisterTaskRoute("/tasks/syncFeeds",     syncFeedsTask)
   RegisterTaskRoute("/tasks/removeFolder",  removeFolderTask)
 }
 
@@ -313,13 +313,19 @@ func moveSubscriptionTask(pfc *PFContext) (TaskMessage, error) {
   return TaskMessage{}, nil
 }
 
-func refreshTask(pfc *PFContext) (TaskMessage, error) {
+func syncFeedsTask(pfc *PFContext) (TaskMessage, error) {
   if err := storage.UpdateAllSubscriptions(pfc.C, pfc.UserID); err != nil {
+    return TaskMessage{}, err
+  }
+
+  userSubscriptions, err := storage.NewUserSubscriptions(pfc.C, pfc.UserID)
+  if err != nil {
     return TaskMessage{}, err
   }
 
   return TaskMessage {
     Refresh: true,
+    Subscriptions: userSubscriptions,
   }, nil
 }
 
