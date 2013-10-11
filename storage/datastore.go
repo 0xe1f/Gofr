@@ -125,7 +125,7 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 		return nil, err
 	}
 
-	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Published")
+	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Fetched")
 	if filter.Property != "" {
 		q = q.Filter("Properties = ", filter.Property)
 	}
@@ -999,7 +999,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			nuovo++
 		} else if err != nil {
 			// Some other error
-			c.Warningf("Error getting entry meta (GUID '%s'): err", entryGUID, err)
+			c.Warningf("Error getting entry meta (GUID '%s'): %s", entryGUID, err)
 			continue
 		} else {
 			// Already in the store - check if it's new/updated

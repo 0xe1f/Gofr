@@ -91,7 +91,7 @@ $().ready(function() {
 		selectItem: function(itemSelector) {
 			var $menu = $(this);
 			if ($menu.is('.menu.selectable')) {
-				var $selected = $menu.find(itemSelector);
+				var $selected = $(itemSelector); // $menu.find(itemSelector);
 
 				$menu.find('li').removeClass('selected-menu-item');
 				$selected.addClass('selected-menu-item');
@@ -99,7 +99,7 @@ $().ready(function() {
 				$('.dropdown').each(function() {
 					var $dropdown = $(this);
 					if ($dropdown.data('dropdown') == $menu.attr('id'))
-						$dropdown.text($selected.text());
+						$dropdown.text($menu.find(itemSelector).text());
 				});
 			}
 		},

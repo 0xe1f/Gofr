@@ -310,15 +310,24 @@ $().ready(function() {
 		'syncView': function($sub) {
 			var $sub = this.getDom();
 			var $item = $sub.find('> .subscription-item');
+			var $title = $item.find('.subscription-title');
+			var $unreadCount = $item.find('.subscription-unread-count');
 
-			$item.find('.subscription-title').text(this.title);
-			$item.find('.subscription-unread-count').text('(' + this.unread + ')');
+			var unreadCount = this.unread > 0 ? '(' + this.unread + ')' : '';
+
+			$title.text(this.title);
+			$unreadCount.text(unreadCount);
 			$item.toggleClass('has-unread', this.unread > 0);
 			$sub.toggleClass('no-unread', this.unread < 1);
 
 			var parent = this.getParent();
 			if (parent)
 				parent.syncView();
+
+			var len = $title.outerWidth() + $unreadCount.outerWidth() + 14;
+			var available = $item.width() - $title.offset().left;
+
+			$item.toggleClass('too-long', len >= available);
 
 			if (!this.isRoot())
 				this.getRoot().syncView();
@@ -615,7 +624,8 @@ $().ready(function() {
 			var subscription = getSelectedSubscription();
 			if (subscription != null)
 				subscription.refresh();
-			$('.mark-all-as-read').toggle(!$('#menu-filter').isSelected('.menu-starred-items'));
+			$('.mark-all-as-read').toggleClass('unavailable', 
+				$('#menu-filter').isSelected('.menu-starred-items'));
 		} else if ($item.is('.menu-show-sidebar')) {
 			ui.toggleSidebar(e.isChecked);
 		} else if ($item.is('.menu-import-subscriptions')) {
@@ -654,6 +664,8 @@ $().ready(function() {
 			this.initModals();
 
 			$('#menu-filter').selectItem('.menu-all-items');
+			$('.mark-all-as-read').toggleClass('unavailable', 
+				$('#menu-filter').isSelected('.menu-starred-items'));
 
 			this.toggleSidebar($.cookie('show-sidebar') !== 'false');
 			this.toggleReadSubscriptions($.cookie('show-all-subs') !== 'false');
@@ -738,8 +750,11 @@ $().ready(function() {
 				.append($('<ul />', { 'id': 'menu-settings', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-show-sidebar checkable' }).text(_l("Show sidebar")))
 					.append($('<li />', { 'class': 'menu-show-all-subs checkable' }).text(_l("Show read subscriptions")))
-					.append($('<li />', { 'class': 'divider' }))
-					.append($('<li />', { 'class': 'menu-shortcuts' }).text(_l("View shortcut keys…"))))
+					.append($('<li />', { 'class': 'settings-filter menu-all-items group-filter' }).text(_l("All items")))
+					.append($('<li />', { 'class': 'settings-filter menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
+					.append($('<li />', { 'class': 'settings-filter menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred")))
+					.append($('<li />', { 'class': 'settings-shortcuts divider' }))
+					.append($('<li />', { 'class': 'settings-shortcuts menu-shortcuts' }).text(_l("View shortcut keys…"))))
 				.append($('<ul />', { 'id': 'menu-user-options', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-import-subscriptions' }).text(_l("Import subscriptions…")))
 					.append($('<li />', { 'class': 'menu-export-subscriptions' }).text(_l("Export subscriptions")))
@@ -756,7 +771,7 @@ $().ready(function() {
 					.append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
 					.append($('<li />', { 'class': 'menu-unsubscribe' }).text(_l("Unsubscribe…"))));
 
-				$('.menu li').not('.divider').wrapInner('<span />');
+			$('.menu li').not('.divider').wrapInner('<span />');
 		},
 		'initHelp': function() {
 			var categories = [{
@@ -952,12 +967,12 @@ $().ready(function() {
 		},
 		'toggleSidebar': function(showSidebar) {
 			if (typeof showSidebar === 'undefined')
-				showSidebar = $('body').hasClass('floated-nav');
+				showSidebar = $('.navigate').is(':visible'); // $('body').hasClass('floated-nav');
 
 			$('body').toggleClass('floated-nav', !showSidebar);
 			$('.menu-show-sidebar').setChecked(showSidebar);
 
-			if ($('body').hasClass('floated-nav'))
+			if ($('.navigate').is(':visible')) // $('body').hasClass('floated-nav'))
 				$('#floating-nav').append($('.feeds-container'));
 			else
 				$('#reader').prepend($('.feeds-container'));
