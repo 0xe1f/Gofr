@@ -20,27 +20,27 @@
  **
  ******************************************************************************
  */
- 
+
 package gofr
 
 import (
-  "net/http"
+	"net/http"
 )
 
 type ReadableError struct {
-  message string
-  httpCode int
-  err *error
+	message string
+	httpCode int
+	err *error
 }
 
 func NewReadableError(message string, err *error) ReadableError {
-  return ReadableError { message: message, httpCode: http.StatusInternalServerError, err: err }
+	return ReadableError { message: message, httpCode: http.StatusInternalServerError, err: err }
 }
 
 func NewReadableErrorWithCode(message string, code int, err *error) ReadableError {
-  return ReadableError { message: message, httpCode: code, err: err }
+	return ReadableError { message: message, httpCode: code, err: err }
 }
 
 func (e ReadableError) Error() string {
-  return e.message
+	return e.message
 }

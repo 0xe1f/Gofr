@@ -24,92 +24,92 @@
 package storage
 
 import (
-  "appengine"
-  "appengine/datastore"
+	"appengine"
+	"appengine/datastore"
 )
 
 type BatchOp int
 
 const (
-  BatchPut BatchOp = iota
-  BatchDelete
+	BatchPut BatchOp = iota
+	BatchDelete
 )
 
 // NOTE: not safe across goroutines
 
 type BatchWriter struct {
-  c appengine.Context
-  objects []interface{}
-  keys []*datastore.Key
-  size int
-  pending int
-  written int
-  op BatchOp
+	c appengine.Context
+	objects []interface{}
+	keys []*datastore.Key
+	size int
+	pending int
+	written int
+	op BatchOp
 }
 
 func NewBatchWriterWithSize(c appengine.Context, op BatchOp, size int) *BatchWriter {
-  writer := BatchWriter {
-    c: c,
-    keys: make([]*datastore.Key, size),
-    size: size,
-    op: op,
-  }
+	writer := BatchWriter {
+		c: c,
+		keys: make([]*datastore.Key, size),
+		size: size,
+		op: op,
+	}
 
-  if writer.supportsObjects() {
-    writer.objects = make([]interface{}, size)
-  }
+	if writer.supportsObjects() {
+		writer.objects = make([]interface{}, size)
+	}
 
-  return &writer
+	return &writer
 }
 
 func (writer BatchWriter)supportsObjects() bool {
-  return writer.op != BatchDelete
+	return writer.op != BatchDelete
 }
 
 func (writer *BatchWriter)EnqueueKey(key *datastore.Key) error {
-  return writer.Enqueue(key, nil)
+	return writer.Enqueue(key, nil)
 }
 
 func (writer *BatchWriter)Enqueue(key *datastore.Key, object interface{}) error {
-  if writer.pending + 1 >= writer.size {
-    if err := writer.Flush(); err != nil {
-      return err
-    }
-  }
+	if writer.pending + 1 >= writer.size {
+		if err := writer.Flush(); err != nil {
+			return err
+		}
+	}
 
-  writer.keys[writer.pending] = key
-  if writer.supportsObjects() {
-    writer.objects[writer.pending] = object
-  }
+	writer.keys[writer.pending] = key
+	if writer.supportsObjects() {
+		writer.objects[writer.pending] = object
+	}
 
-  writer.pending++
+	writer.pending++
 
-  return nil
+	return nil
 }
 
 func (writer *BatchWriter)Flush() error {
-  if writer.pending > 0 {
-    if writer.op == BatchPut {
-      if _, err := datastore.PutMulti(writer.c, writer.keys[:writer.pending], writer.objects[:writer.pending]); err != nil {
-        return err
-      }
-    } else if writer.op == BatchDelete {
-      if err := datastore.DeleteMulti(writer.c, writer.keys[:writer.pending]); err != nil {
-        return err
-      }
-    }
+	if writer.pending > 0 {
+		if writer.op == BatchPut {
+			if _, err := datastore.PutMulti(writer.c, writer.keys[:writer.pending], writer.objects[:writer.pending]); err != nil {
+				return err
+			}
+		} else if writer.op == BatchDelete {
+			if err := datastore.DeleteMulti(writer.c, writer.keys[:writer.pending]); err != nil {
+				return err
+			}
+		}
 
-    writer.written += writer.pending
-    writer.pending = 0
-  }
+		writer.written += writer.pending
+		writer.pending = 0
+	}
 
-  return nil
+	return nil
 }
 
 func (writer *BatchWriter)Close() error {
-  return writer.Flush()
+	return writer.Flush()
 }
 
 func (writer BatchWriter)Written() int {
-  return writer.written
+	return writer.written
 }

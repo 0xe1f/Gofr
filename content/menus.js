@@ -22,138 +22,138 @@
  */
 
 $().ready(function() {
-  $(document).on('click', 'button.dropdown', function(e) {
-    var topOffset = 0;
-    var $button = $(this);
-    var $menu = $('#' + $button.data('dropdown'));
+	$(document).on('click', 'button.dropdown', function(e) {
+		var topOffset = 0;
+		var $button = $(this);
+		var $menu = $('#' + $button.data('dropdown'));
 
-    $('.menu').hide();
-    $menu.show();
+		$('.menu').hide();
+		$menu.show();
 
-    if ($menu.hasClass('selectable')) {
-      var $selected = $menu.find('.selected-menu-item');
-      if ($selected.length) {
-        topOffset += $selected.position().top;
-        $selected.addClass('hovered').mouseout(function() {
-          $selected.removeClass('hovered').unbind('mouseout');
-        });
-      }
-    } else {
-      topOffset -= $button.outerHeight() - 1; // 1 pixel for the border
-    }
+		if ($menu.hasClass('selectable')) {
+			var $selected = $menu.find('.selected-menu-item');
+			if ($selected.length) {
+				topOffset += $selected.position().top;
+				$selected.addClass('hovered').mouseout(function() {
+					$selected.removeClass('hovered').unbind('mouseout');
+				});
+			}
+		} else {
+			topOffset -= $button.outerHeight() - 1; // 1 pixel for the border
+		}
 
-    $menu.css({ 'top': $button.offset().top - topOffset });
-    if ($button.offset().left + $menu.width() >= $(window).width())
-      $menu.css({ 'right': $(window).width() - ($button.offset().left + $button.outerWidth()) });
-    else
-      $menu.css({ 'left': $button.offset().left });
+		$menu.css({ 'top': $button.offset().top - topOffset });
+		if ($button.offset().left + $menu.width() >= $(window).width())
+			$menu.css({ 'right': $(window).width() - ($button.offset().left + $button.outerWidth()) });
+		else
+			$menu.css({ 'left': $button.offset().left });
 
-    e.stopPropagation();
-  });
+		e.stopPropagation();
+	});
 
-  $(document).on('click', '.menu', function(e) {
-    e.stopPropagation();
-  });
+	$(document).on('click', '.menu', function(e) {
+		e.stopPropagation();
+	});
 
-  $(document).on('click', '.menu li', function(e) {
-    var $item = $(this);
-    var $menu = $item.closest('ul');
+	$(document).on('click', '.menu li', function(e) {
+		var $item = $(this);
+		var $menu = $item.closest('ul');
 
-    var groupName = null;
-    $.each($item.attr('class').split(/\s+/), function() {
-      if (this.indexOf('group-') == 0) {
-        groupName = this;
-        return false;
-      }
-    });
+		var groupName = null;
+		$.each($item.attr('class').split(/\s+/), function() {
+			if (this.indexOf('group-') == 0) {
+				groupName = this;
+				return false;
+			}
+		});
 
-    if (groupName) {
-      $('.' + groupName).removeClass('selected-menu-item');
-      $item.addClass('selected-menu-item');
-    }
+		if (groupName) {
+			$('.' + groupName).removeClass('selected-menu-item');
+			$item.addClass('selected-menu-item');
+		}
 
-    if ($menu.hasClass('selectable')) {
-      $('.dropdown').each(function() {
-        var $dropdown = $(this);
-        if ($dropdown.data('dropdown') == $menu.attr('id'))
-          $dropdown.text($item.text());
-      });
-    } else if ($item.hasClass('checkable')) {
-      $item.toggleClass('checked', !$item.hasClass('checked'));
-    }
+		if ($menu.hasClass('selectable')) {
+			$('.dropdown').each(function() {
+				var $dropdown = $(this);
+				if ($dropdown.data('dropdown') == $menu.attr('id'))
+					$dropdown.text($item.text());
+			});
+		} else if ($item.hasClass('checkable')) {
+			$item.toggleClass('checked', !$item.hasClass('checked'));
+		}
 
-    $menu.hide();
+		$menu.hide();
 
-    $$menu.triggerClick($menu, $item);
-  });
+		$$menu.triggerClick($menu, $item);
+	});
 
-  $.fn.extend({
-    selectItem: function(itemSelector) {
-      var $menu = $(this);
-      if ($menu.is('.menu.selectable')) {
-        var $selected = $menu.find(itemSelector);
+	$.fn.extend({
+		selectItem: function(itemSelector) {
+			var $menu = $(this);
+			if ($menu.is('.menu.selectable')) {
+				var $selected = $menu.find(itemSelector);
 
-        $menu.find('li').removeClass('selected-menu-item');
-        $selected.addClass('selected-menu-item');
+				$menu.find('li').removeClass('selected-menu-item');
+				$selected.addClass('selected-menu-item');
 
-        $('.dropdown').each(function() {
-          var $dropdown = $(this);
-          if ($dropdown.data('dropdown') == $menu.attr('id'))
-            $dropdown.text($selected.text());
-        });
-      }
-    },
-    isSelected: function(itemSelector) {
-      var $menu = $(this);
-      if ($menu.is('.menu.selectable'))
-        return $menu.find(itemSelector).hasClass('selected-menu-item');
-      return false;
-    },
-    setChecked: function(checked) {
-      var $item = $(this);
-      if ($item.is('.menu li'))
-        $item.toggleClass('checked', checked);
-    },
-    setTitle: function(title) {
-      var $item = $(this);
-      if ($item.is('.menu li')) {
-        $item.find('span').text(title);
-        if ($item.hasClass('selected-menu-item')) {
-          var $menu = $item.closest('ul');
-          $('.dropdown').each(function() {
-            var $dropdown = $(this);
-            if ($dropdown.data('dropdown') == $menu.attr('id'))
-              $dropdown.text(title);
-          });
-        }
-      }
-    },
-    openMenu: function(x, y, context) {
-      var $menu = $(this);
-      if ($menu.hasClass('menu')) {
-        $('.menu').hide();
-        $menu.css( { top: y, left: x }).data('context', context).show();
-      }
-    }
-  });
+				$('.dropdown').each(function() {
+					var $dropdown = $(this);
+					if ($dropdown.data('dropdown') == $menu.attr('id'))
+						$dropdown.text($selected.text());
+				});
+			}
+		},
+		isSelected: function(itemSelector) {
+			var $menu = $(this);
+			if ($menu.is('.menu.selectable'))
+				return $menu.find(itemSelector).hasClass('selected-menu-item');
+			return false;
+		},
+		setChecked: function(checked) {
+			var $item = $(this);
+			if ($item.is('.menu li'))
+				$item.toggleClass('checked', checked);
+		},
+		setTitle: function(title) {
+			var $item = $(this);
+			if ($item.is('.menu li')) {
+				$item.find('span').text(title);
+				if ($item.hasClass('selected-menu-item')) {
+					var $menu = $item.closest('ul');
+					$('.dropdown').each(function() {
+						var $dropdown = $(this);
+						if ($dropdown.data('dropdown') == $menu.attr('id'))
+							$dropdown.text(title);
+					});
+				}
+			}
+		},
+		openMenu: function(x, y, context) {
+			var $menu = $(this);
+			if ($menu.hasClass('menu')) {
+				$('.menu').hide();
+				$menu.css( { top: y, left: x }).data('context', context).show();
+			}
+		}
+	});
 });
 
 var $$menu = {
-  clickCallback: null,
+	clickCallback: null,
 };
 
 $$menu.click = function(callback) {
-  this.clickCallback = callback;
+	this.clickCallback = callback;
 };
 $$menu.triggerClick = function($menu, $item) {
-  if (this.clickCallback)
-    this.clickCallback({
-      '$menu': $menu,
-      '$item': $item,
-      'context': $menu.data('context'),
-      'isChecked': $item.hasClass('checked'),
-    });
+	if (this.clickCallback)
+		this.clickCallback({
+			'$menu': $menu,
+			'$item': $item,
+			'context': $menu.data('context'),
+			'isChecked': $item.hasClass('checked'),
+		});
 };
 $$menu.hideAll = function() {
-  $('.menu').hide();
+	$('.menu').hide();
 };

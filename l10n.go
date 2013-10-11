@@ -24,10 +24,10 @@
 package gofr
 
 import (
-  "fmt"
+	"fmt"
 )
 
 func _l(format string, v ...interface {}) string {
-  // FIXME
-  return fmt.Sprintf(format, v...)
+	// FIXME
+	return fmt.Sprintf(format, v...)
 }

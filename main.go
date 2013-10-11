@@ -24,49 +24,49 @@
 package gofr
 
 import (
-  "appengine"
-  "appengine/user"
-  "net/http"
-  "storage"
+	"appengine"
+	"appengine/user"
+	"net/http"
+	"storage"
 )
 
 func init() {
-  // Initialize handlers
-  http.HandleFunc("/", Run)
+	// Initialize handlers
+	http.HandleFunc("/", Run)
 
-  registerJson()
-  registerTasks()
-  registerCron()
-  registerWeb()
+	registerJson()
+	registerTasks()
+	registerCron()
+	registerWeb()
 }
 
 type PFContext struct {
-  R *http.Request
-  C appengine.Context
-  W http.ResponseWriter
-  ChannelID string
-  UserID storage.UserID
-  User *storage.User
-  LoginURL string
+	R *http.Request
+	C appengine.Context
+	W http.ResponseWriter
+	ChannelID string
+	UserID storage.UserID
+	User *storage.User
+	LoginURL string
 }
 
 func Run(w http.ResponseWriter, r *http.Request) {
-  c := appengine.NewContext(r)
+	c := appengine.NewContext(r)
 
-  loginURL := ""
-  if url, err := user.LoginURL(c, r.URL.String()); err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-  } else {
-    loginURL = url
-  }
+	loginURL := ""
+	if url, err := user.LoginURL(c, r.URL.String()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	} else {
+		loginURL = url
+	}
 
-  pfc := PFContext {
-    R: r,
-    C: c,
-    W: w,
-    LoginURL: loginURL,
-  }
+	pfc := PFContext {
+		R: r,
+		C: c,
+		W: w,
+		LoginURL: loginURL,
+	}
 
-  routeRequest(&pfc)
+	routeRequest(&pfc)
 }

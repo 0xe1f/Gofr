@@ -24,136 +24,136 @@
 package storage
 
 import (
-  "appengine"
-  "appengine/datastore"
-  "errors"
-  "strconv"
-  "strings"
-  "time"
+	"appengine"
+	"appengine/datastore"
+	"errors"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func formatId(kind string, intId int64) string {
-  return kind + "://" + strconv.FormatInt(intId, 36)
+	return kind + "://" + strconv.FormatInt(intId, 36)
 }
 
 func unformatId(formattedId string) (string, int64, error) {
-  if parts := strings.SplitN(formattedId, "://", 2); len(parts) == 2 {
-    if id, err := strconv.ParseInt(parts[1], 36, 64); err == nil {
-      return parts[0], id, nil
-    } else {
-      return parts[0], 0, nil
-    }
-  }
+	if parts := strings.SplitN(formattedId, "://", 2); len(parts) == 2 {
+		if id, err := strconv.ParseInt(parts[1], 36, 64); err == nil {
+			return parts[0], id, nil
+		} else {
+			return parts[0], 0, nil
+		}
+	}
 
-  return "", 0, errors.New("Missing valid identifier")
+	return "", 0, errors.New("Missing valid identifier")
 }
 
 func newFolderRef(userID UserID, key *datastore.Key) (FolderRef) {
-  ref := FolderRef {
-    UserID: userID,
-  }
+	ref := FolderRef {
+		UserID: userID,
+	}
 
-  if key != nil {
-    ref.FolderID = formatId("folder", key.IntID())
-  }
+	if key != nil {
+		ref.FolderID = formatId("folder", key.IntID())
+	}
 
-  return ref
+	return ref
 }
 
 func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key, subscription Subscription) (int, error) {
-  feedKey := subscription.Feed
-  largestUpdateIndexWritten := int64(-1)
-  unreadDelta := 0
+	feedKey := subscription.Feed
+	largestUpdateIndexWritten := int64(-1)
+	unreadDelta := 0
 
-  batchWriter := NewBatchWriter(c, BatchPut)
+	batchWriter := NewBatchWriter(c, BatchPut)
 
-  q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("UpdateIndex >", subscription.MaxUpdateIndex)
-  for t := q.Run(c); ; {
-    entryMeta := new(EntryMeta)
-    _, err := t.Next(entryMeta)
+	q := datastore.NewQuery("EntryMeta").Ancestor(feedKey).Filter("UpdateIndex >", subscription.MaxUpdateIndex)
+	for t := q.Run(c); ; {
+		entryMeta := new(EntryMeta)
+		_, err := t.Next(entryMeta)
 
-    if err == datastore.Done {
-      break
-    } else if err != nil {
-      c.Errorf("Error reading Entry: %s", err)
-      return batchWriter.Written(), err
-    }
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("Error reading Entry: %s", err)
+			return batchWriter.Written(), err
+		}
 
-    articleKey := datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
-    article := Article{}
+		articleKey := datastore.NewKey(c, "Article", entryMeta.Entry.StringID(), 0, subscriptionKey)
+		article := Article{}
 
-    if err := datastore.Get(c, articleKey, &article); err == datastore.ErrNoSuchEntity {
-      // New article
-      article.Entry = entryMeta.Entry
-      article.Properties = []string { "unread" }
-      unreadDelta++
-    } else if err != nil {
-      c.Warningf("Error reading article %s: %s", entryMeta.Entry.StringID(), err)
-      continue
-    }
+		if err := datastore.Get(c, articleKey, &article); err == datastore.ErrNoSuchEntity {
+			// New article
+			article.Entry = entryMeta.Entry
+			article.Properties = []string { "unread" }
+			unreadDelta++
+		} else if err != nil {
+			c.Warningf("Error reading article %s: %s", entryMeta.Entry.StringID(), err)
+			continue
+		}
 
-    article.UpdateIndex = entryMeta.UpdateIndex
-    article.Fetched = entryMeta.Fetched
-    article.Published = entryMeta.Published
+		article.UpdateIndex = entryMeta.UpdateIndex
+		article.Fetched = entryMeta.Fetched
+		article.Published = entryMeta.Published
 
-    if entryMeta.UpdateIndex > largestUpdateIndexWritten {
-      largestUpdateIndexWritten = entryMeta.UpdateIndex
-    }
+		if entryMeta.UpdateIndex > largestUpdateIndexWritten {
+			largestUpdateIndexWritten = entryMeta.UpdateIndex
+		}
 
-    if err := batchWriter.Enqueue(articleKey, &article); err != nil {
-      c.Errorf("Error queueing article for batch write: %s", err)
-      return batchWriter.Written(), err
-    }
-  }
+		if err := batchWriter.Enqueue(articleKey, &article); err != nil {
+			c.Errorf("Error queueing article for batch write: %s", err)
+			return batchWriter.Written(), err
+		}
+	}
 
-  if err := batchWriter.Flush(); err != nil {
-    c.Errorf("Error flushing batch queue: %s", err)
-    return batchWriter.Written(), err
-  }
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch queue: %s", err)
+		return batchWriter.Written(), err
+	}
 
-  if batchWriter.Written() > 0 {
-    if appengine.IsDevAppServer() {
-      c.Debugf("Completed %s: %d records", subscriptionKey.StringID(), batchWriter.Written())
-    }
+	if batchWriter.Written() > 0 {
+		if appengine.IsDevAppServer() {
+			c.Debugf("Completed %s: %d records", subscriptionKey.StringID(), batchWriter.Written())
+		}
 
-    // Write the subscription
-    subscription.Updated = time.Now()
-    subscription.MaxUpdateIndex = largestUpdateIndexWritten
-    subscription.UnreadCount += unreadDelta
+		// Write the subscription
+		subscription.Updated = time.Now()
+		subscription.MaxUpdateIndex = largestUpdateIndexWritten
+		subscription.UnreadCount += unreadDelta
 
-    if _, err := datastore.Put(c, subscriptionKey, &subscription); err != nil {
-      c.Errorf("Error writing subscription: %s", err)
-      return batchWriter.Written(), err
-    }
+		if _, err := datastore.Put(c, subscriptionKey, &subscription); err != nil {
+			c.Errorf("Error writing subscription: %s", err)
+			return batchWriter.Written(), err
+		}
 
-    // Update usage index (rough way to track feed popularity)
-    // No sharding, no transactions - complete accuracy is unimportant for now
+		// Update usage index (rough way to track feed popularity)
+		// No sharding, no transactions - complete accuracy is unimportant for now
 
-    feedUsage := FeedUsage{}
-    feedUsageKey := datastore.NewKey(c, "FeedUsage", feedKey.StringID(), 0, nil)
+		feedUsage := FeedUsage{}
+		feedUsageKey := datastore.NewKey(c, "FeedUsage", feedKey.StringID(), 0, nil)
 
-    if err := datastore.Get(c, feedUsageKey, &feedUsage); err == datastore.ErrNoSuchEntity || err == nil {
-      if err == datastore.ErrNoSuchEntity {
-        // Create a new entity
-        feedUsage.Feed = feedKey
-      }
+		if err := datastore.Get(c, feedUsageKey, &feedUsage); err == datastore.ErrNoSuchEntity || err == nil {
+			if err == datastore.ErrNoSuchEntity {
+				// Create a new entity
+				feedUsage.Feed = feedKey
+			}
 
-      feedUsage.UpdateCount++
-      feedUsage.LastSubscriptionUpdate = time.Now()
+			feedUsage.UpdateCount++
+			feedUsage.LastSubscriptionUpdate = time.Now()
 
-      if _, err := datastore.Put(c, feedUsageKey, &feedUsage); err != nil {
-        c.Warningf("Non-critical error updating feed usage (%s): %s", feedKey.StringID(), err)
-      }
-    }
-  }
+			if _, err := datastore.Put(c, feedUsageKey, &feedUsage); err != nil {
+				c.Warningf("Non-critical error updating feed usage (%s): %s", feedKey.StringID(), err)
+			}
+		}
+	}
 
-  return batchWriter.Written(), nil
+	return batchWriter.Written(), nil
 }
 
 func updateSubscriptionAsync(c appengine.Context, subscriptionKey *datastore.Key, subscription Subscription, ch chan<- Subscription) {
-  if _, err := updateSubscriptionByKey(c, subscriptionKey, subscription); err != nil {
-    c.Errorf("Error updating subscription %s: %s", subscription.Title, err)
-  }
+	if _, err := updateSubscriptionByKey(c, subscriptionKey, subscription); err != nil {
+		c.Errorf("Error updating subscription %s: %s", subscription.Title, err)
+	}
 
-  ch <- subscription
+	ch <- subscription
 }

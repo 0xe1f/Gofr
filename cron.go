@@ -33,97 +33,97 @@ import (
 )
 
 func registerCron() {
-  RegisterCronRoute("/cron/updateFeeds", updateFeedsJob)
-  RegisterCronRoute("/cron/updateUnreadCounts", updateUnreadCountsJob)
+	RegisterCronRoute("/cron/updateFeeds", updateFeedsJob)
+	RegisterCronRoute("/cron/updateUnreadCounts", updateUnreadCountsJob)
 }
 
 func updateFeed(c appengine.Context, ch chan<- storage.Feed, feed storage.Feed) {
-  client := urlfetch.Client(c)
-  if response, err := client.Get(feed.URL); err != nil {
-    c.Errorf("Error downloading feed %s: %s", feed.URL, err)
-    goto done
-  } else {
-    defer response.Body.Close()
-    if parsedFeed, err := rss.UnmarshalStream(feed.URL, response.Body); err != nil {
-      c.Errorf("Error reading RSS content (%s): %s", feed.URL, err)
-      goto done
-    } else if err := storage.UpdateFeed(c, parsedFeed); err != nil {
-      c.Errorf("Error updating feed: %s", err)
-      goto done
-    }
-  }
+	client := urlfetch.Client(c)
+	if response, err := client.Get(feed.URL); err != nil {
+		c.Errorf("Error downloading feed %s: %s", feed.URL, err)
+		goto done
+	} else {
+		defer response.Body.Close()
+		if parsedFeed, err := rss.UnmarshalStream(feed.URL, response.Body); err != nil {
+			c.Errorf("Error reading RSS content (%s): %s", feed.URL, err)
+			goto done
+		} else if err := storage.UpdateFeed(c, parsedFeed); err != nil {
+			c.Errorf("Error updating feed: %s", err)
+			goto done
+		}
+	}
 
 done:
-  ch<- feed
+	ch<- feed
 }
 
 func updateFeedsJob(pfc *PFContext) error {
-  c := pfc.C
-  importing := 0
-  started := time.Now()
-  fetchTime := time.Now()
-  doneChannel := make(chan storage.Feed)
-  var jobError error
+	c := pfc.C
+	importing := 0
+	started := time.Now()
+	fetchTime := time.Now()
+	doneChannel := make(chan storage.Feed)
+	var jobError error
 
-  if appengine.IsDevAppServer() {
-    // On dev server, disregard next update limitations 
-    // (by "forwarding the clock")
-    fetchTime = fetchTime.Add(time.Duration(24) * time.Hour)
-  }
-  
-  feed := storage.Feed{}
+	if appengine.IsDevAppServer() {
+		// On dev server, disregard next update limitations 
+		// (by "forwarding the clock")
+		fetchTime = fetchTime.Add(time.Duration(24) * time.Hour)
+	}
+	
+	feed := storage.Feed{}
 
-  q := datastore.NewQuery("Feed").Filter("NextFetch <", fetchTime)
-  for t := q.Run(c); ; {
-    if _, err := t.Next(&feed); err == datastore.Done {
-      break
-    } else if err != nil {
-      c.Errorf("Error fetching feed record: %s", err)
-      jobError = err
-      break
-    }
+	q := datastore.NewQuery("Feed").Filter("NextFetch <", fetchTime)
+	for t := q.Run(c); ; {
+		if _, err := t.Next(&feed); err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("Error fetching feed record: %s", err)
+			jobError = err
+			break
+		}
 
-    go updateFeed(pfc.C, doneChannel, feed)
-    importing++
-  }
+		go updateFeed(pfc.C, doneChannel, feed)
+		importing++
+	}
 
-  for i := 0; i < importing; i++ {
-    <-doneChannel;
-  }
+	for i := 0; i < importing; i++ {
+		<-doneChannel;
+	}
 
-  c.Infof("%d feeds completed in %s", importing, time.Since(started))
+	c.Infof("%d feeds completed in %s", importing, time.Since(started))
 
-  return jobError
+	return jobError
 }
 
 func updateUnreadCountsJob(pfc *PFContext) error {
-  c := pfc.C
-  routines := 0
-  started := time.Now()
-  doneChannel := make(chan storage.Subscription)
-  subscription := storage.Subscription{}
-  var jobError error
+	c := pfc.C
+	routines := 0
+	started := time.Now()
+	doneChannel := make(chan storage.Subscription)
+	subscription := storage.Subscription{}
+	var jobError error
 
-  q := datastore.NewQuery("Subscription")
-  for t := q.Run(c); ; {
-    subscriptionKey, err := t.Next(&subscription)
-    if err == datastore.Done {
-      break
-    } else if err != nil {
-      c.Errorf("Error fetching subscription: %s", err)
-      jobError = err
-      break
-    }
+	q := datastore.NewQuery("Subscription")
+	for t := q.Run(c); ; {
+		subscriptionKey, err := t.Next(&subscription)
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("Error fetching subscription: %s", err)
+			jobError = err
+			break
+		}
 
-    go storage.UpdateUnreadCounts(pfc.C, doneChannel, subscriptionKey, subscription)
-    routines++
-  }
+		go storage.UpdateUnreadCounts(pfc.C, doneChannel, subscriptionKey, subscription)
+		routines++
+	}
 
-  for i := 0; i < routines; i++ {
-    <-doneChannel;
-  }
+	for i := 0; i < routines; i++ {
+		<-doneChannel;
+	}
 
-  c.Infof("%d subscriptions scanned in %s", routines, time.Since(started))
+	c.Infof("%d subscriptions scanned in %s", routines, time.Since(started))
 
-  return jobError
+	return jobError
 }

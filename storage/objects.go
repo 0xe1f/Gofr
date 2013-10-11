@@ -24,204 +24,204 @@
 package storage
 
 import (
-  "appengine/datastore"
-  "encoding/json"
-  "time"
+	"appengine/datastore"
+	"encoding/json"
+	"time"
 )
 
 type User struct {
-  ID string
-  EmailAddress string
-  LastSubscriptionUpdate time.Time
+	ID string
+	EmailAddress string
+	LastSubscriptionUpdate time.Time
 }
 
 type Feed struct {
-  URL string
-  Title string
-  Description string `datastore:",noindex"`
-  Updated time.Time
-  Link string
-  Format string
-  Fetched time.Time
-  NextFetch time.Time
-  HourlyUpdateFrequency float32
-  UpdateCounter int64
-  Topic string
-  HubURL string
+	URL string
+	Title string
+	Description string `datastore:",noindex"`
+	Updated time.Time
+	Link string
+	Format string
+	Fetched time.Time
+	NextFetch time.Time
+	HourlyUpdateFrequency float32
+	UpdateCounter int64
+	Topic string
+	HubURL string
 }
 
 type FeedUsage struct {
-  UpdateCount int64
-  LastSubscriptionUpdate time.Time
-  Feed *datastore.Key
+	UpdateCount int64
+	LastSubscriptionUpdate time.Time
+	Feed *datastore.Key
 }
 
 type EntryMeta struct {
-  Published time.Time
-  Fetched time.Time
-  Updated time.Time
-  UpdateIndex int64
-  Entry *datastore.Key
+	Published time.Time
+	Fetched time.Time
+	Updated time.Time
+	UpdateIndex int64
+	Entry *datastore.Key
 }
 
 type Entry struct {
-  UniqueID string     `json:"-"`
-  Author string       `json:"author"`
-  Title string        `json:"title"`
-  Link string         `json:"link"`
-  Published time.Time `json:"published"`
-  Updated time.Time   `json:"-"`
+	UniqueID string     `json:"-"`
+	Author string       `json:"author"`
+	Title string        `json:"title"`
+	Link string         `json:"link"`
+	Published time.Time `json:"published"`
+	Updated time.Time   `json:"-"`
 
-  Content string `json:"content" datastore:",noindex"`
-  Summary string `json:"summary"`
+	Content string `json:"content" datastore:",noindex"`
+	Summary string `json:"summary"`
 }
 
 type FavIcon struct {
-  Data []byte
-  MimeType string
-  LastUpdated time.Time
+	Data []byte
+	MimeType string
+	LastUpdated time.Time
 }
 
 type UserSubscriptions struct {
-  Subscriptions []Subscription `json:"subscriptions"`
-  Folders []Folder             `json:"folders"`
+	Subscriptions []Subscription `json:"subscriptions"`
+	Folders []Folder             `json:"folders"`
 }
 
 type UserID string
 
 type FolderRef struct {
-  UserID UserID
-  FolderID string `json:"f"`
+	UserID UserID
+	FolderID string `json:"f"`
 }
 
 type SubscriptionRef struct {
-  FolderRef
-  SubscriptionID string  `json:"s"`
+	FolderRef
+	SubscriptionID string  `json:"s"`
 }
 
 type ArticleScope SubscriptionRef
 
 func SubscriptionRefFromJSON(userID UserID, refAsJSON string) (SubscriptionRef, error) {
-  ref := SubscriptionRef{}
-  if err := json.Unmarshal([]byte(refAsJSON), &ref); err != nil {
-    return ref, err
-  }
+	ref := SubscriptionRef{}
+	if err := json.Unmarshal([]byte(refAsJSON), &ref); err != nil {
+		return ref, err
+	}
 
-  ref.UserID = userID
-  return ref, nil
+	ref.UserID = userID
+	return ref, nil
 }
 
 func ArticleScopeFromJSON(userID UserID, scopeAsJSON string) (ArticleScope, error) {
-  ref, err := SubscriptionRefFromJSON(userID, scopeAsJSON)
-  return ArticleScope(ref), err
+	ref, err := SubscriptionRefFromJSON(userID, scopeAsJSON)
+	return ArticleScope(ref), err
 }
 
 func ArticleFilterFromJSON(userID UserID, filterAsJSON string) (ArticleFilter, error) {
-  filter := ArticleFilter{}
-  if err := json.Unmarshal([]byte(filterAsJSON), &filter); err != nil {
-    return filter, err
-  }
+	filter := ArticleFilter{}
+	if err := json.Unmarshal([]byte(filterAsJSON), &filter); err != nil {
+		return filter, err
+	}
 
-  filter.UserID = userID
-  return filter, nil
+	filter.UserID = userID
+	return filter, nil
 }
 
 func (ref SubscriptionRef)IsSubscriptionExplicit() bool {
-  return ref.SubscriptionID != ""
+	return ref.SubscriptionID != ""
 }
 
 type ArticleFilter struct {
-  ArticleScope
-  Property string `json:"p"`
+	ArticleScope
+	Property string `json:"p"`
 }
 
 type ArticleRef struct {
-  SubscriptionRef
-  ArticleID string
+	SubscriptionRef
+	ArticleID string
 }
 
 type Subscription struct {
-  ID string     `datastore:"-" json:"id"`
-  Link string   `datastore:"-" json:"link"`
-  Parent string `datastore:"-" json:"parent,omitempty"`
+	ID string     `datastore:"-" json:"id"`
+	Link string   `datastore:"-" json:"link"`
+	Parent string `datastore:"-" json:"parent,omitempty"`
 
-  Updated time.Time    `json:"-"`
-  Subscribed time.Time `json:"-"`
-  Feed *datastore.Key  `json:"-"`
-  MaxUpdateIndex int64 `json:"-"`
+	Updated time.Time    `json:"-"`
+	Subscribed time.Time `json:"-"`
+	Feed *datastore.Key  `json:"-"`
+	MaxUpdateIndex int64 `json:"-"`
 
-  Title string         `json:"title"`
-  UnreadCount int      `json:"unread"`
+	Title string         `json:"title"`
+	UnreadCount int      `json:"unread"`
 }
 
 type ArticlePage struct {
-  Articles []Article `json:"articles"`
-  Continue string    `json:"continue,omitempty"`
+	Articles []Article `json:"articles"`
+	Continue string    `json:"continue,omitempty"`
 }
 
 type Article struct {
-  ID string             `datastore:"-" json:"id"`
-  Source string         `datastore:"-" json:"source"`
-  Details *Entry        `datastore:"-" json:"details"`
+	ID string             `datastore:"-" json:"id"`
+	Source string         `datastore:"-" json:"source"`
+	Details *Entry        `datastore:"-" json:"details"`
 
-  UpdateIndex int64     `json:"-"`
-  Published time.Time   `json:"-"`
-  Fetched time.Time     `json:"-"`
-  Entry *datastore.Key  `json:"-"`
+	UpdateIndex int64     `json:"-"`
+	Published time.Time   `json:"-"`
+	Fetched time.Time     `json:"-"`
+	Entry *datastore.Key  `json:"-"`
 
-  Properties []string   `json:"properties"`
+	Properties []string   `json:"properties"`
 }
 
 type Folder struct {
-  ID string    `datastore:"-" json:"id"`
-  Title string `json:"title"`
+	ID string    `datastore:"-" json:"id"`
+	Title string `json:"title"`
 }
 
 func (article Article)IsUnread() bool {
-  return article.HasProperty("unread")
+	return article.HasProperty("unread")
 }
 
 func (article Article)HasProperty(propName string) bool {
-  for _, property := range article.Properties {
-    if property == propName {
-      return true
-    }
-  }
+	for _, property := range article.Properties {
+		if property == propName {
+			return true
+		}
+	}
 
-  return false
+	return false
 }
 
 func (article *Article)SetProperty(propName string, value bool) {
-  propMap := make(map[string]bool)
-  for _, property := range article.Properties {
-    propMap[property] = true
-  }
+	propMap := make(map[string]bool)
+	for _, property := range article.Properties {
+		propMap[property] = true
+	}
 
-  if value && !propMap[propName] {
-    propMap[propName] = true
-    if propName == "read" {
-      delete(propMap, "unread")
-    } else if propName == "unread" {
-      delete(propMap, "read")
-    }
-  } else if !value && propMap[propName] {
-    delete(propMap, propName)
-    if propName == "read" {
-      propMap["unread"] = true
-    } else if propName == "unread" {
-      propMap["read"] = true
-    }
-  }
+	if value && !propMap[propName] {
+		propMap[propName] = true
+		if propName == "read" {
+			delete(propMap, "unread")
+		} else if propName == "unread" {
+			delete(propMap, "read")
+		}
+	} else if !value && propMap[propName] {
+		delete(propMap, propName)
+		if propName == "read" {
+			propMap["unread"] = true
+		} else if propName == "unread" {
+			propMap["read"] = true
+		}
+	}
 
-  article.Properties = make([]string, len(propMap))
-  i := 0
+	article.Properties = make([]string, len(propMap))
+	i := 0
 
-  for key, _ := range propMap {
-    article.Properties[i] = key
-    i++
-  }
+	for key, _ := range propMap {
+		article.Properties[i] = key
+		i++
+	}
 }
 
 func (article *Article)ToggleProperty(propName string) {
-  article.SetProperty(propName, !article.HasProperty(propName))
+	article.SetProperty(propName, !article.HasProperty(propName))
 }

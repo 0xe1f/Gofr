@@ -21,17 +21,13 @@
  ******************************************************************************
  */
 
-var gofrStrings = 
-{
-  // Default localization just uses the incoming string
+var gofrStrings = {
+	// Default localization just uses the incoming string
 }
 
-var defaultDateTimeFormatter = function(date, sameDay)
-{
-	if (sameDay)
-		return date.toLocaleTimeString();
-	else
-		return date.toLocaleDateString();
+var defaultDateTimeFormatter = function(date, sameDay) {
+	if (sameDay) return date.toLocaleTimeString();
+	else return date.toLocaleDateString();
 };
 
 var dateTimeFormatter = defaultDateTimeFormatter;

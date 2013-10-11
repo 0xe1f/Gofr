@@ -24,85 +24,85 @@
 package sanitize
 
 import (
-  "fmt"
-  "bytes"
+	"fmt"
+	"bytes"
 )
 
 // Return 'false' to stop walking stack
 type Walker func(value interface{}) bool
 
 type stackItem struct {
-  Value interface{}
-  Previous *stackItem
+	Value interface{}
+	Previous *stackItem
 }
 
 type Stack struct {
-  top *stackItem
+	top *stackItem
 }
 
 func (stack *Stack)Push(value interface{}) interface{} {
-  item := new(stackItem)
+	item := new(stackItem)
 
-  item.Value = value
-  item.Previous = stack.top
+	item.Value = value
+	item.Previous = stack.top
 
-  stack.top = item
+	stack.top = item
 
-  return value
+	return value
 }
 
 func (stack *Stack)Pop() interface{} {
-  item := stack.top
+	item := stack.top
 
-  if item == nil {
-    return nil
-  }
+	if item == nil {
+		return nil
+	}
 
-  stack.top = item.Previous
-  item.Previous = nil
+	stack.top = item.Previous
+	item.Previous = nil
 
-  return item.Value
+	return item.Value
 }
 
 func (stack *Stack)PopMany(count int) interface{} {
-  var value interface{}
-  for i := 0; i < count; i++ {
-    value = stack.Pop()
-    if value == nil {
-      break
-    }
-  }
+	var value interface{}
+	for i := 0; i < count; i++ {
+		value = stack.Pop()
+		if value == nil {
+			break
+		}
+	}
 
-  return value
+	return value
 }
 
 func (stack *Stack)Peek() interface{} {
-  if item := stack.top; item == nil {
-    return nil
-  } else {
-    return item.Value
-  }
+	if item := stack.top; item == nil {
+		return nil
+	} else {
+		return item.Value
+	}
 }
 
 // Returns 'true' if walk was stopped prematurely
 func (stack *Stack)Walk(walker Walker) bool {
-  for item := stack.top; item != nil; item = item.Previous {
-    if !walker(item.Value) {
-      return true
-    }
-  }
+	for item := stack.top; item != nil; item = item.Previous {
+		if !walker(item.Value) {
+			return true
+		}
+	}
 
-  return false
+	return false
 }
 
 func (stack *Stack)String() string {
-  buffer := bytes.Buffer{}
-  for item := stack.top; item != nil; item = item.Previous {
-    buffer.WriteString(item.Value.(fmt.Stringer).String())
-    if item.Previous != nil {
-      buffer.WriteString(" <- ")
-    }
-  }
+	buffer := bytes.Buffer{}
+	for item := stack.top; item != nil; item = item.Previous {
+		buffer.WriteString(item.Value.(fmt.Stringer).String())
+		if item.Previous != nil {
+			buffer.WriteString(" <- ")
+		}
+	}
 
-  return buffer.String()
+	return buffer.String()
 }

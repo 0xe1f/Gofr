@@ -20,753 +20,753 @@
  **
  ******************************************************************************
  */
- 
+
 body {
-  font-family: helvetica, arial, sans-serif;
-  font-size: 10pt;
-  color: #444;
-  margin: 0;
+	font-family: helvetica, arial, sans-serif;
+	font-size: 10pt;
+	color: #444;
+	margin: 0;
 }
 
 #header {
-  border-bottom: solid 1px #ccc;
-  background-color: #eee;
-  padding: 0.5em 1em;
+	border-bottom: solid 1px #ccc;
+	background-color: #eee;
+	padding: 0.5em 1em;
 }
 
 #header h1 {
-  font-size: 24px;
-  color: #222;
-  text-shadow: 0px 1px 1px #fff;
-  margin: 0.25em 0;
+	font-size: 24px;
+	color: #222;
+	text-shadow: 0px 1px 1px #fff;
+	margin: 0.25em 0;
 }
 
 #reader {
-  position: absolute;
-  top: 105px;
-  bottom: 30px;
-  left: 0;
-  right: 0;
-  border-top: solid 1px #aaa;
+	position: absolute;
+	top: 105px;
+	bottom: 30px;
+	left: 0;
+	right: 0;
+	border-top: solid 1px #aaa;
 }
 
 #footer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 22px;
-  font-size: 12px;
-  padding-top: 7px;
-  border-top: solid 1px #ccc;
-  background-color: #eee;
-  text-align: center;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 22px;
+	font-size: 12px;
+	padding-top: 7px;
+	border-top: solid 1px #ccc;
+	background-color: #eee;
+	text-align: center;
 }
 
 a {
-  color: #0276FD;
-  text-decoration: none;
+	color: #0276FD;
+	text-decoration: none;
 }
 
 #sign-out {
-  display: none;
+	display: none;
 }
 
 .houmu-rogo {
-  margin: 3px;
+	margin: 3px;
 }
 
 .infobar a {
-  font-size: 10pt;
-  font-weight: bold;
-  text-decoration: none;
+	font-size: 10pt;
+	font-weight: bold;
+	text-decoration: none;
 }
 
 .center-message {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 15pt;
-  font-weight: bold;
-  color: #777;
+	position: absolute;
+	top: 50%;
+	left: 0;
+	right: 0;
+	text-align: center;
+	font-size: 15pt;
+	font-weight: bold;
+	color: #777;
 }
 
 .center-message a {
-  margin-top: 0.25em;
+	margin-top: 0.25em;
 }
 
 .feeds-container {
-  position: absolute;
-  width: 280px;
-  top: 0;
-  bottom: 0;
-  overflow: auto;
+	position: absolute;
+	width: 280px;
+	top: 0;
+	bottom: 0;
+	overflow: auto;
 }
 
 .floated-nav #reader .feeds-container {
-  display: none;
+	display: none;
 }
 
 #floating-nav {
-  display: none;
-  position: absolute;
-  width: 280px;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  background-color: white;
-  border: solid 1px #ccc;
-  box-shadow: 2px 2px 5px #aaa;
+	display: none;
+	position: absolute;
+	width: 280px;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background-color: white;
+	border: solid 1px #ccc;
+	box-shadow: 2px 2px 5px #aaa;
 }
 
 #gofr-entries {
-  margin-left: 0.25em;
-  margin-right: 0.75em;
+	margin-left: 0.25em;
+	margin-right: 0.75em;
 }
 
 .gofr-entries-header {
-  font-size: 10.5pt;
-  font-weight: bold;
-  padding: 0.5em;
-  color: #444;
-  white-space: nowrap;
-  border-bottom: solid 1px #ccc;
+	font-size: 10.5pt;
+	font-weight: bold;
+	padding: 0.5em;
+	color: #444;
+	white-space: nowrap;
+	border-bottom: solid 1px #ccc;
 }
 
 .gofr-entries-header a {
-  color: #444;
-  text-decoration: none;
+	color: #444;
+	text-decoration: none;
 }
 
 .gofr-entries-container {
-  position: absolute;
-  left: 280px;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  overflow: auto;
+	position: absolute;
+	left: 280px;
+	top: 0;
+	bottom: 0;
+	right: 0;
+	overflow: auto;
 }
 
 .floated-nav .gofr-entries-container {
-  left: 0;
+	left: 0;
 }
 
 .gofr-entry {
-  cursor: pointer;
-  clear: both;
-  border-bottom: solid 1px #ccc;
-  border-left: solid 1px transparent;
+	cursor: pointer;
+	clear: both;
+	border-bottom: solid 1px #ccc;
+	border-left: solid 1px transparent;
 }
 
 .gofr-entry.open {
-  border-left-color: #4d90f0;
+	border-left-color: #4d90f0;
 }
 
 .gofr-entry-item,
 .gofr-entry.selected.open .gofr-entry-item {
-  padding-left: 0.5em;
-  padding-right: 0.5em;
-  height: 37px;
-  background-color: #fff;
-  line-height: 37px;
-  position: relative;
+	padding-left: 0.5em;
+	padding-right: 0.5em;
+	height: 37px;
+	background-color: #fff;
+	line-height: 37px;
+	position: relative;
 }
 
 .gofr-entry.read .gofr-entry-item,
 .gofr-entry.read.open .gofr-entry-item {
-  background-color: #eee;
+	background-color: #eee;
 }
 
 .gofr-entry.selected .gofr-entry-item {
-  background-color: #ffffcc;
+	background-color: #ffffcc;
 }
 
 .gofr-entry-source {
-  overflow: hidden;
-  white-space: nowrap;
-  margin-left: 20px;
-  width: 10em;
-  display: block;
-  position: absolute;
+	overflow: hidden;
+	white-space: nowrap;
+	margin-left: 20px;
+	width: 10em;
+	display: block;
+	position: absolute;
 }
 
 .single-source .gofr-entry-source {
-  display: none;
+	display: none;
 }
 
 .gofr-entry-excerpt {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-left: 12em;
-  margin-right: 7em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-left: 12em;
+	margin-right: 7em;
 }
 
 .single-source .gofr-entry-excerpt {
-  margin-left: 20px;
+	margin-left: 20px;
 }
 
 .gofr-entry-link {
-  display: block;
-  width: 15px;
-  height: 15px;
-  position: absolute;
-  right: 0;
-  top: 50%;
-  margin-top: -8px;
-  margin-right: 8px;
-  background-image: url(sprites.png);
-  background-position: -210px -210px;
-  white-space: nowrap;
+	display: block;
+	width: 15px;
+	height: 15px;
+	position: absolute;
+	right: 0;
+	top: 50%;
+	margin-top: -8px;
+	margin-right: 8px;
+	background-image: url(sprites.png);
+	background-position: -210px -210px;
+	white-space: nowrap;
 }
 
 .gofr-entry-pubDate {
-  display: block;
-  position: absolute;
-  right: 32px;
-  text-align: right;
-  width: 6em;
+	display: block;
+	position: absolute;
+	right: 32px;
+	text-align: right;
+	width: 6em;
 }
 
 .gofr-entry-title {
-  font-size: 10pt;
-  display: inline;
-  margin: 0;
+	font-size: 10pt;
+	display: inline;
+	margin: 0;
 }
 
 .gofr-entry.read .gofr-entry-title {
-  font-weight: normal;
+	font-weight: normal;
 }
 
 .gofr-article-title, 
 .gofr-article-author a {
-  color: rgb(17, 85, 204);
-  text-decoration: none;
+	color: rgb(17, 85, 204);
+	text-decoration: none;
 }
 
 .gofr-article-title h2 {
-  font-size: 14pt;
-  margin: 0;
+	font-size: 14pt;
+	margin: 0;
 }
 
 .gofr-article-body {
-  margin: 0.7em 0;
+	margin: 0.7em 0;
 }
 
 .gofr-article-body a {
-  color: #0000ff;
-  text-decoration: underline;
+	color: #0000ff;
+	text-decoration: underline;
 }
 
 .gofr-entry-summary {
-    color: #777;
+		color: #777;
 }
 
 .gofr-entry-content {
-  display: block;
-  cursor: auto;
+	display: block;
+	cursor: auto;
 }
 
 .gofr-article {
-  margin: 0.5em 1em;
+	margin: 0.5em 1em;
 }
 
 .gofr-entry-footer {
-  padding: 0.5em 0.5em;
-  border-top: solid 1px #ebebeb;
-  background-color: #fafafa;
+	padding: 0.5em 0.5em;
+	border-top: solid 1px #ebebeb;
+	background-color: #fafafa;
 }
 
 .gofr-entry-action {
-  background-repeat: no-repeat;
-  padding-left: 20px;
-  margin-left: 1em;
-  cursor: pointer;
+	background-repeat: no-repeat;
+	padding-left: 20px;
+	margin-left: 1em;
+	cursor: pointer;
 }
 
 .gofr-entry-action a {
-  text-decoration: none;
-  color: #000;
+	text-decoration: none;
+	color: #000;
 }
 
 .gofr-entry-action a span {
-  margin-left: 5px;
+	margin-left: 5px;
 }
 
 .action-unread {
-  background-image: url(sprites.png);
-  background-position: -15px -15px;
+	background-image: url(sprites.png);
+	background-position: -15px -15px;
 }
 
 .action-tag {
-  background-image: url(sprites.png);
-  background-position: -120px -120px;
+	background-image: url(sprites.png);
+	background-position: -120px -120px;
 }
 
 .action-tag.has-tags {
-  background-position: -105px -105px;
+	background-position: -105px -105px;
 }
 
 .gofr-entry.read .action-unread {
-  background-position: 0 0;
+	background-position: 0 0;
 }
 
 .action-star {
-  display: inline-block;
-  width: 15px;
-  height: 15px;
-  background-image: url(sprites.png);
-  background-position: -30px -30px;
-  cursor: pointer;
+	display: inline-block;
+	width: 15px;
+	height: 15px;
+	background-image: url(sprites.png);
+	background-position: -30px -30px;
+	cursor: pointer;
 }
 
 .action-like {
-  background-image: url(sprites.png);
-  background-position: -60px -60px;
+	background-image: url(sprites.png);
+	background-position: -60px -60px;
 }
 
 .star .action-star {
-  background-position: -45px -45px;
+	background-position: -45px -45px;
 }
 
 .like .action-like {
-  background-position: -75px -75px;
+	background-position: -75px -75px;
 }
 
 .gofr-entry-footer .action-star {
-  margin-right: 3em;
+	margin-right: 3em;
 }
 
 .gofr-entry-item .action-star {
-  top: 50%;
-  margin-top: -8px;
-  white-space: nowrap;
-  position: absolute;
+	top: 50%;
+	margin-top: -8px;
+	white-space: nowrap;
+	position: absolute;
 }
 
 .next-page {
-  padding: 1em;
-  text-align: center;
-  cursor: pointer;
-  font-size: 11pt;
+	padding: 1em;
+	text-align: center;
+	cursor: pointer;
+	font-size: 11pt;
 }
 
 ul#subscriptions,
 #subscriptions ul {
-  margin: 0;
-  padding: 0;
+	margin: 0;
+	padding: 0;
 }
 
 .dest-subscription {
-  background-color: #cedefa;
+	background-color: #cedefa;
 }
 
 #subscriptions li {
-  margin: 0;
+	margin: 0;
 }
 
 .subscription-icon {
-  width: 15px;
-  height: 15px;
-  float: left;
-  margin-right: 5px;
+	width: 15px;
+	height: 15px;
+	float: left;
+	margin-right: 5px;
 }
 
 .subscription-item {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  cursor: pointer;
-  padding: 0.35em 0;
-  margin-right: 1em;
-  border: solid 1px transparent;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	cursor: pointer;
+	padding: 0.35em 0;
+	margin-right: 1em;
+	border: solid 1px transparent;
 }
 
 .subscription.folder > ul > .leaf > .subscription-item {
-  padding-left: 1em;
+	padding-left: 1em;
 }
 
 .subscription.root .subscription-item {
-  margin-bottom: 1em;
+	margin-bottom: 1em;
 }
 
 .subscription.root .subscription-icon {
-  background-image: url(sprites.png);
-  background-position: -165px -165px;
+	background-image: url(sprites.png);
+	background-position: -165px -165px;
 }
 
 .subscription.folder .subscription-icon {
-  background-image: url(sprites.png);
-  background-position: -135px -135px;
+	background-image: url(sprites.png);
+	background-position: -135px -135px;
 }
 
 .subscription.leaf .subscription-icon {
-  background-image: none;
+	background-image: none;
 }
 
 .subscription-item:hover {
-  background-color: #eee;
+	background-color: #eee;
 }
 
 .subscription.selected > .subscription-item {
-  background-color: #cedefa;
+	background-color: #cedefa;
 }
 
 .subscription.dragging > .subscription-item {
-  background-color: #fff79a;
+	background-color: #fff79a;
 }
 
 .subscription.dragged > .subscription-item {
-  opacity: 0.5;
-  background-color: white;
+	opacity: 0.5;
+	background-color: white;
 }
 
 .subscription.highlighted > .subscription-item {
-  border: solid 1px #000;
+	border: solid 1px #000;
 }
 
 .subscription-title {
 }
 
 .subscription-unread-count {
-  color: #aaa;
-  display: none;
-  margin-left: 0.5em;
+	color: #aaa;
+	display: none;
+	margin-left: 0.5em;
 }
 
 .has-unread .subscription-title {
-  font-weight: bold;
+	font-weight: bold;
 }
 
 .has-unread .subscription-unread-count {
-  display: inline;
+	display: inline;
 }
 
 .hide-read-subs .subscription.leaf.no-unread {
-  display: none;
+	display: none;
 }
 
 .navbar {
-  padding: 10px;
+	padding: 10px;
 }
 
 .infobar .right-aligned {
-  position: absolute;
-  top: 0;
-  right: 1em;
-  padding: 0 0 0.25em 0;
+	position: absolute;
+	top: 0;
+	right: 1em;
+	padding: 0 0 0.25em 0;
 }
 
 .navbar .right-aligned {
-  position: absolute;
-  right: 10px;
+	position: absolute;
+	right: 10px;
 }
 
 button {
-  height: 30px;
-  padding: 0.5em 1.5em;
-  background-color: #eee;
-  border: solid 1px #aaa;
-  border-radius: 3px;
-  box-shadow: 1px 1px 1px #ddd;
-  font-size: 8pt;
-  font-weight: bold;
-  color: #555;
+	height: 30px;
+	padding: 0.5em 1.5em;
+	background-color: #eee;
+	border: solid 1px #aaa;
+	border-radius: 3px;
+	box-shadow: 1px 1px 1px #ddd;
+	font-size: 8pt;
+	font-weight: bold;
+	color: #555;
 }
 
 button:active {
-  box-shadow: none;
-  color: #000;
+	box-shadow: none;
+	color: #000;
 }
 
 button:hover {
-  border-color: #777;
-  color: #000;
+	border-color: #777;
+	color: #000;
 }
 
 button.dropdown {
-  background: url(sprites.png) no-repeat right #eee;
-  background-position: 100% -270px;
-  padding: 0.5em 30px 0.5em 20px;
+	background: url(sprites.png) no-repeat right #eee;
+	background-position: 100% -270px;
+	padding: 0.5em 30px 0.5em 20px;
 }
 
 .infobar .dropdown {
-  border: none;
-  box-shadow: none;
-  padding: 3px 25px 0.25em 1em;
-  background-color: transparent;
-  background-position: 100% -273px;
-  cursor: pointer;
-  font-weight: normal;
-  font-size: 10pt;
-  height: auto;
-  color: #777;
+	border: none;
+	box-shadow: none;
+	padding: 3px 25px 0.25em 1em;
+	background-color: transparent;
+	background-position: 100% -273px;
+	cursor: pointer;
+	font-weight: normal;
+	font-size: 10pt;
+	height: auto;
+	color: #777;
 }
 
 .infobar .dropdown:hover {
-  color: #000;
+	color: #000;
 }
 
 .navigate {
-  width: 40px;
-  display: none;
-  background: url(sprites.png) no-repeat -115px -240px #eee;
+	width: 40px;
+	display: none;
+	background: url(sprites.png) no-repeat -115px -240px #eee;
 }
 
 .navigate:hover {
-  background-position: -145px -240px;
+	background-position: -145px -240px;
 }
 
 .floated-nav .navigate {
-  display: inline-block;
+	display: inline-block;
 }
 
 .select-article {
-  width: 40px;
-  padding: 0;
+	width: 40px;
+	padding: 0;
 }
 
 .select-article.up {
-  margin-right: 0;
-  box-shadow: 0 1px 1px #aaa;
-  border-right: none;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  background: url(sprites.png) no-repeat -25px -240px #eee;
+	margin-right: 0;
+	box-shadow: 0 1px 1px #aaa;
+	border-right: none;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	background: url(sprites.png) no-repeat -25px -240px #eee;
 }
 
 .select-article.down {
-  margin-left: 0;
-  box-shadow: 0 1px 1px #aaa;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  background: url(sprites.png) no-repeat 5px -240px #eee;
+	margin-left: 0;
+	box-shadow: 0 1px 1px #aaa;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	background: url(sprites.png) no-repeat 5px -240px #eee;
 }
 
 .select-article.up:hover, 
 .select-article.up:active {
-  background-position: -85px -240px;
+	background-position: -85px -240px;
 }
 
 .select-article.down:hover, 
 .select-article.down:active {
-  background-position: -55px -240px;
+	background-position: -55px -240px;
 }
 
 .refresh {
-  width: 60px;
-  padding: 0;
-  background: url(sprites.png) no-repeat 0 -270px #eee;
+	width: 60px;
+	padding: 0;
+	background: url(sprites.png) no-repeat 0 -270px #eee;
 }
 
 .refresh:hover, 
 .refresh:active {
-  background-position: -60px -270px;
+	background-position: -60px -270px;
 }
 
 .settings.dropdown {
-  width: 65px;
-  padding: 0;
-  background: url(sprites.png) no-repeat 0 -210px #eee;
+	width: 65px;
+	padding: 0;
+	background: url(sprites.png) no-repeat 0 -210px #eee;
 }
 
 .settings.dropdown:hover, 
 .settings.dropdown:active {
-  background-position: -60px -210px;
+	background-position: -60px -210px;
 }
 
 button.solid-color {
-  border-color: #D14836;
-  color: white;
-  text-transform: uppercase;
-  font-weight: bold;
-  margin: 1em 20px;
+	border-color: #D14836;
+	color: white;
+	text-transform: uppercase;
+	font-weight: bold;
+	margin: 1em 20px;
 }
 
 button.subscribe {
-  background-color: #D14836;
+	background-color: #D14836;
 }
 
 .navbar .spacer {
-  margin-left: 20px;
+	margin-left: 20px;
 }
 
 #toast {
-  display: none;
-  position: absolute;
-  top: 1em;
-  left: 0;
-  right: 0;
-  text-align: center;
+	display: none;
+	position: absolute;
+	top: 1em;
+	left: 0;
+	right: 0;
+	text-align: center;
 }
 
 #toast span {
-  border-style: solid;
-  border-width: 2px;
-  border-radius: 3px;
-  padding: 0.5em 2em;
-  box-shadow: 1px 1px 1px #aaa;
-  font-size: 9pt;
-  color: #000;
+	border-style: solid;
+	border-width: 2px;
+	border-radius: 3px;
+	padding: 0.5em 2em;
+	box-shadow: 1px 1px 1px #aaa;
+	font-size: 9pt;
+	color: #000;
 }
 
 #toast.info span {
-  border-color: #FDC68A;
-  background-color: #FFF79A;
+	border-color: #FDC68A;
+	background-color: #FFF79A;
 }
 
 #toast.error span {
-  border-color: red;
-  background-color: #ffaaaa;
+	border-color: red;
+	background-color: #ffaaaa;
 }
 
 .spinner {
-  margin: 5px auto;
+	margin: 5px auto;
 }
 
 .subscription-item .chevron {
-  width: 15px;
-  height: 15px;
-  display: inline-block;
-  float: left;
-  visibility: hidden;
-  background-image: url(sprites.png);
-  background-position: -90px -90px;
+	width: 15px;
+	height: 15px;
+	display: inline-block;
+	float: left;
+	visibility: hidden;
+	background-image: url(sprites.png);
+	background-position: -90px -90px;
 }
 
 .subscription-item:hover .chevron {
-  visibility: visible;
+	visibility: visible;
 }
 
 ul.menu {
-  position: absolute;
-  display: none;
-  margin: 0;
-  padding-left: 0;
-  background-color: #fff;
-  list-style-type: none;
-  border: solid 1px #ccc;
-  border-radius: 2px;
-  box-shadow: 2px 2px 2px #ddd;
-  min-width: 13em;
+	position: absolute;
+	display: none;
+	margin: 0;
+	padding-left: 0;
+	background-color: #fff;
+	list-style-type: none;
+	border: solid 1px #ccc;
+	border-radius: 2px;
+	box-shadow: 2px 2px 2px #ddd;
+	min-width: 13em;
 }
 
 .menu li {
-  color: #555;
-  padding: 0.5em 1em;
+	color: #555;
+	padding: 0.5em 1em;
 }
 
 .menu li:hover,
 .menu li.hovered {
-  cursor: pointer;
-  background-color: #ccc;
+	cursor: pointer;
+	background-color: #ccc;
 }
 
 .menu li.divider,
 .menu li.divider:hover {
-  cursor: default;
-  height: 1px;
-  padding: 0;
-  background-color: #ccc;
+	cursor: default;
+	height: 1px;
+	padding: 0;
+	background-color: #ccc;
 }
 
 .menu li.selected-menu-item span {
-  background: url(sprites.png) no-repeat -225px -225px;
+	background: url(sprites.png) no-repeat -225px -225px;
 }
 
 .menu li span {
-  padding-left: 20px;
-  white-space: nowrap;
+	padding-left: 20px;
+	white-space: nowrap;
 }
 
 .menu li.checked span {
-  background: url(sprites.png) no-repeat -225px -225px;
+	background: url(sprites.png) no-repeat -225px -225px;
 }
 
 .shortcuts {
-  position: absolute;
-  top: 2em;
-  right: 2em;
-  bottom: 2em;
-  left: 2em;
-  background-color: #000;
-  border-radius: 1em;
-  display: none;
-  overflow: auto;
+	position: absolute;
+	top: 2em;
+	right: 2em;
+	bottom: 2em;
+	left: 2em;
+	background-color: #000;
+	border-radius: 1em;
+	display: none;
+	overflow: auto;
 }
 
 .shortcuts table {
-  margin: auto;
-  color: #fff;
-  font-size: 15pt;
+	margin: auto;
+	color: #fff;
+	font-size: 15pt;
 }
 
 .shortcuts th {
-  color: yellow;
-  padding: 1em 0 0.3em 0;
+	color: yellow;
+	padding: 1em 0 0.3em 0;
 }
 
 .shortcuts .sh-keys {
-  text-align: right;
+	text-align: right;
 }
 
 .shortcuts .sh-action {
-  text-align: left;
-  padding-right: 2em;
+	text-align: left;
+	padding-right: 2em;
 }
 
 .modal-blocker {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  opacity: 0.6;
-  background-color: #fff;
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	opacity: 0.6;
+	background-color: #fff;
 }
 
 .modal {
-  position: absolute;
-  left: 50%;
-  top: 50%;
+	position: absolute;
+	left: 50%;
+	top: 50%;
 }
 
 .modal-inner {
-  position: relative;
-  left: -50%;
-  top: -50%;
-  padding: 2em 2em;
-  border: solid 1px #bbb;
-  border-radius: 3px;
-  background-color: #fff;
-  box-shadow: 0.5em 0.5em 0.5em #888;
+	position: relative;
+	left: -50%;
+	top: -50%;
+	padding: 2em 2em;
+	border: solid 1px #bbb;
+	border-radius: 3px;
+	background-color: #fff;
+	box-shadow: 0.5em 0.5em 0.5em #888;
 }
 
 .modal h1 {
-  font-size: 14pt;
-  margin: 0 0 1em 0;
+	font-size: 14pt;
+	margin: 0 0 1em 0;
 }
 
 .modal .buttons {
-  margin-top: 1em;
-  text-align: right;
+	margin-top: 1em;
+	text-align: right;
 }
 
 #about p {
-  font-size: 12pt;
-  line-height: 1.5;
+	font-size: 12pt;
+	line-height: 1.5;
 }
 
 .key {
-  display: inline-block;
-  color: #000;
-  padding: 0.1em 1em;
-  margin: 0 1em;
-  border: solid 3px #fff;
-  border-radius: 3px;
-  background-color: #fffacd;
-  font-size: 9pt;
-  font-weight: normal;
+	display: inline-block;
+	color: #000;
+	padding: 0.1em 1em;
+	margin: 0 1em;
+	border: solid 3px #fff;
+	border-radius: 3px;
+	background-color: #fffacd;
+	font-size: 9pt;
+	font-weight: normal;
 }

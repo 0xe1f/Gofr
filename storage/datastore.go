@@ -24,1113 +24,1113 @@
 package storage
 
 import (
-  "appengine"
-  "appengine/datastore"
-  "html"
-  "rss"
-  "errors"
-  "time"
+	"appengine"
+	"appengine/datastore"
+	"html"
+	"rss"
+	"errors"
+	"time"
 )
 
 const (
-  articlePageSize = 40
-  defaultBatchSize = 400
+	articlePageSize = 40
+	defaultBatchSize = 400
 )
 
 func NewBatchWriter(c appengine.Context, op BatchOp) *BatchWriter {
-  return NewBatchWriterWithSize(c, op, defaultBatchSize)
+	return NewBatchWriterWithSize(c, op, defaultBatchSize)
 }
 
 func (ref FolderRef)IsZero() bool {
-  return ref.UserID == "" && ref.FolderID == ""
+	return ref.UserID == "" && ref.FolderID == ""
 }
 
 func (userID UserID)key(c appengine.Context) (*datastore.Key, error) {
-  if userID == "" {
-    return nil, errors.New("UserID is empty")
-  }
+	if userID == "" {
+		return nil, errors.New("UserID is empty")
+	}
 
-  return datastore.NewKey(c, "User", string(userID), 0, nil), nil
+	return datastore.NewKey(c, "User", string(userID), 0, nil), nil
 }
 
 func (ref FolderRef)key(c appengine.Context) (*datastore.Key, error) {
-  userKey, err := ref.UserID.key(c)
-  if err != nil {
-    return nil, err
-  }
+	userKey, err := ref.UserID.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  if ref.FolderID != "" {
-    if kind, id, err := unformatId(ref.FolderID); err != nil {
-      return nil, err
-    } else if kind == "folder" {
-      return datastore.NewKey(c, "Folder", "", id, userKey), nil
-    } else {
-      return nil, errors.New("Expecting folder ID; found: " + kind)
-    }
-  }
+	if ref.FolderID != "" {
+		if kind, id, err := unformatId(ref.FolderID); err != nil {
+			return nil, err
+		} else if kind == "folder" {
+			return datastore.NewKey(c, "Folder", "", id, userKey), nil
+		} else {
+			return nil, errors.New("Expecting folder ID; found: " + kind)
+		}
+	}
 
-  return userKey, nil
+	return userKey, nil
 }
 
 func (ref SubscriptionRef)key(c appengine.Context) (*datastore.Key, error) {
-  ancestorKey, err := ref.FolderRef.key(c)
-  if err != nil {
-    return nil, err
-  }
+	ancestorKey, err := ref.FolderRef.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  if ref.SubscriptionID == "" {
-    return nil, errors.New("SubscriptionRef is missing Subscription ID")
-  }
+	if ref.SubscriptionID == "" {
+		return nil, errors.New("SubscriptionRef is missing Subscription ID")
+	}
 
-  return datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey), nil
+	return datastore.NewKey(c, "Subscription", ref.SubscriptionID, 0, ancestorKey), nil
 }
 
 func (scope ArticleScope)key(c appengine.Context) (*datastore.Key, error) {
-  ancestorKey, err := scope.FolderRef.key(c)
-  if err != nil {
-    return nil, err
-  }
+	ancestorKey, err := scope.FolderRef.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  if scope.SubscriptionID == "" {
-    return ancestorKey, nil
-  }
+	if scope.SubscriptionID == "" {
+		return ancestorKey, nil
+	}
 
-  return datastore.NewKey(c, "Subscription", scope.SubscriptionID, 0, ancestorKey), nil
+	return datastore.NewKey(c, "Subscription", scope.SubscriptionID, 0, ancestorKey), nil
 }
 
 func (ref ArticleRef)key(c appengine.Context) (*datastore.Key, error) {
-  if ref.SubscriptionRef.SubscriptionID == "" {
-    return nil, errors.New("Article reference is missing subscription ID")
-  }
+	if ref.SubscriptionRef.SubscriptionID == "" {
+		return nil, errors.New("Article reference is missing subscription ID")
+	}
 
-  subscriptionKey, err := ref.SubscriptionRef.key(c)
-  if err != nil {
-    return nil, err
-  }
+	subscriptionKey, err := ref.SubscriptionRef.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  return datastore.NewKey(c, "Article", ref.ArticleID, 0, subscriptionKey), nil
+	return datastore.NewKey(c, "Article", ref.ArticleID, 0, subscriptionKey), nil
 }
 
 func (user User)key(c appengine.Context) (*datastore.Key, error) {
-  if user.ID == "" {
-    return nil, errors.New("User missing an ID")
-  }
+	if user.ID == "" {
+		return nil, errors.New("User missing an ID")
+	}
 
-  return datastore.NewKey(c, "User", user.ID, 0, nil), nil
+	return datastore.NewKey(c, "User", user.ID, 0, nil), nil
 }
 
 func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*ArticlePage, error) {
-  scopeKey, err := filter.key(c)
-  if err != nil {
-    return nil, err
-  }
+	scopeKey, err := filter.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Published")
-  if filter.Property != "" {
-    q = q.Filter("Properties = ", filter.Property)
-  }
+	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Published")
+	if filter.Property != "" {
+		q = q.Filter("Properties = ", filter.Property)
+	}
 
-  if start != "" {
-    if cursor, err := datastore.DecodeCursor(start); err == nil {
-      q = q.Start(cursor)
-    } else {
-      return nil, err
-    }
-  }
+	if start != "" {
+		if cursor, err := datastore.DecodeCursor(start); err == nil {
+			q = q.Start(cursor)
+		} else {
+			return nil, err
+		}
+	}
 
-  t := q.Run(c)
+	t := q.Run(c)
 
-  articles := make([]Article, articlePageSize)
-  entryKeys := make([]*datastore.Key, articlePageSize)
+	articles := make([]Article, articlePageSize)
+	entryKeys := make([]*datastore.Key, articlePageSize)
 
-  var readCount int
-  for readCount = 0; readCount < articlePageSize; readCount++ {
-    article := &articles[readCount]
+	var readCount int
+	for readCount = 0; readCount < articlePageSize; readCount++ {
+		article := &articles[readCount]
 
-    if _, err := t.Next(article); err != nil && err == datastore.Done {
-      break
-    } else if err != nil {
-      return nil, err
-    }
+		if _, err := t.Next(article); err != nil && err == datastore.Done {
+			break
+		} else if err != nil {
+			return nil, err
+		}
 
-    entryKey := article.Entry
-    entryKeys[readCount] = entryKey
-    article.ID = entryKey.StringID()
-    article.Source = entryKey.Parent().StringID()
-  }
+		entryKey := article.Entry
+		entryKeys[readCount] = entryKey
+		article.ID = entryKey.StringID()
+		article.Source = entryKey.Parent().StringID()
+	}
 
-  continueFrom := ""
-  if readCount >= articlePageSize {
-    if cursor, err := t.Cursor(); err == nil {
-      continueFrom = cursor.String()
-    }
-  }
+	continueFrom := ""
+	if readCount >= articlePageSize {
+		if cursor, err := t.Cursor(); err == nil {
+			continueFrom = cursor.String()
+		}
+	}
 
-  articles = articles[:readCount]
-  entryKeys = entryKeys[:readCount]
+	articles = articles[:readCount]
+	entryKeys = entryKeys[:readCount]
 
-  entries := make([]Entry, readCount)
-  if err := datastore.GetMulti(c, entryKeys, entries); err != nil {
-    return nil, err
-  }
+	entries := make([]Entry, readCount)
+	if err := datastore.GetMulti(c, entryKeys, entries); err != nil {
+		return nil, err
+	}
 
-  for i, _ := range articles {
-    articles[i].Details = &entries[i]
-  }
+	for i, _ := range articles {
+		articles[i].Details = &entries[i]
+	}
 
-  page := ArticlePage {
-    Articles: articles,
-    Continue: continueFrom,
-  }
+	page := ArticlePage {
+		Articles: articles,
+		Continue: continueFrom,
+	}
 
-  return &page, nil
+	return &page, nil
 }
 
 func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscriptions, error) {
-  var subscriptions []Subscription
-  var subscriptionKeys []*datastore.Key
+	var subscriptions []Subscription
+	var subscriptionKeys []*datastore.Key
 
-  userKey, err := userID.key(c)
-  if err != nil {
-    return nil, err
-  }
+	userKey, err := userID.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
-  if subKeys, err := q.GetAll(c, &subscriptions); err != nil {
-    return nil, err
-  } else if subscriptions == nil {
-    subscriptions = make([]Subscription, 0)
-  } else {
-    subscriptionKeys = subKeys
-  }
+	q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
+	if subKeys, err := q.GetAll(c, &subscriptions); err != nil {
+		return nil, err
+	} else if subscriptions == nil {
+		subscriptions = make([]Subscription, 0)
+	} else {
+		subscriptionKeys = subKeys
+	}
 
-  totalUnreadCount := 0
-  feedKeys := make([]*datastore.Key, len(subscriptions))
-  for i, subscription := range subscriptions {
-    feedKeys[i] = subscription.Feed
-    totalUnreadCount += subscription.UnreadCount
-  }
+	totalUnreadCount := 0
+	feedKeys := make([]*datastore.Key, len(subscriptions))
+	for i, subscription := range subscriptions {
+		feedKeys[i] = subscription.Feed
+		totalUnreadCount += subscription.UnreadCount
+	}
 
-  var feedMultiError appengine.MultiError
-  feeds := make([]Feed, len(subscriptions))
+	var feedMultiError appengine.MultiError
+	feeds := make([]Feed, len(subscriptions))
 
-  if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
-    if multiError, ok := err.(appengine.MultiError); ok {
-      feedMultiError = multiError
-    } else {
-      return nil, err
-    }
-  }
+	if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
+		if multiError, ok := err.(appengine.MultiError); ok {
+			feedMultiError = multiError
+		} else {
+			return nil, err
+		}
+	}
 
-  for i, _ := range subscriptions {
-    subscriptionKey := subscriptionKeys[i]
+	for i, _ := range subscriptions {
+		subscriptionKey := subscriptionKeys[i]
 
-    subscription := &subscriptions[i]
-    subscription.ID = subscriptionKey.StringID()
+		subscription := &subscriptions[i]
+		subscription.ID = subscriptionKey.StringID()
 
-    if feedMultiError == nil || feedMultiError[i] == nil {
-      subscription.Link = feeds[i].Link
-    // } else if feedMultiError != nil && feedMultiError[i] != nil {
-    //   c.Warningf("MultiError for feed %s: %s", subscription.ID, feedMultiError[i])
-    }
+		if feedMultiError == nil || feedMultiError[i] == nil {
+			subscription.Link = feeds[i].Link
+		// } else if feedMultiError != nil && feedMultiError[i] != nil {
+		//   c.Warningf("MultiError for feed %s: %s", subscription.ID, feedMultiError[i])
+		}
 
-    if subscriptionKey.Parent().Kind() == "Folder" {
-      subscription.Parent = formatId("folder", subscriptionKey.Parent().IntID())
-    }
-  }
+		if subscriptionKey.Parent().Kind() == "Folder" {
+			subscription.Parent = formatId("folder", subscriptionKey.Parent().IntID())
+		}
+	}
 
-  var folders []Folder
-  var folderKeys []*datastore.Key
+	var folders []Folder
+	var folderKeys []*datastore.Key
 
-  q = datastore.NewQuery("Folder").Ancestor(userKey).Limit(defaultBatchSize)
-  if k, err := q.GetAll(c, &folders); err != nil {
-    return nil, err
-  } else if folders == nil {
-    folders = make([]Folder, 0)
-  } else {
-    folderKeys = k
-  }
+	q = datastore.NewQuery("Folder").Ancestor(userKey).Limit(defaultBatchSize)
+	if k, err := q.GetAll(c, &folders); err != nil {
+		return nil, err
+	} else if folders == nil {
+		folders = make([]Folder, 0)
+	} else {
+		folderKeys = k
+	}
 
-  for i, _ := range folders {
-    folder := &folders[i]
-    folder.ID = formatId("folder", folderKeys[i].IntID())
-  }
+	for i, _ := range folders {
+		folder := &folders[i]
+		folder.ID = formatId("folder", folderKeys[i].IntID())
+	}
 
-  allItems := Folder {
-    ID: "",
-    Title: "", // All items
-  }
+	allItems := Folder {
+		ID: "",
+		Title: "", // All items
+	}
 
-  userSubscriptions := UserSubscriptions {
-    Subscriptions: subscriptions,
-    Folders: append(folders, allItems),
-  }
+	userSubscriptions := UserSubscriptions {
+		Subscriptions: subscriptions,
+		Folders: append(folders, allItems),
+	}
 
-  return &userSubscriptions, nil
+	return &userSubscriptions, nil
 }
 
 func IsFolderDuplicate(c appengine.Context, userID UserID, title string) (bool, error) {
-  userKey, err := userID.key(c)
-  if err != nil {
-    return false, err
-  }
+	userKey, err := userID.key(c)
+	if err != nil {
+		return false, err
+	}
 
-  var folders []*Folder
-  q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).Limit(1)
-  if _, err := q.GetAll(c, &folders); err == nil && len(folders) > 0 {
-    return true, nil
-  } else if err != nil {
-    return false, err
-  }
+	var folders []*Folder
+	q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).Limit(1)
+	if _, err := q.GetAll(c, &folders); err == nil && len(folders) > 0 {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
 
-  return false, nil
+	return false, nil
 }
 
 func IsSubscriptionDuplicate(c appengine.Context, userID UserID, subscriptionURL string) (bool, error) {
-  userKey, err := userID.key(c)
-  if err != nil {
-    return false, err
-  }
+	userKey, err := userID.key(c)
+	if err != nil {
+		return false, err
+	}
 
-  feedKey := datastore.NewKey(c, "Feed", subscriptionURL, 0, nil)
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
+	feedKey := datastore.NewKey(c, "Feed", subscriptionURL, 0, nil)
+	q := datastore.NewQuery("Subscription").Ancestor(userKey).Filter("Feed =", feedKey).KeysOnly().Limit(1)
 
-  if subKeys, err := q.GetAll(c, nil); err != nil {
-    return false, err
-  } else if len(subKeys) > 0 {
-    return true, nil
-  }
+	if subKeys, err := q.GetAll(c, nil); err != nil {
+		return false, err
+	} else if len(subKeys) > 0 {
+		return true, nil
+	}
 
-  return false, nil
+	return false, nil
 }
 
 func UserByID(c appengine.Context, userID UserID) (*User, error) {
-  userKey := datastore.NewKey(c, "User", string(userID), 0, nil)
-  user := User{}
+	userKey := datastore.NewKey(c, "User", string(userID), 0, nil)
+	user := User{}
 
-  if err := datastore.Get(c, userKey, &user); err == nil {
-    return &user, nil
-  } else if err != datastore.ErrNoSuchEntity {
-    return nil, err
-  }
+	if err := datastore.Get(c, userKey, &user); err == nil {
+		return &user, nil
+	} else if err != datastore.ErrNoSuchEntity {
+		return nil, err
+	}
 
-  return nil, nil
+	return nil, nil
 }
 
 func (user User)Save(c appengine.Context) error {
-  userKey, err := UserID(user.ID).key(c)
-  if err != nil {
-    return err
-  }
+	userKey, err := UserID(user.ID).key(c)
+	if err != nil {
+		return err
+	}
 
-  if _, err := datastore.Put(c, userKey, &user); err != nil {
-    return err
-  }
+	if _, err := datastore.Put(c, userKey, &user); err != nil {
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func FolderByTitle(c appengine.Context, userID UserID, title string) (FolderRef, error) {
-  userKey, err := userID.key(c)
-  if err != nil {
-    return FolderRef{}, err
-  }
-  
-  q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).KeysOnly().Limit(1)
-  if folderKeys, err := q.GetAll(c, nil); err != nil {
-    return FolderRef{}, err
-  } else if len(folderKeys) > 0 {
-    return newFolderRef(userID, folderKeys[0]), nil
-  }
+	userKey, err := userID.key(c)
+	if err != nil {
+		return FolderRef{}, err
+	}
+	
+	q := datastore.NewQuery("Folder").Ancestor(userKey).Filter("Title =", title).KeysOnly().Limit(1)
+	if folderKeys, err := q.GetAll(c, nil); err != nil {
+		return FolderRef{}, err
+	} else if len(folderKeys) > 0 {
+		return newFolderRef(userID, folderKeys[0]), nil
+	}
 
-  return FolderRef{}, nil
+	return FolderRef{}, nil
 }
 
 func FolderExists(c appengine.Context, ref FolderRef) (bool, error) {
-  if folderKey, err := ref.key(c); err != nil {
-    return false, err
-  } else {
-    folder := new(Folder)
-    if err := datastore.Get(c, folderKey, folder); err == nil {
-      return true, nil
-    } else if err != datastore.ErrNoSuchEntity {
-      return false, err
-    }
-  }
+	if folderKey, err := ref.key(c); err != nil {
+		return false, err
+	} else {
+		folder := new(Folder)
+		if err := datastore.Get(c, folderKey, folder); err == nil {
+			return true, nil
+		} else if err != datastore.ErrNoSuchEntity {
+			return false, err
+		}
+	}
 
-  return false, nil
+	return false, nil
 }
 
 func SubscriptionExists(c appengine.Context, ref SubscriptionRef) (bool, error) {
-  if subscriptionKey, err := ref.key(c); err != nil {
-    return false, err
-  } else {
-    subscription := new(Subscription)
-    if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
-      return true, nil
-    } else if err != datastore.ErrNoSuchEntity {
-      return false, err
-    }
-  }
+	if subscriptionKey, err := ref.key(c); err != nil {
+		return false, err
+	} else {
+		subscription := new(Subscription)
+		if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
+			return true, nil
+		} else if err != datastore.ErrNoSuchEntity {
+			return false, err
+		}
+	}
 
-  return false, nil
+	return false, nil
 }
 
 func CreateFolder(c appengine.Context, userID UserID, title string) (FolderRef, error) {
-  userKey, err := userID.key(c)
-  if err != nil {
-    return FolderRef{}, err
-  }
-  
-  folderKey := datastore.NewIncompleteKey(c, "Folder", userKey)
-  folder := Folder {
-    Title: title,
-  }
+	userKey, err := userID.key(c)
+	if err != nil {
+		return FolderRef{}, err
+	}
+	
+	folderKey := datastore.NewIncompleteKey(c, "Folder", userKey)
+	folder := Folder {
+		Title: title,
+	}
 
-  if completeKey, err := datastore.Put(c, folderKey, &folder); err != nil {
-    return FolderRef{}, err
-  } else {
-    return newFolderRef(userID, completeKey), nil
-  }
+	if completeKey, err := datastore.Put(c, folderKey, &folder); err != nil {
+		return FolderRef{}, err
+	} else {
+		return newFolderRef(userID, completeKey), nil
+	}
 }
 
 func RenameSubscription(c appengine.Context, ref SubscriptionRef, title string) error {
-  subscriptionKey, err := ref.key(c)
-  if err != nil {
-    return err
-  }
+	subscriptionKey, err := ref.key(c)
+	if err != nil {
+		return err
+	}
 
-  subscription := new(Subscription)
-  if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
-    return err
-  }
+	subscription := new(Subscription)
+	if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
+		return err
+	}
 
-  subscription.Title = title
-  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
-    return err
-  }
+	subscription.Title = title
+	if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func RenameFolder(c appengine.Context, ref FolderRef, title string) error {
-  folderKey, err := ref.key(c)
-  if err != nil {
-    return err
-  }
+	folderKey, err := ref.key(c)
+	if err != nil {
+		return err
+	}
 
-  folder := new(Folder)
-  if err := datastore.Get(c, folderKey, folder); err != nil {
-    return err
-  }
+	folder := new(Folder)
+	if err := datastore.Get(c, folderKey, folder); err != nil {
+		return err
+	}
 
-  folder.Title = title
-  if _, err := datastore.Put(c, folderKey, folder); err != nil {
-    return err
-  }
+	folder.Title = title
+	if _, err := datastore.Put(c, folderKey, folder); err != nil {
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, propertyValue bool) ([]string, error) {
-  articleKey, err := ref.key(c)
-  if err != nil {
-    return nil, err
-  }
+	articleKey, err := ref.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  article := new(Article)
-  if err := datastore.Get(c, articleKey, article); err != nil {
-    return nil, err
-  }
+	article := new(Article)
+	if err := datastore.Get(c, articleKey, article); err != nil {
+		return nil, err
+	}
 
-  if propertyValue != article.HasProperty(propertyName) {
-    wasUnread := article.IsUnread()
-    unreadDelta := 0
+	if propertyValue != article.HasProperty(propertyName) {
+		wasUnread := article.IsUnread()
+		unreadDelta := 0
 
-    article.SetProperty(propertyName, propertyValue)
+		article.SetProperty(propertyName, propertyValue)
 
-    // Update unread counts if necessary
-    if wasUnread != article.IsUnread() {
-      if wasUnread {
-        unreadDelta = -1
-      } else {
-        unreadDelta = 1
-      }
-    }
+		// Update unread counts if necessary
+		if wasUnread != article.IsUnread() {
+			if wasUnread {
+				unreadDelta = -1
+			} else {
+				unreadDelta = 1
+			}
+		}
 
-    if _, err := datastore.Put(c, articleKey, article); err != nil {
-      return nil, err
-    }
+		if _, err := datastore.Put(c, articleKey, article); err != nil {
+			return nil, err
+		}
 
-    if unreadDelta != 0 {
-      // Update unread counts - not critical
-      subscriptionKey := articleKey.Parent()
-      subscription := new(Subscription)
+		if unreadDelta != 0 {
+			// Update unread counts - not critical
+			subscriptionKey := articleKey.Parent()
+			subscription := new(Subscription)
 
-      if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
-        c.Warningf("Unread count update failed: subscription read error (%s)", err)
-      } else {
-        subscription.UnreadCount += unreadDelta
-        if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
-          c.Warningf("Unread count update failed: subscription write error (%s)", err)
-        }
-      }
-    }
-  }
+			if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
+				c.Warningf("Unread count update failed: subscription read error (%s)", err)
+			} else {
+				subscription.UnreadCount += unreadDelta
+				if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+					c.Warningf("Unread count update failed: subscription write error (%s)", err)
+				}
+			}
+		}
+	}
 
-  return article.Properties, nil
+	return article.Properties, nil
 }
 
 func LoadFavIcon(c appengine.Context, url string) (*FavIcon, error) {
-  key := datastore.NewKey(c, "FavIcon", url, 0, nil)
-  favIcon := new(FavIcon)
+	key := datastore.NewKey(c, "FavIcon", url, 0, nil)
+	favIcon := new(FavIcon)
 
-  if err := datastore.Get(c, key, favIcon); err == datastore.ErrNoSuchEntity {
-    return nil, nil
-  } else if err != nil {
-    return nil, err
-  } else {
-    return favIcon, nil
-  }
+	if err := datastore.Get(c, key, favIcon); err == datastore.ErrNoSuchEntity {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	} else {
+		return favIcon, nil
+	}
 }
 
 func (favIcon FavIcon) Save(c appengine.Context, url string) error {
-  key := datastore.NewKey(c, "FavIcon", url, 0, nil)
-  if _, err := datastore.Put(c, key, &favIcon); err != nil {
-    return err
-  }
+	key := datastore.NewKey(c, "FavIcon", url, 0, nil)
+	if _, err := datastore.Put(c, key, &favIcon); err != nil {
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
-  key, err := scope.key(c)
-  if err != nil {
-    return 0, err
-  }
+	key, err := scope.key(c)
+	if err != nil {
+		return 0, err
+	}
 
-  batchWriter := NewBatchWriter(c, BatchPut)
+	batchWriter := NewBatchWriter(c, BatchPut)
 
-  q := datastore.NewQuery("Article").Ancestor(key).Filter("Properties =", "unread")
-  for t := q.Run(c); ; {
-    article := new(Article)
-    articleKey, err := t.Next(article)
+	q := datastore.NewQuery("Article").Ancestor(key).Filter("Properties =", "unread")
+	for t := q.Run(c); ; {
+		article := new(Article)
+		articleKey, err := t.Next(article)
 
-    if err == datastore.Done {
-      break
-    } else if err != nil {
-      c.Errorf("Error reading Article: %s", err)
-      return 0, err
-    }
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("Error reading Article: %s", err)
+			return 0, err
+		}
 
-    article.SetProperty("read", true)
+		article.SetProperty("read", true)
 
-    if err := batchWriter.Enqueue(articleKey, article); err != nil {
-      c.Errorf("Error queueing article for batch write: %s", err)
-      return 0, err
-    }
-  }
+		if err := batchWriter.Enqueue(articleKey, article); err != nil {
+			c.Errorf("Error queueing article for batch write: %s", err)
+			return 0, err
+		}
+	}
 
-  if err := batchWriter.Flush(); err != nil {
-    c.Errorf("Error flushing batch queue: %s", err)
-    return 0, err
-  }
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch queue: %s", err)
+		return 0, err
+	}
 
-  // Reset unread counters
-  if key.Kind() != "Subscription" {
-    var subscriptions []*Subscription
-    q = datastore.NewQuery("Subscription").Ancestor(key).Limit(defaultBatchSize)
-    
-    if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
-      return 0, err
-    } else {
-      for _, subscription := range subscriptions {
-        subscription.UnreadCount = 0
-      }
+	// Reset unread counters
+	if key.Kind() != "Subscription" {
+		var subscriptions []*Subscription
+		q = datastore.NewQuery("Subscription").Ancestor(key).Limit(defaultBatchSize)
+		
+		if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
+			return 0, err
+		} else {
+			for _, subscription := range subscriptions {
+				subscription.UnreadCount = 0
+			}
 
-      if _, err := datastore.PutMulti(c, subscriptionKeys, subscriptions); err != nil {
-        return 0, err
-      }
-    }
-  } else {
-    subscription := new(Subscription)
-    if err := datastore.Get(c, key, subscription); err != nil {
-      return 0, err
-    }
+			if _, err := datastore.PutMulti(c, subscriptionKeys, subscriptions); err != nil {
+				return 0, err
+			}
+		}
+	} else {
+		subscription := new(Subscription)
+		if err := datastore.Get(c, key, subscription); err != nil {
+			return 0, err
+		}
 
-    subscription.UnreadCount = 0
-    if _, err := datastore.Put(c, key, subscription); err != nil {
-      return 0, err
-    }
-  }
+		subscription.UnreadCount = 0
+		if _, err := datastore.Put(c, key, subscription); err != nil {
+			return 0, err
+		}
+	}
 
-  return batchWriter.Written(), nil
+	return batchWriter.Written(), nil
 }
 
 func MoveSubscription(c appengine.Context, subRef SubscriptionRef, destRef FolderRef) error {
-  currentSubscriptionKey, err := subRef.key(c)
-  if err != nil {
-    return err
-  }
+	currentSubscriptionKey, err := subRef.key(c)
+	if err != nil {
+		return err
+	}
 
-  newSubRef := SubscriptionRef {
-    FolderRef: destRef,
-    SubscriptionID: subRef.SubscriptionID,
-  }
+	newSubRef := SubscriptionRef {
+		FolderRef: destRef,
+		SubscriptionID: subRef.SubscriptionID,
+	}
 
-  newSubscriptionKey, err := newSubRef.key(c)
-  if err != nil {
-    return err
-  }
+	newSubscriptionKey, err := newSubRef.key(c)
+	if err != nil {
+		return err
+	}
 
-  subscription := new(Subscription)
-  if err := datastore.Get(c, currentSubscriptionKey, subscription); err != nil {
-    c.Errorf("Error reading subscription: %s", err)
-    return err
-  }
+	subscription := new(Subscription)
+	if err := datastore.Get(c, currentSubscriptionKey, subscription); err != nil {
+		c.Errorf("Error reading subscription: %s", err)
+		return err
+	}
 
-  if _, err := datastore.Put(c, newSubscriptionKey, subscription); err != nil {
-    c.Errorf("Error writing subscription: %s", err)
-    return err
-  }
+	if _, err := datastore.Put(c, newSubscriptionKey, subscription); err != nil {
+		c.Errorf("Error writing subscription: %s", err)
+		return err
+	}
 
-  if err := datastore.Delete(c, currentSubscriptionKey); err != nil {
-    c.Errorf("Error deleting subscription: %s", err)
-    return err
-  }
+	if err := datastore.Delete(c, currentSubscriptionKey); err != nil {
+		c.Errorf("Error deleting subscription: %s", err)
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func MoveArticles(c appengine.Context, subRef SubscriptionRef, destRef FolderRef) error {
-  currentSubscriptionKey, err := subRef.key(c)
-  if err != nil {
-    return err
-  }
+	currentSubscriptionKey, err := subRef.key(c)
+	if err != nil {
+		return err
+	}
 
-  newSubRef := SubscriptionRef {
-    FolderRef: destRef,
-    SubscriptionID: subRef.SubscriptionID,
-  }
+	newSubRef := SubscriptionRef {
+		FolderRef: destRef,
+		SubscriptionID: subRef.SubscriptionID,
+	}
 
-  newSubscriptionKey, err := newSubRef.key(c)
-  if err != nil {
-    return err
-  }
+	newSubscriptionKey, err := newSubRef.key(c)
+	if err != nil {
+		return err
+	}
 
-  batchWriter := NewBatchWriter(c, BatchPut)
-  batchDeleter := NewBatchWriter(c, BatchDelete)
+	batchWriter := NewBatchWriter(c, BatchPut)
+	batchDeleter := NewBatchWriter(c, BatchDelete)
 
-  q := datastore.NewQuery("Article").Ancestor(currentSubscriptionKey)
-  for t := q.Run(c); ; {
-    article := new(Article)
-    currentArticleKey, err := t.Next(article)
+	q := datastore.NewQuery("Article").Ancestor(currentSubscriptionKey)
+	for t := q.Run(c); ; {
+		article := new(Article)
+		currentArticleKey, err := t.Next(article)
 
-    if err == datastore.Done {
-      break
-    } else if err != nil {
-      c.Errorf("Error reading Article: %s", err)
-      return err
-    }
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			c.Errorf("Error reading Article: %s", err)
+			return err
+		}
 
-    newArticleKey := datastore.NewKey(c, "Article", currentArticleKey.StringID(), 0, newSubscriptionKey)
-    if err := batchWriter.Enqueue(newArticleKey, article); err != nil {
-      c.Errorf("Error queueing article for batch write: %s", err)
-      return err
-    }
-    if err := batchDeleter.EnqueueKey(currentArticleKey); err != nil {
-      c.Errorf("Error queueing article for batch delete: %s", err)
-      return err
-    }
-  }
+		newArticleKey := datastore.NewKey(c, "Article", currentArticleKey.StringID(), 0, newSubscriptionKey)
+		if err := batchWriter.Enqueue(newArticleKey, article); err != nil {
+			c.Errorf("Error queueing article for batch write: %s", err)
+			return err
+		}
+		if err := batchDeleter.EnqueueKey(currentArticleKey); err != nil {
+			c.Errorf("Error queueing article for batch delete: %s", err)
+			return err
+		}
+	}
 
-  if err := batchWriter.Flush(); err != nil {
-    c.Errorf("Error flushing batch write queue: %s", err)
-    return err
-  }
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch write queue: %s", err)
+		return err
+	}
 
-  if err := batchDeleter.Flush(); err != nil {
-    c.Errorf("Error flushing batch delete queue: %s", err)
-    return err
-  }
+	if err := batchDeleter.Flush(); err != nil {
+		c.Errorf("Error flushing batch delete queue: %s", err)
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func DeleteFolder(c appengine.Context, ref FolderRef) error {
-  folderKey, err := ref.key(c)
-  if err != nil {
-    return err
-  }
+	folderKey, err := ref.key(c)
+	if err != nil {
+		return err
+	}
 
-  // Get a list of relevant subscriptions
-  q := datastore.NewQuery("Subscription").Ancestor(folderKey).KeysOnly().Limit(defaultBatchSize)
-  subscriptionKeys, err := q.GetAll(c, nil)
+	// Get a list of relevant subscriptions
+	q := datastore.NewQuery("Subscription").Ancestor(folderKey).KeysOnly().Limit(defaultBatchSize)
+	subscriptionKeys, err := q.GetAll(c, nil)
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 
-  // Delete folder & subscriptions
-  if err := datastore.Delete(c, folderKey); err != nil {
-    c.Errorf("Error deleting folder: %s", err)
-    return err
-  }
+	// Delete folder & subscriptions
+	if err := datastore.Delete(c, folderKey); err != nil {
+		c.Errorf("Error deleting folder: %s", err)
+		return err
+	}
 
-  if subscriptionKeys == nil {
-    // No subscriptions; nothing more to do
-    return nil
-  }
+	if subscriptionKeys == nil {
+		// No subscriptions; nothing more to do
+		return nil
+	}
 
-  if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
-    c.Errorf("Error deleting subscriptions: %s", err)
-    return err
-  }
+	if err := datastore.DeleteMulti(c, subscriptionKeys); err != nil {
+		c.Errorf("Error deleting subscriptions: %s", err)
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func FeedByURL(c appengine.Context, url string) (*Feed, error) {
-  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  feed := new(Feed)
+	feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+	feed := new(Feed)
 
-  if err := datastore.Get(c, feedKey, feed); err == nil {
-    return feed, nil
-  } else if err != datastore.ErrNoSuchEntity {
-    return nil, err
-  }
+	if err := datastore.Get(c, feedKey, feed); err == nil {
+		return feed, nil
+	} else if err != datastore.ErrNoSuchEntity {
+		return nil, err
+	}
 
-  return nil, nil
+	return nil, nil
 }
 
 func IsFeedAvailable(c appengine.Context, url string) (bool, error) {
-  feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-  feed := new(Feed)
+	feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+	feed := new(Feed)
 
-  if err := datastore.Get(c, feedKey, feed); err == nil {
-    return true, nil
-  } else if err != datastore.ErrNoSuchEntity {
-    return false, err
-  }
+	if err := datastore.Get(c, feedKey, feed); err == nil {
+		return true, nil
+	} else if err != datastore.ErrNoSuchEntity {
+		return false, err
+	}
 
-  return false, nil
+	return false, nil
 }
 
 func WebToFeedURL(c appengine.Context, url string, title *string) (string, error) {
-  q := datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
-  var feeds []*Feed
-  if _, err := q.GetAll(c, &feeds); err == nil {
-    if len(feeds) > 0 {
-      if title != nil {
-        *title = feeds[0].Title
-      }
-      return feeds[0].URL, nil
-    }
-  } else {
-    return "", err
-  }
+	q := datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
+	var feeds []*Feed
+	if _, err := q.GetAll(c, &feeds); err == nil {
+		if len(feeds) > 0 {
+			if title != nil {
+				*title = feeds[0].Title
+			}
+			return feeds[0].URL, nil
+		}
+	} else {
+		return "", err
+	}
 
-  return "", nil
+	return "", nil
 }
 
 func Subscribe(c appengine.Context, ref FolderRef, url string, title string) (SubscriptionRef, error) {
-  folderKey, err := ref.key(c)
-  if err != nil {
-    return SubscriptionRef{}, err
-  }
+	folderKey, err := ref.key(c)
+	if err != nil {
+		return SubscriptionRef{}, err
+	}
 
-  subscription := new(Subscription)
-  subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, folderKey)
+	subscription := new(Subscription)
+	subscriptionKey := datastore.NewKey(c, "Subscription", url, 0, folderKey)
 
-  if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
-    return SubscriptionRef{
-      FolderRef: ref,
-      SubscriptionID: url,
-    }, nil // Already subscribed
-  } else if err == datastore.ErrNoSuchEntity {
-    subscription.Updated = time.Time {}
-    subscription.Subscribed = time.Now()
-    subscription.Title = title
-    subscription.UnreadCount = 0
-    subscription.MaxUpdateIndex = -1
-    subscription.Feed = datastore.NewKey(c, "Feed", url, 0, nil)
-  } else {
-    return SubscriptionRef{}, err
-  }
+	if err := datastore.Get(c, subscriptionKey, subscription); err == nil {
+		return SubscriptionRef{
+			FolderRef: ref,
+			SubscriptionID: url,
+		}, nil // Already subscribed
+	} else if err == datastore.ErrNoSuchEntity {
+		subscription.Updated = time.Time {}
+		subscription.Subscribed = time.Now()
+		subscription.Title = title
+		subscription.UnreadCount = 0
+		subscription.MaxUpdateIndex = -1
+		subscription.Feed = datastore.NewKey(c, "Feed", url, 0, nil)
+	} else {
+		return SubscriptionRef{}, err
+	}
 
-  if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
-    return SubscriptionRef{}, err
-  }
+	if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+		return SubscriptionRef{}, err
+	}
 
-  return SubscriptionRef{
-    FolderRef: ref,
-    SubscriptionID: url,
-  }, nil
+	return SubscriptionRef{
+		FolderRef: ref,
+		SubscriptionID: url,
+	}, nil
 }
 
 func SubscriptionsAsOPML(c appengine.Context, userID UserID) (*rss.OPML, error) {
-  userKey, err := userID.key(c)
-  if err != nil {
-    return nil, err
-  }
+	userKey, err := userID.key(c)
+	if err != nil {
+		return nil, err
+	}
 
-  opml := rss.NewOPML()
-  folderMap := map[string]*rss.Outline{}
-  q := datastore.NewQuery("Folder").Ancestor(userKey).Limit(defaultBatchSize)
+	opml := rss.NewOPML()
+	folderMap := map[string]*rss.Outline{}
+	q := datastore.NewQuery("Folder").Ancestor(userKey).Limit(defaultBatchSize)
 
-  var folders []Folder
-  if folderKeys, err := q.GetAll(c, &folders); err != nil {
-    return nil, err
-  } else if folders != nil {
-    for i, folder := range folders {
-      opmlFolder := rss.NewFolder(folder.Title)
-      folderMap[folderKeys[i].String()] = opmlFolder
-      opml.Add(opmlFolder)
-    }
-  }
+	var folders []Folder
+	if folderKeys, err := q.GetAll(c, &folders); err != nil {
+		return nil, err
+	} else if folders != nil {
+		for i, folder := range folders {
+			opmlFolder := rss.NewFolder(folder.Title)
+			folderMap[folderKeys[i].String()] = opmlFolder
+			opml.Add(opmlFolder)
+		}
+	}
 
-  q = datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
+	q = datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
 
-  var subscriptions []Subscription
-  if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
-    return nil, err
-  } else {
-    feedKeys := make([]*datastore.Key, len(subscriptions))
-    for i, subscription := range subscriptions {
-      feedKeys[i] = subscription.Feed
-    }
+	var subscriptions []Subscription
+	if subscriptionKeys, err := q.GetAll(c, &subscriptions); err != nil {
+		return nil, err
+	} else {
+		feedKeys := make([]*datastore.Key, len(subscriptions))
+		for i, subscription := range subscriptions {
+			feedKeys[i] = subscription.Feed
+		}
 
-    var multiError appengine.MultiError
-    feeds := make([]Feed, len(subscriptions))
+		var multiError appengine.MultiError
+		feeds := make([]Feed, len(subscriptions))
 
-    if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
-      if me, ok := err.(appengine.MultiError); ok {
-        multiError = me
-      } else {
-        return nil, err
-      }
-    }
+		if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
+			if me, ok := err.(appengine.MultiError); ok {
+				multiError = me
+			} else {
+				return nil, err
+			}
+		}
 
-    for i, subscription := range subscriptions {
-      subscriptionKey := subscriptionKeys[i]
-      parentKey := subscriptionKey.Parent()
+		for i, subscription := range subscriptions {
+			subscriptionKey := subscriptionKeys[i]
+			parentKey := subscriptionKey.Parent()
 
-      opmlSub := rss.NewSubscription(subscription.Title, subscriptionKey.StringID(), "")
-      if parentKey.Kind() != "Folder" {
-        opml.Add(opmlSub)
-      } else {
-        if folder := folderMap[parentKey.String()]; folder != nil {
-          folder.Add(opmlSub)
-        } else {
-          opml.Add(opmlSub) // Orphaned folder
-        }
-      }
+			opmlSub := rss.NewSubscription(subscription.Title, subscriptionKey.StringID(), "")
+			if parentKey.Kind() != "Folder" {
+				opml.Add(opmlSub)
+			} else {
+				if folder := folderMap[parentKey.String()]; folder != nil {
+					folder.Add(opmlSub)
+				} else {
+					opml.Add(opmlSub) // Orphaned folder
+				}
+			}
 
-      if multiError == nil || multiError[i] == nil {
-        opmlSub.WebURL = feeds[i].Link
-      }
-    }
-  }
+			if multiError == nil || multiError[i] == nil {
+				opmlSub.WebURL = feeds[i].Link
+			}
+		}
+	}
 
-  return &opml, nil
+	return &opml, nil
 }
 
 func Unsubscribe(c appengine.Context, ref SubscriptionRef) error {
-  subscriptionKey, err := ref.key(c)
-  if err != nil {
-    return err
-  }
+	subscriptionKey, err := ref.key(c)
+	if err != nil {
+		return err
+	}
 
-  if err := datastore.Delete(c, subscriptionKey); err != nil {
-    return err
-  }
+	if err := datastore.Delete(c, subscriptionKey); err != nil {
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func DeleteArticlesWithinScope(c appengine.Context, scope ArticleScope) error {
-  ancestorKey, err := scope.key(c)
-  if err != nil {
-    return err
-  }
+	ancestorKey, err := scope.key(c)
+	if err != nil {
+		return err
+	}
 
-  batchWriter := NewBatchWriter(c, BatchDelete)
+	batchWriter := NewBatchWriter(c, BatchDelete)
 
-  q := datastore.NewQuery("Article").Ancestor(ancestorKey).KeysOnly()
-  for t := q.Run(c); ; {
-    articleKey, err := t.Next(nil)
+	q := datastore.NewQuery("Article").Ancestor(ancestorKey).KeysOnly()
+	for t := q.Run(c); ; {
+		articleKey, err := t.Next(nil)
 
-    if err == datastore.Done {
-      break
-    } else if err != nil {
-      return err
-    }
+		if err == datastore.Done {
+			break
+		} else if err != nil {
+			return err
+		}
 
-    if err := batchWriter.EnqueueKey(articleKey); err != nil {
-      c.Errorf("Error queueing article for batch delete: %s", err)
-      return err
-    }
-  }
+		if err := batchWriter.EnqueueKey(articleKey); err != nil {
+			c.Errorf("Error queueing article for batch delete: %s", err)
+			return err
+		}
+	}
 
-  if err := batchWriter.Flush(); err != nil {
-    c.Errorf("Error flushing batch queue: %s", err)
-    return err
-  }
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch queue: %s", err)
+		return err
+	}
 
-  return nil
+	return nil
 }
 
 func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
-  var updateCounter int64
-  
-  feed := Feed{}
-  feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
-  var lastFetched time.Time
+	var updateCounter int64
+	
+	feed := Feed{}
+	feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
+	var lastFetched time.Time
 
-  err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-    if err := datastore.Get(c, feedKey, &feed); err == datastore.ErrNoSuchEntity {
-      // New; set defaults
-      feed.URL = parsedFeed.URL
-      feed.UpdateCounter = 0
-    } else if err != nil {
-      // Some other error
-      return err
-    }
+	err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+		if err := datastore.Get(c, feedKey, &feed); err == datastore.ErrNoSuchEntity {
+			// New; set defaults
+			feed.URL = parsedFeed.URL
+			feed.UpdateCounter = 0
+		} else if err != nil {
+			// Some other error
+			return err
+		}
 
-    durationBetweenUpdates := parsedFeed.DurationBetweenUpdates()
+		durationBetweenUpdates := parsedFeed.DurationBetweenUpdates()
 
-    lastFetched = feed.Fetched
+		lastFetched = feed.Fetched
 
-    feed.Title = parsedFeed.Title
-    feed.Description = parsedFeed.Description
-    feed.Updated = parsedFeed.Updated
-    feed.Link = parsedFeed.WWWURL
-    feed.Format = parsedFeed.Format
-    feed.Fetched = parsedFeed.Retrieved
-    feed.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
-    feed.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
-    feed.HubURL = parsedFeed.HubURL
-    feed.Topic = parsedFeed.Topic
+		feed.Title = parsedFeed.Title
+		feed.Description = parsedFeed.Description
+		feed.Updated = parsedFeed.Updated
+		feed.Link = parsedFeed.WWWURL
+		feed.Format = parsedFeed.Format
+		feed.Fetched = parsedFeed.Retrieved
+		feed.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
+		feed.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
+		feed.HubURL = parsedFeed.HubURL
+		feed.Topic = parsedFeed.Topic
 
-    // Increment update counter
-    feed.UpdateCounter += int64(len(parsedFeed.Entries))
-    updateCounter = feed.UpdateCounter
+		// Increment update counter
+		feed.UpdateCounter += int64(len(parsedFeed.Entries))
+		updateCounter = feed.UpdateCounter
 
-    if updatedKey, err := datastore.Put(c, feedKey, &feed); err != nil {
-      return err
-    } else {
-      feedKey = updatedKey
-    }
+		if updatedKey, err := datastore.Put(c, feedKey, &feed); err != nil {
+			return err
+		} else {
+			feedKey = updatedKey
+		}
 
-    return nil
-  }, nil)
+		return nil
+	}, nil)
 
-  if err != nil {
-    c.Errorf("Error incrementing entry counter: %s", err)
-    return err
-  }
+	if err != nil {
+		c.Errorf("Error incrementing entry counter: %s", err)
+		return err
+	}
 
-  batchSize := defaultBatchSize
-  elements := len(parsedFeed.Entries)
+	batchSize := defaultBatchSize
+	elements := len(parsedFeed.Entries)
 
-  entryKeys := make([]*datastore.Key, batchSize)
-  entries := make([]*Entry, batchSize)
+	entryKeys := make([]*datastore.Key, batchSize)
+	entries := make([]*Entry, batchSize)
 
-  entryMetaKeys := make([]*datastore.Key, batchSize)
-  entryMetas := make([]*EntryMeta, batchSize)
+	entryMetaKeys := make([]*datastore.Key, batchSize)
+	entryMetas := make([]*EntryMeta, batchSize)
 
-  pending := 0
-  written := 0
+	pending := 0
+	written := 0
 
-  started := time.Now()
-  nuovo, unchanged, changed := 0, 0, 0
+	started := time.Now()
+	nuovo, unchanged, changed := 0, 0, 0
 
-  for i := 0; ; i++ {
-    if i >= elements || pending + 1 >= batchSize {
-      if pending > 0 {
-        if _, err := datastore.PutMulti(c, entryKeys[:pending], entries[:pending]); err != nil {
-          if multiError, ok := err.(appengine.MultiError); ok {
-            for i, err := range multiError {
-              if err != nil {
-                c.Errorf("entry[%d]: key [%s] failed: %s", i, 
-                  entryKeys[i].StringID(), err)
-              }
-            }
-          }
-          // FIXME: don't stop the entire write simply because a few entries failed
-          return err
-        }
-        if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], entryMetas[:pending]); err != nil {
-          if multiError, ok := err.(appengine.MultiError); ok {
-            for i, err := range multiError {
-              if err != nil {
-                c.Errorf("entryMeta[%d]: [%s] failed: %s", i, 
-                  entryMetaKeys[i].StringID(), err)
-              }
-            }
-          }
-          // FIXME: don't stop the entire write simply because a few entries failed
-          return err
-        }
-      }
+	for i := 0; ; i++ {
+		if i >= elements || pending + 1 >= batchSize {
+			if pending > 0 {
+				if _, err := datastore.PutMulti(c, entryKeys[:pending], entries[:pending]); err != nil {
+					if multiError, ok := err.(appengine.MultiError); ok {
+						for i, err := range multiError {
+							if err != nil {
+								c.Errorf("entry[%d]: key [%s] failed: %s", i, 
+									entryKeys[i].StringID(), err)
+							}
+						}
+					}
+					// FIXME: don't stop the entire write simply because a few entries failed
+					return err
+				}
+				if _, err := datastore.PutMulti(c, entryMetaKeys[:pending], entryMetas[:pending]); err != nil {
+					if multiError, ok := err.(appengine.MultiError); ok {
+						for i, err := range multiError {
+							if err != nil {
+								c.Errorf("entryMeta[%d]: [%s] failed: %s", i, 
+									entryMetaKeys[i].StringID(), err)
+							}
+						}
+					}
+					// FIXME: don't stop the entire write simply because a few entries failed
+					return err
+				}
+			}
 
-      written += pending
-      pending = 0
+			written += pending
+			pending = 0
 
-      if i >= elements {
-        break
-      }
-    }
+			if i >= elements {
+				break
+			}
+		}
 
-    parsedEntry := parsedFeed.Entries[i]
-    entryGUID := parsedEntry.UniqueID()
-    if entryGUID == "" {
-      c.Warningf("Missing GUID for an entry titled '%s'", parsedEntry.Title)
-      continue
-    }
+		parsedEntry := parsedFeed.Entries[i]
+		entryGUID := parsedEntry.UniqueID()
+		if entryGUID == "" {
+			c.Warningf("Missing GUID for an entry titled '%s'", parsedEntry.Title)
+			continue
+		}
 
-    entryMetaKey := datastore.NewKey(c, "EntryMeta", entryGUID, 0, feedKey)
-    entryKey := datastore.NewKey(c, "Entry", entryGUID, 0, feedKey)
-    var entryMeta EntryMeta
+		entryMetaKey := datastore.NewKey(c, "EntryMeta", entryGUID, 0, feedKey)
+		entryKey := datastore.NewKey(c, "Entry", entryGUID, 0, feedKey)
+		var entryMeta EntryMeta
 
-    if err := datastore.Get(c, entryMetaKey, &entryMeta); err == datastore.ErrNoSuchEntity {
-      // New; set defaults
-      entryMeta.Entry = entryKey
-      nuovo++
-    } else if err != nil {
-      // Some other error
-      c.Warningf("Error getting entry meta (GUID '%s'): err", entryGUID, err)
-      continue
-    } else {
-      // Already in the store - check if it's new/updated
-      if !entryMeta.Updated.IsZero() && entryMeta.Updated.Equal(parsedEntry.Updated) {
-        // No updates - skip
-        unchanged++
-        continue
-      } else {
-        changed++
-      }
-    }
+		if err := datastore.Get(c, entryMetaKey, &entryMeta); err == datastore.ErrNoSuchEntity {
+			// New; set defaults
+			entryMeta.Entry = entryKey
+			nuovo++
+		} else if err != nil {
+			// Some other error
+			c.Warningf("Error getting entry meta (GUID '%s'): err", entryGUID, err)
+			continue
+		} else {
+			// Already in the store - check if it's new/updated
+			if !entryMeta.Updated.IsZero() && entryMeta.Updated.Equal(parsedEntry.Updated) {
+				// No updates - skip
+				unchanged++
+				continue
+			} else {
+				changed++
+			}
+		}
 
-    entryMeta.Published = parsedEntry.Published
-    entryMeta.Updated = parsedEntry.Updated
-    entryMeta.Fetched = parsedFeed.Retrieved
-    entryMeta.UpdateIndex = updateCounter
+		entryMeta.Published = parsedEntry.Published
+		entryMeta.Updated = parsedEntry.Updated
+		entryMeta.Fetched = parsedFeed.Retrieved
+		entryMeta.UpdateIndex = updateCounter
 
-    // At this point, metadata tells us the record needs updating, so we 
-    // just overwrite everything under the entry
+		// At this point, metadata tells us the record needs updating, so we 
+		// just overwrite everything under the entry
 
-    entry := Entry {
-      UniqueID: entryGUID,
-      Author: html.UnescapeString(parsedEntry.Author),
-      Title: html.UnescapeString(parsedEntry.Title),
-      Link: parsedEntry.WWWURL,
-      Summary: parsedEntry.GenerateSummary(),
-      Content: parsedEntry.Content,
+		entry := Entry {
+			UniqueID: entryGUID,
+			Author: html.UnescapeString(parsedEntry.Author),
+			Title: html.UnescapeString(parsedEntry.Title),
+			Link: parsedEntry.WWWURL,
+			Summary: parsedEntry.GenerateSummary(),
+			Content: parsedEntry.Content,
 
-      // FIXME: Get rid of this eventually - already part of meta
-      Published: parsedEntry.Published,
-      Updated: parsedEntry.Updated,
-    }
+			// FIXME: Get rid of this eventually - already part of meta
+			Published: parsedEntry.Published,
+			Updated: parsedEntry.Updated,
+		}
 
-    entryMetas[pending] = &entryMeta
-    entryMetaKeys[pending] = entryMetaKey
-    entries[pending] = &entry
-    entryKeys[pending] = entryKey
+		entryMetas[pending] = &entryMeta
+		entryMetaKeys[pending] = entryMetaKey
+		entries[pending] = &entry
+		entryKeys[pending] = entryKey
 
-    updateCounter++
-    pending++
-  }
+		updateCounter++
+		pending++
+	}
 
-  if appengine.IsDevAppServer() {
-    c.Debugf("Completed %s: %d,%d,%d (n,c,u) (took %s, last fetch: %s ago)", 
-      parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
-  }
+	if appengine.IsDevAppServer() {
+		c.Debugf("Completed %s: %d,%d,%d (n,c,u) (took %s, last fetch: %s ago)", 
+			parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
+	}
 
-  return nil
+	return nil
 }
 
 func UpdateSubscription(c appengine.Context, url string, ref SubscriptionRef) (int, error) {
-  subscriptionKey, err := ref.key(c)
-  if err != nil {
-    return 0, err
-  }
+	subscriptionKey, err := ref.key(c)
+	if err != nil {
+		return 0, err
+	}
 
-  subscription := Subscription{}
-  if err := datastore.Get(c, subscriptionKey, &subscription); err != nil {
-    c.Errorf("Error getting subscription: %s", err)
-    return 0, err
-  }
+	subscription := Subscription{}
+	if err := datastore.Get(c, subscriptionKey, &subscription); err != nil {
+		c.Errorf("Error getting subscription: %s", err)
+		return 0, err
+	}
 
-  return updateSubscriptionByKey(c, subscriptionKey, subscription)
+	return updateSubscriptionByKey(c, subscriptionKey, subscription)
 }
 
 func UpdateAllSubscriptions(c appengine.Context, userID UserID) error {
-  userKey, err := userID.key(c)
-  if err != nil {
-    return err
-  }
-  
-  var subscriptions []Subscription
+	userKey, err := userID.key(c)
+	if err != nil {
+		return err
+	}
+	
+	var subscriptions []Subscription
 
-  q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
-  subscriptionKeys, err := q.GetAll(c, &subscriptions)
-  if err != nil {
-    return err
-  }
+	q := datastore.NewQuery("Subscription").Ancestor(userKey).Limit(defaultBatchSize)
+	subscriptionKeys, err := q.GetAll(c, &subscriptions)
+	if err != nil {
+		return err
+	}
 
-  started := time.Now()
-  doneChannel := make(chan Subscription)
-  subscriptionCount := len(subscriptions)
+	started := time.Now()
+	doneChannel := make(chan Subscription)
+	subscriptionCount := len(subscriptions)
 
-  for i := 0; i < subscriptionCount; i++ {
-    go updateSubscriptionAsync(c, subscriptionKeys[i], subscriptions[i], doneChannel)
-  }
+	for i := 0; i < subscriptionCount; i++ {
+		go updateSubscriptionAsync(c, subscriptionKeys[i], subscriptions[i], doneChannel)
+	}
 
-  for i := 0; i < subscriptionCount; i++ {
-    <-doneChannel;
-  }
+	for i := 0; i < subscriptionCount; i++ {
+		<-doneChannel;
+	}
 
-  c.Infof("%d subscriptions completed in %s", subscriptionCount, time.Since(started))
+	c.Infof("%d subscriptions completed in %s", subscriptionCount, time.Since(started))
 
-  return nil
+	return nil
 }
 
 func AreNewEntriesAvailable(c appengine.Context, subscriptions []Subscription) (bool, error) {
-  for _, subscription := range subscriptions {
-    q := datastore.NewQuery("EntryMeta").Ancestor(subscription.Feed).Filter("UpdateIndex >", subscription.MaxUpdateIndex).KeysOnly().Limit(1)
-    if entryMetaKeys, err := q.GetAll(c, nil); err != nil {
-      return false, err
-    } else if len(entryMetaKeys) > 0 {
-      return true, nil
-    }
-  }
+	for _, subscription := range subscriptions {
+		q := datastore.NewQuery("EntryMeta").Ancestor(subscription.Feed).Filter("UpdateIndex >", subscription.MaxUpdateIndex).KeysOnly().Limit(1)
+		if entryMetaKeys, err := q.GetAll(c, nil); err != nil {
+			return false, err
+		} else if len(entryMetaKeys) > 0 {
+			return true, nil
+		}
+	}
 
-  return false, nil
+	return false, nil
 }
 
 func UpdateUnreadCounts(c appengine.Context, ch chan<- Subscription, subscriptionKey *datastore.Key, subscription Subscription) {
-  originalSubscriptionCount := subscription.UnreadCount
-  q := datastore.NewQuery("Article").Ancestor(subscriptionKey).Filter("Properties =", "unread")
+	originalSubscriptionCount := subscription.UnreadCount
+	q := datastore.NewQuery("Article").Ancestor(subscriptionKey).Filter("Properties =", "unread")
 
-  if count, err := q.Count(c); err != nil {
-    c.Errorf("Error getting unread count: %s", err)
-    goto done
-  } else if count != originalSubscriptionCount {
-    subscription.UnreadCount = count
-    if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
-      c.Errorf("Error writing unread count: %s", err)
-      goto done
-    }
-  }
+	if count, err := q.Count(c); err != nil {
+		c.Errorf("Error getting unread count: %s", err)
+		goto done
+	} else if count != originalSubscriptionCount {
+		subscription.UnreadCount = count
+		if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+			c.Errorf("Error writing unread count: %s", err)
+			goto done
+		}
+	}
 
-  if originalSubscriptionCount != subscription.UnreadCount {
-    c.Infof("Subscription count corrected to %d (was: %d)", 
-      subscription.UnreadCount, originalSubscriptionCount)
-  }
+	if originalSubscriptionCount != subscription.UnreadCount {
+		c.Infof("Subscription count corrected to %d (was: %d)", 
+			subscription.UnreadCount, originalSubscriptionCount)
+	}
 
 done:
-  if ch != nil {
-    ch<- subscription
-  }
+	if ch != nil {
+		ch<- subscription
+	}
 }
