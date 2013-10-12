@@ -194,7 +194,12 @@ a {
 	position: absolute;
 }
 
-.single-source .gofr-entry-source {
+.gofr-entry-source-mobile {
+	display: none;
+}
+
+.single-source .gofr-entry-source,
+.single-source .gofr-entry-source-mobile {
 	display: none;
 }
 
@@ -203,7 +208,7 @@ a {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	margin-left: 12em;
-	margin-right: 7em;
+	margin-right: 8em;
 }
 
 .single-source .gofr-entry-excerpt {
@@ -248,6 +253,10 @@ a {
 	text-decoration: none;
 }
 
+.gofr-article-pubDate {
+	display: none;
+}
+
 .gofr-article-title h2 {
 	font-size: 14pt;
 	margin: 0;
@@ -263,7 +272,7 @@ a {
 }
 
 .gofr-entry-summary {
-		color: #777;
+	color: #777;
 }
 
 .gofr-entry-content {
@@ -758,8 +767,8 @@ ul.menu {
 }
 
 .modal .buttons {
-	margin-top: 1em;
-	text-align: right;
+	margin-top: 2em;
+	text-align: center;
 }
 
 #about p {
@@ -780,21 +789,22 @@ ul.menu {
 }
 
 /*** Desktop ****/
-.settings-filter {
-	display: none;
-}
 
 .mark-all-as-read.unavailable {
 	display: none;
 }
 
+.view-button {
+	display: none;
+}
+
 /*** Mobile ***/
 @media only screen and (max-width: 560px) {
-	.settings-filter {
-		display: list-item;
+	.view-button {
+		display: inline;
 	}
 
-	.settings-shortcuts {
+	.settings {
 		display: none;
 	}
 
@@ -803,11 +813,6 @@ ul.menu {
 	}
 
 	.mark-all-as-read {
-		display: none;
-	}
-
-	.menu-show-sidebar,
-	.menu-show-all-subs {
 		display: none;
 	}
 
@@ -821,5 +826,69 @@ ul.menu {
 
 	.navigate {
 		display: inline-block;
+	}
+
+	.gofr-entry-item,
+	.gofr-entry.selected.open .gofr-entry-item {
+		padding-top: 0.25em;
+		padding-bottom: 0.25em;
+		height: auto;
+		line-height: normal;
+	}
+
+	.gofr-entry-excerpt {
+		margin-left: 15px;
+		margin-right: 0;
+		padding-left: 0.5em;
+	}
+
+	.gofr-entry-pubDate {
+		display: none;
+	}
+
+	.gofr-entry-title {
+		overflow: visible;
+		white-space: normal;
+	}
+
+	.gofr-entry-link {
+		display: none;
+	}
+
+	.gofr-entry-source {
+		display: none;
+	}
+
+	.gofr-entry-spacer {
+		display: none;
+	}
+
+	.gofr-entry-summary {
+		display: block;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	.gofr-article-pubDate {
+		display: block;
+	}
+
+	.gofr-entry-source-mobile {
+		display: inline;
+		color: #777;
+	}
+
+	.modal {
+		left: 0;
+		right: 0;
+		top: 0;
+	}
+
+	.modal-inner {
+		left: 0;
+		top: 0;
+		border-radius: 0;
+		box-shadow: 0.5em 0 0.5em #888;
 	}
 }

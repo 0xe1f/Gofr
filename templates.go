@@ -109,6 +109,7 @@ const readerTemplateHTML = `
 		</div>
 		<div class="navbar">
 			<div class="right-aligned">
+				<button class="view-button dropdown _l" data-dropdown="menu-view" title="View">View</button>
 				<button class="settings dropdown _l" data-dropdown="menu-settings" title="Settings">&nbsp;</button>
 				<button class="select-article up _l" title="Previous Article">&nbsp;</button><button class="select-article down _l" title="Next Article">&nbsp;</button>
 			</div>
@@ -159,7 +160,9 @@ const readerTemplateHTML = `
 			<a href="https://github.com/melllvar/grr">grr</a> - 
 			an initial implementation written for PHP/MySQL.</p>
 			<p>Gofr is written by <a href="http://www.akop.org/">Akop Karapetyan</a>.</p>
-			<button class="modal-cancel _l">Close</button>
+			<div class="buttons">
+				<button class="modal-cancel _l">Close</button>
+			</div>
 		</div>
 	</body>
 </html>

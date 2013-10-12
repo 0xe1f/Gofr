@@ -202,6 +202,8 @@ $().ready(function() {
 				if (!entrySubscription)
 					return true; // May have been deleted on server; don't add it if so
 
+				var sourceTitle = entrySubscription != null ? entrySubscription.title : null;
+
 				entry.domId = 'gofr-entry-' + idCounter++;
 				var $entry = $('<div />', { 'class': 'gofr-entry ' + entry.domId})
 					.data('entry', entry)
@@ -212,7 +214,7 @@ $().ready(function() {
 								e.stopPropagation();
 							}))
 						.append($('<span />', { 'class' : 'gofr-entry-source' })
-							.text(entrySubscription != null ? entrySubscription.title : null))
+							.text(sourceTitle))
 						.append($('<a />', { 'class' : 'gofr-entry-link', 'href' : details.link, 'target' : '_blank' })
 							.click(function(e) {
 								e.stopPropagation();
@@ -221,7 +223,10 @@ $().ready(function() {
 							.text(getPublishedDate(details.published)))
 						.append($('<div />', { 'class' : 'gofr-entry-excerpt' })
 							.append($('<h2 />', { 'class' : 'gofr-entry-title' })
-								.text(details.title))))
+								.text(details.title))
+							.append($('<span />', { 'class' : 'gofr-entry-source-mobile' })
+								.text(" - " + sourceTitle))
+							))
 					.click(function() {
 						entry.select();
 						
@@ -559,6 +564,8 @@ $().ready(function() {
 							.append($('<h2 />')
 								.text(details.title)))
 						.append($('<div />', { 'class' : 'gofr-article-author' }))
+						.append($('<div />', { 'class' : 'gofr-article-pubDate' })
+							.text(_l("Published %s", [getPublishedDate(details.published)])))
 						.append($('<div />', { 'class' : 'gofr-article-body' })
 							.append(details.content)))
 					.append($('<div />', { 'class' : 'gofr-entry-footer'})
@@ -577,9 +584,9 @@ $().ready(function() {
 
 			var template;
 			if (details.author)
-				template = _l("from (%s)[%s] by %s", [subscription.link, subscription.title, details.author]);
+				template = _l("From (%s)[%s] by %s", [subscription.link, subscription.title, details.author]);
 			else
-				template = _l("from (%s)[%s]", [subscription.link, subscription.title]);
+				template = _l("From (%s)[%s]", [subscription.link, subscription.title]);
 
 			$content.find('.gofr-article-author').html(template);
 			if (!subscription.link)
@@ -750,11 +757,12 @@ $().ready(function() {
 				.append($('<ul />', { 'id': 'menu-settings', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-show-sidebar checkable' }).text(_l("Show sidebar")))
 					.append($('<li />', { 'class': 'menu-show-all-subs checkable' }).text(_l("Show read subscriptions")))
-					.append($('<li />', { 'class': 'settings-filter menu-all-items group-filter' }).text(_l("All items")))
-					.append($('<li />', { 'class': 'settings-filter menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
-					.append($('<li />', { 'class': 'settings-filter menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred")))
-					.append($('<li />', { 'class': 'settings-shortcuts divider' }))
-					.append($('<li />', { 'class': 'settings-shortcuts menu-shortcuts' }).text(_l("View shortcut keys…"))))
+					.append($('<li />', { 'class': 'divider' }))
+					.append($('<li />', { 'class': 'menu-shortcuts' }).text(_l("View shortcut keys…"))))
+				.append($('<ul />', { 'id': 'menu-view', 'class': 'menu' })
+					.append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
+					.append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
+					.append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
 				.append($('<ul />', { 'id': 'menu-user-options', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-import-subscriptions' }).text(_l("Import subscriptions…")))
 					.append($('<li />', { 'class': 'menu-export-subscriptions' }).text(_l("Export subscriptions")))
