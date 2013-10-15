@@ -134,7 +134,6 @@ const readerTemplateHTML = `
 			&bull; <a class="license _l" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
 			&bull; <a class="source _l" href="https://github.com/melllvar/Gofr">Source</a>
 		</div>
-		<div id="floating-nav"></div>
 		<div class="modal-blocker"></div>
 		<div id="import-subscriptions" class="modal">
 			<h1 class="_l">Upload OPML file</h1>

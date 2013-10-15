@@ -680,21 +680,13 @@ $().ready(function() {
 			$('a').not('#sign-out').attr('target', '_blank');
 		},
 		'isNavBarVisible': function() {
-			return $('#floating-nav').is(":visible");
+			return $('.feeds-container').is(".floated");
 		},
 		'toggleNavBar': function(show) {
 			if (typeof show === 'undefined')
 				show = !ui.isNavBarVisible();
 
-			if (show)
-				$('#floating-nav')
-					.css('left', -280)
-					.show()
-					.animate({ left: 0 }, 100);
-			else
-				$('#floating-nav')
-					.animate({ left: -280 }, { duration: 50, complete: function() { $('#floating-nav').hide(); } });
-					// .hide();
+			$('.feeds-container').toggleClass('floated', show);
 		},
 		'initButtons': function() {
 			$('button.refresh').click(function() {
@@ -975,15 +967,10 @@ $().ready(function() {
 		},
 		'toggleSidebar': function(showSidebar) {
 			if (typeof showSidebar === 'undefined')
-				showSidebar = $('.navigate').is(':visible'); // $('body').hasClass('floated-nav');
+				showSidebar = $('.navigate').is(':visible');
 
 			$('body').toggleClass('floated-nav', !showSidebar);
 			$('.menu-show-sidebar').setChecked(showSidebar);
-
-			if ($('.navigate').is(':visible')) // $('body').hasClass('floated-nav'))
-				$('#floating-nav').append($('.feeds-container'));
-			else
-				$('#reader').prepend($('.feeds-container'));
 
 			$.cookie('show-sidebar', showSidebar);
 		},

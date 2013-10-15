@@ -107,20 +107,26 @@ a {
 	background-color: #fff;
 }
 
-.floated-nav #reader .feeds-container {
-	display: none;
-}
-
-#floating-nav {
+.floated-nav .feeds-container {
 	display: none;
 	position: absolute;
 	width: 280px;
-	left: 0;
 	top: 0;
 	bottom: 0;
 	background-color: white;
 	border: solid 1px #ccc;
 	box-shadow: 2px 2px 5px #aaa;
+}
+
+.floated-nav .feeds-container.floated {
+	top: -106px;
+	bottom: -30px;
+	margin: 0;
+	border: none;
+	border-right: solid 1px #ccc;
+	box-shadow: 2px 0 5px #aaa;
+	display: block;
+	z-index: 10000;
 }
 
 #gofr-entries {
@@ -816,8 +822,25 @@ ul.menu {
 		display: none;
 	}
 
-	#reader .feeds-container {
+	.feeds-container {
 		display: none;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		background-color: white;
+		border: solid 1px #ccc;
+		box-shadow: 2px 2px 5px #aaa;
+	}
+
+	.feeds-container.floated {
+		top: -106px;
+		bottom: -30px;
+		margin: 0;
+		border: none;
+		border-right: solid 1px #ccc;
+		box-shadow: 2px 0 5px #aaa;
+		display: block;
+		z-index: 10000;
 	}
 
 	.gofr-entries-container {
