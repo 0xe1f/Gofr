@@ -290,6 +290,14 @@ a {
 	margin: 0.5em 1em;
 }
 
+.gofr-article img, 
+.gofr-article video, 
+.gofr-article object, 
+.gofr-article iframe { 
+	max-width: 100%; 
+	height: auto; 
+}
+
 .gofr-entry-footer {
 	padding: 0.5em 0.5em;
 	border-top: solid 1px #ebebeb;
@@ -913,5 +921,19 @@ ul.menu {
 		top: 0;
 		border-radius: 0;
 		box-shadow: 0.5em 0 0.5em #888;
+	}
+
+	#gofr-entries {
+		margin-left: 0;
+		margin-right: 0;
+	}
+
+	.gofr-article-title h2 {
+		font-size: 12pt;
+	}
+
+	.gofr-article-author,
+	.gofr-article-pubDate {
+		font-size: 8pt;
 	}
 }
