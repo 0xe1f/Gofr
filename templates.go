@@ -28,6 +28,7 @@ const introTemplateHTML = `
 <html lang="en-US">
 	<head profile="http://www.w3.org/2005/10/profile">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 		<link href="/content/intro.css" type="text/css" rel="stylesheet"/>
 		<title>Gofr</title>
 	</head>
@@ -39,31 +40,31 @@ const introTemplateHTML = `
 			</div>
 			<div class="stripe">
 				<div class="text">
-					<img src="/content/logo.png" alt="Logo" />
+					<img src="/content/logo.png" class="logo" alt="Logo" />
 					<h1>Gofr</h1>
 					<h3>An open source RSS reader for the cloud.</h3>
 				</div>
 			</div>
 			<div class="features">
 				<div class="boxen">
-					<div class="box">
+					<div class="box one">
 						<h3>Flexible.</h3>
-						<p>Navigate by using mouse or keyboard, with support for most of Google Reader's shortcut keys.</p>
+						<p>Designed for desktop and mobile, with support for touch, mouse and keyboard navigation - including most of Google Reader's shortcut keys.</p>
 					</div>
-					<div class="box">
+					<div class="box two">
 						<h3>Scalable.</h3>
 						<p>Written in <a href="http://www.golang.org/">Go</a> for the 
 						<a href="https://developers.google.com/appengine">Google App Engine</a>, 
 						with the Cloud Datastore as the data backend.</p>
 					</div>
-					<div class="box">
+					<div class="box three">
 						<h3>Extensible.</h3>
-						<p>Gofr is open source, and available on <a href="https://github.com/melllvar/Gofr">GitHub</a> - use it as-is, or improve it and share with everyone else.</p>
+						<p>Gofr is <a href="https://github.com/melllvar/Gofr">open source</a> - use it as-is, or improve it and share with everyone else.</p>
 					</div>
 				</div>
 				<div class="hr"></div>
 				<div class="bottom">
-					<img class="screenshot" src="/content/screenshot.png" alt="Screenshot" />
+					<div class="screenshot"></div>
 				</div>
 			</div>
 			<div class="footer">

@@ -164,3 +164,55 @@ button.sign-in:active {
 .footer a:hover {
 	text-decoration: underline;
 }
+
+.screenshot {
+	width: 860px;
+	height: 514px;
+	background-image: url(screenshot.png);
+}
+
+@media only screen and (max-width: 860px) {
+	.header {
+		padding: 0.5em 0.5em;
+	}
+
+	.features .box {
+		width: auto;
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+		padding-bottom: 0.5em;
+		border-bottom: solid 1px #888;
+	}
+
+	.features .box.three {
+		border-bottom: none;
+		padding-bottom: none;
+	}
+
+	.screenshot {
+		width: 345px;
+		height: 338px;
+		background-image: url(screenshot-m.png);
+	}
+
+	.box h3 {
+		font-size: 12pt;
+	}
+
+	.box p {
+		font-size: 9pt;
+	}
+
+	.logo {
+		width: 50px;
+	}
+
+	.text h1 {
+		font-size: 24pt;
+	}
+
+	.text h3 {
+		font-size: 14pt;
+	}
+}
