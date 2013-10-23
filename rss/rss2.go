@@ -38,6 +38,7 @@ var supportedRSS2TimeFormats = []string {
 	"Mon, 2 Jan 2006 15:04:05 -0700",
 	"Mon, 2 Jan 2006 15:04:05",
 	"2 Jan 2006 15:04:05 -0700",
+	"Mon, 2 Jan 2006 15:04 -0700",
 }
 
 type rss2Feed struct {
