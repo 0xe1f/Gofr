@@ -4,4 +4,4 @@ cron:
   schedule: every 10 minutes
 - description: Update Unread Counts
   url: /cron/updateUnreadCounts
-  schedule: every 24 hours
+  schedule: every 12 hours

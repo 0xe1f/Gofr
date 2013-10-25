@@ -1118,7 +1118,7 @@ func UpdateUnreadCounts(c appengine.Context, ch chan<- Subscription, subscriptio
 		goto done
 	} else if count != originalSubscriptionCount {
 		subscription.UnreadCount = count
-		if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
+		if _, err := datastore.Put(c, subscriptionKey, &subscription); err != nil {
 			c.Errorf("Error writing unread count: %s", err)
 			goto done
 		}

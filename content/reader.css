@@ -265,7 +265,7 @@ a {
 
 .gofr-article-title h2 {
 	font-size: 14pt;
-	margin: 0;
+	margin: 0 0 0.5em 0;
 }
 
 .gofr-article-body {
@@ -813,7 +813,7 @@ ul.menu {
 }
 
 /*** Mobile ***/
-@media only screen and (max-width: 560px) {
+@media only screen and (max-width: 660px) {
 	.view-button {
 		display: inline;
 	}
@@ -930,10 +930,5 @@ ul.menu {
 
 	.gofr-article-title h2 {
 		font-size: 12pt;
-	}
-
-	.gofr-article-author,
-	.gofr-article-pubDate {
-		font-size: 8pt;
 	}
 }

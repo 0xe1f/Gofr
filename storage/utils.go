@@ -119,7 +119,10 @@ func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key
 		// Write the subscription
 		subscription.Updated = time.Now()
 		subscription.MaxUpdateIndex = largestUpdateIndexWritten
-		subscription.UnreadCount += unreadDelta
+
+		if subscription.UnreadCount + unreadDelta >= 0 {
+			subscription.UnreadCount += unreadDelta
+		}
 
 		if _, err := datastore.Put(c, subscriptionKey, &subscription); err != nil {
 			c.Errorf("Error writing subscription: %s", err)
