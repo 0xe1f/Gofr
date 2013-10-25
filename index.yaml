@@ -23,6 +23,12 @@ indexes:
   - name: Fetched
     direction: desc
 
+- kind: Article
+  ancestor: yes
+  properties:
+  - name: Published
+    direction: desc
+
 - kind: EntryMeta
   ancestor: yes
   properties:
