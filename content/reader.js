@@ -577,7 +577,30 @@ $().ready(function() {
 							.text(_l("Keep unread"))
 							.click(function(e) {
 								entry.toggleUnread();
-							})))
+							}))
+						.append($('<span />', { 'class' : 'gofr-entry-action-group gofr-entry-share-group'})
+							.text(_l("Share:")))
+						.append($('<a />', { 
+							'class': 'action-share-gplus gofr-entry-share',
+							'href': 'https://plus.google.com/share?url=' + encodeURIComponent(details.link),
+							'data-flags': 'width=600,height=460,menubar=no,location=no,status=no',
+						}).click(function(e) {
+							return ui.share($(this));
+						}))
+						.append($('<a />', { 
+							'class': 'action-share-fb gofr-entry-share',
+							'href': 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(details.link),
+							'data-flags': 'width=626,height=436,menubar=no,location=no,status=no',
+						}).click(function(e) {
+							return ui.share($(this));
+						}))
+						.append($('<a />', { 
+							'class': 'action-share-twitter gofr-entry-share',
+							'href': 'https://twitter.com/share?url=' + encodeURIComponent(details.link),
+							'data-flags': 'width=470,height=257,menubar=no,location=no,status=no',
+						}).click(function(e) {
+							return ui.share($(this));
+						})))
 					.click(function(e) {
 						e.stopPropagation();
 					});
@@ -1225,6 +1248,10 @@ $().ready(function() {
 				if ($el.attr('title'))
 					$el.attr('title', function(index, value) { return _l(value); });
 			});
+		},
+		'share': function($anchor) {
+			window.open($anchor.attr('href'), 'share', $anchor.attr('data-flags'));
+			return false;
 		},
 	};
 

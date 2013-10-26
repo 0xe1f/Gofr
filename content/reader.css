@@ -304,6 +304,12 @@ a {
 	background-color: #fafafa;
 }
 
+.gofr-entry-action-group {
+	margin-left: 3em;
+	margin-right: 0.5em;
+}
+
+.gofr-entry-share,
 .gofr-entry-action {
 	background-repeat: no-repeat;
 	padding-left: 20px;
@@ -311,13 +317,8 @@ a {
 	cursor: pointer;
 }
 
-.gofr-entry-action a {
-	text-decoration: none;
-	color: #000;
-}
-
-.gofr-entry-action a span {
-	margin-left: 5px;
+.gofr-entry-share {
+	margin-left: 0.5em;
 }
 
 .action-unread {
@@ -332,6 +333,21 @@ a {
 
 .action-tag.has-tags {
 	background-position: -105px -105px;
+}
+
+.action-share-gplus {
+	background-image: url(sprites.png);
+	background-position: -195px -15px;
+}
+
+.action-share-fb {
+	background-image: url(sprites.png);
+	background-position: -180px 0;
+}
+
+.action-share-twitter {
+	background-image: url(sprites.png);
+	background-position: -210px -30px;
 }
 
 .gofr-entry.read .action-unread {
