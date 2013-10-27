@@ -584,6 +584,7 @@ $().ready(function() {
 							'class': 'action-share-gplus gofr-entry-share',
 							'href': 'https://plus.google.com/share?url=' + encodeURIComponent(details.link),
 							'data-flags': 'width=600,height=460,menubar=no,location=no,status=no',
+							'title': _l('Share on Google+'),
 						}).click(function(e) {
 							return ui.share($(this));
 						}))
@@ -591,6 +592,7 @@ $().ready(function() {
 							'class': 'action-share-fb gofr-entry-share',
 							'href': 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(details.link),
 							'data-flags': 'width=626,height=436,menubar=no,location=no,status=no',
+							'title': _l('Share on Facebook'),
 						}).click(function(e) {
 							return ui.share($(this));
 						}))
@@ -598,6 +600,7 @@ $().ready(function() {
 							'class': 'action-share-twitter gofr-entry-share',
 							'href': 'https://twitter.com/share?url=' + encodeURIComponent(details.link),
 							'data-flags': 'width=470,height=257,menubar=no,location=no,status=no',
+							'title': _l('Tweet'),
 						}).click(function(e) {
 							return ui.share($(this));
 						})))

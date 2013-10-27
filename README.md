@@ -5,7 +5,7 @@ Gofr
 
 Gofr is written in [Go] [3], and uses the [Google Cloud Datastore] [4].
 
-![Screenshot](http://i.imgur.com/FbVKfsJ.png "Screenshot")
+![Screenshot](http://i.imgur.com/DAPtc3j.png "Screenshot")
 
 Features
 --------
@@ -14,6 +14,7 @@ Features
 * Article and subscription filtering
 * Keyboard navigation support with extensive support for Google Reader's keyboard shortcuts (press ? to view available shortcuts)
 * OPML import/export
+* Article sharing to Google+, Facebook and Twitter
 * Mobile browser support
 
 Installation
