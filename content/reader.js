@@ -485,7 +485,6 @@ $().ready(function() {
 				delete entry.properties;
 
 				entry.properties = properties;
-				entry.syncView();
 
 				if (propertyName == 'read') {
 					var subscription = entry.getSubscription();
@@ -493,7 +492,12 @@ $().ready(function() {
 
 					subscription.syncView();
 					ui.updateUnreadCount();
+				} else if (propertyName == 'like') {
+					var delta = propertyValue ? 1 : -1;
+					entry.likeCount += delta;
 				}
+
+				entry.syncView();
 			}, 'json');
 		},
 		'toggleStarred': function(propertyName) {
@@ -502,15 +506,21 @@ $().ready(function() {
 		'toggleUnread': function() {
 			this.toggleProperty("read");
 		},
+		'toggleLike': function() {
+			this.toggleProperty("like");
+		},
 		'toggleProperty': function(propertyName) {
 			this.setProperty(propertyName, 
 				!this.hasProperty(propertyName));
 		},
 		'syncView': function() {
-			this.getDom()
+			var $entry = this.getDom();
+			$entry
 				.toggleClass('star', this.hasProperty('star'))
 				.toggleClass('like', this.hasProperty('like'))
 				.toggleClass('read', this.hasProperty('read'));
+			$entry.find('.action-like').text(this.likeCount > 0 
+				? _l("Like (%s)", [this.likeCount]) : _l("Like"));
 		},
 		'isExpanded': function() {
 			return this.getDom().hasClass('open');
@@ -577,6 +587,12 @@ $().ready(function() {
 							.text(_l("Keep unread"))
 							.click(function(e) {
 								entry.toggleUnread();
+							}))
+						.append($('<span />', { 'class' : 'action-like gofr-entry-action'})
+							.text(entry.likeCount > 0 
+								? _l("Like (%s)", [entry.likeCount]) : _l("Like"))
+							.click(function(e) {
+								entry.toggleLike();
 							}))
 						.append($('<span />', { 'class' : 'gofr-entry-action-group gofr-entry-share-group'})
 							.text(_l("Share:")))
@@ -910,6 +926,10 @@ $().ready(function() {
 					if ($('.gofr-entry.selected').length)
 						$('.gofr-entry.selected').data('entry').toggleUnread();
 				})
+				.bind('keypress', 'l', function() {
+					if ($('.gofr-entry.selected').length)
+						$('.gofr-entry.selected').data('entry').toggleLike();
+				})
 				.bind('keypress', 'shift+n', function() {
 					ui.highlightSubscription(1);
 				})
@@ -940,11 +960,6 @@ $().ready(function() {
 					if ($('.gofr-entry.selected').length)
 						$('.gofr-entry.selected').find('.gofr-entry-link')[0].click();
 				})
-				// .bind('keypress', 'l', function()
-				// {
-				//   if ($('.gofr-entry.selected').length)
-				//     toggleLiked($('.gofr-entry.selected'));
-				// })
 				// .bind('keypress', 't', function()
 				// {
 				//   editTags($('.gofr-entry.selected'));

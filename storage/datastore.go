@@ -26,9 +26,11 @@ package storage
 import (
 	"appengine"
 	"appengine/datastore"
-	"html"
-	"rss"
 	"errors"
+	"fmt"
+	"html"
+	"math/rand"
+	"rss"
 	"time"
 )
 
@@ -154,9 +156,11 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 		}
 
 		entryKey := article.Entry
-		entryKeys[readCount] = entryKey
+		
 		article.ID = entryKey.StringID()
 		article.Source = entryKey.Parent().StringID()
+
+		entryKeys[readCount] = entryKey
 	}
 
 	continueFrom := ""
@@ -445,6 +449,7 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 
 	if propertyValue != article.HasProperty(propertyName) {
 		wasUnread := article.IsUnread()
+		wasLiked := article.IsLiked()
 		unreadDelta := 0
 
 		article.SetProperty(propertyName, propertyValue)
@@ -462,6 +467,14 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 			return nil, err
 		}
 
+		if wasLiked != article.IsLiked() {
+			if wasLiked {
+				article.UpdateLikeCount(c, -1)
+			} else {
+				article.UpdateLikeCount(c, 1)
+			}
+		}
+
 		if unreadDelta != 0 {
 			// Update unread counts - not critical
 			subscriptionKey := articleKey.Parent()
@@ -469,7 +482,7 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 
 			if err := datastore.Get(c, subscriptionKey, subscription); err != nil {
 				c.Warningf("Unread count update failed: subscription read error (%s)", err)
-			} else {
+			} else if subscription.UnreadCount + unreadDelta >= 0 {
 				subscription.UnreadCount += unreadDelta
 				if _, err := datastore.Put(c, subscriptionKey, subscription); err != nil {
 					c.Warningf("Unread count update failed: subscription write error (%s)", err)
@@ -1133,4 +1146,46 @@ done:
 	if ch != nil {
 		ch<- subscription
 	}
+}
+
+func (article Article) LikeCount(c appengine.Context) (int, error) {
+	count := 0
+	q := datastore.NewQuery("LikeCountShard").Filter("Entry =", article.Entry)
+	for t := q.Run(c); ; {
+		var shard likeCountShard
+		if _, err := t.Next(&shard); err == datastore.Done {
+			break
+		} else if err != nil {
+			return count, err
+		}
+		count += shard.LikeCount
+	}
+
+	return count, nil
+}
+
+func (article Article) UpdateLikeCount(c appengine.Context, delta int) error {
+	err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+		shardName := fmt.Sprintf("%s#%d", 
+			article.Entry.StringID(), rand.Intn(likeCountShards))
+		key := datastore.NewKey(c, "LikeCountShard", shardName, 0, nil)
+
+		var shard likeCountShard
+		if err := datastore.Get(c, key, &shard); err == datastore.ErrNoSuchEntity {
+			shard.Entry = article.Entry
+		} else if err != nil {
+			return err
+		}
+
+		shard.LikeCount += delta
+		_, err := datastore.Put(c, key, &shard)
+
+		return err
+	}, nil)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

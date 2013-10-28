@@ -29,6 +29,10 @@ import (
 	"time"
 )
 
+const (
+	likeCountShards = 20
+)
+
 type User struct {
 	ID string
 	EmailAddress string
@@ -74,6 +78,11 @@ type Entry struct {
 
 	Content string `json:"content" datastore:",noindex"`
 	Summary string `json:"summary"`
+}
+
+type likeCountShard struct {
+	Entry *datastore.Key
+	LikeCount int
 }
 
 type FavIcon struct {
@@ -179,6 +188,10 @@ type Folder struct {
 
 func (article Article)IsUnread() bool {
 	return article.HasProperty("unread")
+}
+
+func (article Article)IsLiked() bool {
+	return article.HasProperty("like")
 }
 
 func (article Article)HasProperty(propName string) bool {
