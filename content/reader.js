@@ -651,6 +651,9 @@ $().ready(function() {
 			});
 			$content.find('.gofr-article-body a').not('[href^="http"],[href^="https"]').each(function() {
 				$(this).attr('href', function(index, value) {
+					if (!value)
+						return value;
+					
 					return entry.resolveUrl(value);
 				})
 			});
