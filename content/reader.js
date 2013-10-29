@@ -204,7 +204,10 @@ $().ready(function() {
 
 				var sourceTitle = entrySubscription != null ? entrySubscription.title : null;
 
+				entry.areExtrasDirty = true;
+				entry.extras = { 'likeCount': 0 };
 				entry.domId = 'gofr-entry-' + idCounter++;
+
 				var $entry = $('<div />', { 'class': 'gofr-entry ' + entry.domId})
 					.data('entry', entry)
 					.append($('<div />', { 'class' : 'gofr-entry-item' })
@@ -494,7 +497,7 @@ $().ready(function() {
 					ui.updateUnreadCount();
 				} else if (propertyName == 'like') {
 					var delta = propertyValue ? 1 : -1;
-					entry.likeCount += delta;
+					entry.extras.likeCount += delta;
 				}
 
 				entry.syncView();
@@ -519,8 +522,8 @@ $().ready(function() {
 				.toggleClass('star', this.hasProperty('star'))
 				.toggleClass('like', this.hasProperty('like'))
 				.toggleClass('read', this.hasProperty('read'));
-			$entry.find('.action-like').text(this.likeCount > 0 
-				? _l("Like (%s)", [this.likeCount]) : _l("Like"));
+			$entry.find('.action-like').text(this.extras.likeCount > 0 
+				? _l("Like (%s)", [this.extras.likeCount]) : _l("Like"));
 		},
 		'isExpanded': function() {
 			return this.getDom().hasClass('open');
@@ -567,6 +570,9 @@ $().ready(function() {
 			if (!this.hasProperty('read'))
 				this.setProperty('read', true);
 
+			if (entry.areExtrasDirty)
+				entry.loadExtras();
+
 			var $content = 
 				$('<div />', { 'class' : 'gofr-entry-content' })
 					.append($('<div />', { 'class' : 'gofr-article' })
@@ -589,8 +595,8 @@ $().ready(function() {
 								entry.toggleUnread();
 							}))
 						.append($('<span />', { 'class' : 'action-like gofr-entry-action'})
-							.text(entry.likeCount > 0 
-								? _l("Like (%s)", [entry.likeCount]) : _l("Like"))
+							.text(entry.extras.likeCount > 0 
+								? _l("Like (%s)", [entry.extras.likeCount]) : _l("Like"))
 							.click(function(e) {
 								entry.toggleLike();
 							}))
@@ -664,6 +670,20 @@ $().ready(function() {
 		'select': function() {
 			$('#gofr-entries').find('.gofr-entry.selected').removeClass('selected');
 			this.getDom().addClass('selected');
+		},
+		'loadExtras': function() {
+			var entry = this;
+			$.getJSON('articleExtras', {
+				'article':      this.id,
+				'subscription': this.source,
+				'folder':       this.getSubscription().parent,
+			})
+			.success(function(response) {
+				entry.extras = response;
+				entry.areExtrasDirty = false;
+
+				entry.syncView();
+			});
 		},
 	};
 

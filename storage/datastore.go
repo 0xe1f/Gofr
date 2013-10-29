@@ -1189,3 +1189,23 @@ func (article Article) UpdateLikeCount(c appengine.Context, delta int) error {
 
 	return nil
 }
+
+func LoadArticleExtras(c appengine.Context, ref ArticleRef) (ArticleExtras, error) {
+	articleKey, err := ref.key(c)
+	if err != nil {
+		return ArticleExtras{}, err
+	}
+
+	article := new(Article)
+	if err := datastore.Get(c, articleKey, article); err != nil {
+		return ArticleExtras{}, err
+	}
+
+	if likeCount, err := article.LikeCount(c); err != nil {
+		return ArticleExtras{}, err
+	} else {
+		return ArticleExtras {
+			LikeCount: likeCount,
+		}, nil
+	}
+}

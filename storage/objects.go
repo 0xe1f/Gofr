@@ -108,6 +108,10 @@ type SubscriptionRef struct {
 	SubscriptionID string  `json:"s"`
 }
 
+type ArticleExtras struct {
+	LikeCount int `json:"likeCount"`
+}
+
 type ArticleScope SubscriptionRef
 
 func SubscriptionRefFromJSON(userID UserID, refAsJSON string) (SubscriptionRef, error) {

@@ -58,6 +58,7 @@ func registerJson() {
 	RegisterJSONRoute("/syncFeeds",     syncFeeds)
 	RegisterJSONRoute("/subscriptions", subscriptions)
 	RegisterJSONRoute("/articles",      articles)
+	RegisterJSONRoute("/articleExtras", articleExtras)
 	RegisterJSONRoute("/createFolder",  createFolder)
 	RegisterJSONRoute("/rename",        rename)
 	RegisterJSONRoute("/setProperty",   setProperty)
@@ -136,6 +137,31 @@ func articles(pfc *PFContext) (interface{}, error) {
 	}
 
 	return storage.NewArticlePage(pfc.C, filter, r.FormValue("continue"))
+}
+
+func articleExtras(pfc *PFContext) (interface{}, error) {
+	r := pfc.R
+
+	folderID := r.FormValue("folder")
+	subscriptionID := r.FormValue("subscription")
+	articleID := r.FormValue("article")
+
+	if articleID == "" || subscriptionID == "" {
+		return nil, NewReadableError(_l("Article not found"), nil)
+	}
+
+	ref := storage.ArticleRef {
+		SubscriptionRef: storage.SubscriptionRef {
+			FolderRef: storage.FolderRef {
+				UserID: pfc.UserID,
+				FolderID: folderID,
+			},
+			SubscriptionID: subscriptionID,
+		},
+		ArticleID: articleID,
+	}
+
+	return storage.LoadArticleExtras(pfc.C, ref)
 }
 
 func createFolder(pfc *PFContext) (interface{}, error) {
