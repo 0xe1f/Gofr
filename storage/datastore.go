@@ -26,9 +26,12 @@ package storage
 import (
 	"appengine"
 	"appengine/datastore"
+	"bytes"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"math/rand"
 	"rss"
 	"time"
@@ -127,7 +130,7 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 		return nil, err
 	}
 
-	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Fetched")
+	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Time")
 	if filter.Property != "" {
 		q = q.Filter("Properties = ", filter.Property)
 	}
@@ -717,10 +720,10 @@ func FeedByURL(c appengine.Context, url string) (*Feed, error) {
 }
 
 func IsFeedAvailable(c appengine.Context, url string) (bool, error) {
-	feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
-	feed := new(Feed)
+	feedMetaKey := datastore.NewKey(c, "FeedMeta", url, 0, nil)
+	feedMeta := new(Feed)
 
-	if err := datastore.Get(c, feedKey, feed); err == nil {
+	if err := datastore.Get(c, feedMetaKey, feedMeta); err == nil {
 		return true, nil
 	} else if err != datastore.ErrNoSuchEntity {
 		return false, err
@@ -895,44 +898,57 @@ func DeleteArticlesWithinScope(c appengine.Context, scope ArticleScope) error {
 
 func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 	var updateCounter int64
-	
-	feed := Feed{}
+
+	// Compute the hash for the info. part of the feed
+	sha1 := sha1.New()
+	io.WriteString(sha1, parsedFeed.Title)
+	io.WriteString(sha1, parsedFeed.Description)
+	io.WriteString(sha1, parsedFeed.WWWURL)
+	io.WriteString(sha1, parsedFeed.Format)
+	io.WriteString(sha1, parsedFeed.HubURL)
+	io.WriteString(sha1, parsedFeed.Topic)
+	infoDigest := sha1.Sum(nil)
+
+	feedMeta := new(FeedMeta)
+	feedMetaKey := datastore.NewKey(c, "FeedMeta", parsedFeed.URL, 0, nil)
 	feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
+	updateInfo := false
+
 	var lastFetched time.Time
 
 	err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-		if err := datastore.Get(c, feedKey, &feed); err == datastore.ErrNoSuchEntity {
+		if err := datastore.Get(c, feedMetaKey, feedMeta); err == datastore.ErrNoSuchEntity {
 			// New; set defaults
-			feed.URL = parsedFeed.URL
-			feed.UpdateCounter = 0
+			feedMeta.Feed = feedKey
+			feedMeta.UpdateCounter = 0
+			feedMeta.InfoDigest = infoDigest
+			updateInfo = true
 		} else if err != nil {
 			// Some other error
 			return err
+		} else {
+			// If the feed information has changed, update it
+			if !bytes.Equal(feedMeta.InfoDigest, infoDigest) {
+				feedMeta.InfoDigest = infoDigest
+				updateInfo = true
+			}
 		}
 
 		durationBetweenUpdates := parsedFeed.DurationBetweenUpdates()
 
-		lastFetched = feed.Fetched
+		lastFetched = feedMeta.Fetched
 
-		feed.Title = parsedFeed.Title
-		feed.Description = parsedFeed.Description
-		feed.Updated = parsedFeed.Updated
-		feed.Link = parsedFeed.WWWURL
-		feed.Format = parsedFeed.Format
-		feed.Fetched = parsedFeed.Retrieved
-		feed.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
-		feed.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
-		feed.HubURL = parsedFeed.HubURL
-		feed.Topic = parsedFeed.Topic
+		feedMeta.Fetched = parsedFeed.Retrieved
+		feedMeta.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
+		feedMeta.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
+		feedMeta.UpdateCounter += int64(len(parsedFeed.Entries))
 
-		// Increment update counter
-		feed.UpdateCounter += int64(len(parsedFeed.Entries))
-		updateCounter = feed.UpdateCounter
+		updateCounter = feedMeta.UpdateCounter
 
-		if updatedKey, err := datastore.Put(c, feedKey, &feed); err != nil {
+		if updatedKey, err := datastore.Put(c, feedMetaKey, feedMeta); err != nil {
 			return err
 		} else {
-			feedKey = updatedKey
+			feedMetaKey = updatedKey
 		}
 
 		return nil
@@ -941,6 +957,27 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 	if err != nil {
 		c.Errorf("Error incrementing entry counter: %s", err)
 		return err
+	}
+
+	if updateInfo {
+		feed := new(Feed)
+		if err := datastore.Get(c, feedKey, feed); err == datastore.ErrNoSuchEntity {
+			feed.URL = parsedFeed.URL
+		} else if err != nil {
+			return err
+		}
+
+		feed.Title = parsedFeed.Title
+		feed.Description = parsedFeed.Description
+		feed.Updated = parsedFeed.Updated
+		feed.Link = parsedFeed.WWWURL
+		feed.Format = parsedFeed.Format
+		feed.HubURL = parsedFeed.HubURL
+		feed.Topic = parsedFeed.Topic
+
+		if _, err := datastore.Put(c, feedKey, feed); err != nil {
+			return err
+		}
 	}
 
 	batchSize := defaultBatchSize
@@ -1002,8 +1039,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			continue
 		}
 
-		entryMetaKey := datastore.NewKey(c, "EntryMeta", entryGUID, 0, feedKey)
-		entryKey := datastore.NewKey(c, "Entry", entryGUID, 0, feedKey)
+		entryMetaKey := datastore.NewKey(c, "EntryMeta", entryGUID, 0, feedMeta.Feed)
+		entryKey := datastore.NewKey(c, "Entry", entryGUID, 0, feedMeta.Feed)
 		var entryMeta EntryMeta
 
 		if err := datastore.Get(c, entryMetaKey, &entryMeta); err == datastore.ErrNoSuchEntity {
@@ -1025,7 +1062,6 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			}
 		}
 
-		entryMeta.Published = parsedEntry.Published
 		entryMeta.Updated = parsedEntry.Updated
 		entryMeta.Fetched = parsedFeed.Retrieved
 		entryMeta.UpdateIndex = updateCounter
@@ -1034,7 +1070,6 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 		// just overwrite everything under the entry
 
 		entry := Entry {
-			UniqueID: entryGUID,
 			Author: html.UnescapeString(parsedEntry.Author),
 			Title: html.UnescapeString(parsedEntry.Title),
 			Link: parsedEntry.WWWURL,

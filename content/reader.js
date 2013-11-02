@@ -220,12 +220,20 @@ $().ready(function() {
 							.text(sourceTitle))
 						.append($('<a />', { 'class' : 'gofr-entry-link', 'href' : details.link, 'target' : '_blank' })
 							.click(function(e) {
+								// Prevent expansion
 								e.stopPropagation();
 							}))
 						.append($('<span />', { 'class' : 'gofr-entry-pubDate' })
-							.text(getPublishedDate(details.published)))
+							.text(getPublishedDate(entry.time)))
 						.append($('<div />', { 'class' : 'gofr-entry-excerpt' })
 							.append($('<h2 />', { 'class' : 'gofr-entry-title' })
+							// .append($('<a />', { 'class' : 'gofr-entry-title', 'href' : details.link, 'target' : '_blank' })
+								// .click(function(e) {
+								// 	entry.markAsRead();
+
+								// 	// Prevent expansion
+								// 	e.stopPropagation();
+								// })
 								.text(details.title))
 							.append($('<span />', { 'class' : 'gofr-entry-source-mobile' })
 								.text(" - " + sourceTitle))
@@ -471,6 +479,10 @@ $().ready(function() {
 		'hasProperty': function(propertyName) {
 			return $.inArray(propertyName, this.properties) > -1;
 		},
+		'markAsRead': function(force) {
+			if (!this.hasProperty('read') || force)
+				this.setProperty('read', true);
+		},
 		'setProperty': function(propertyName, propertyValue) {
 			if (propertyValue == this.hasProperty(propertyName))
 				return; // Already set
@@ -567,8 +579,7 @@ $().ready(function() {
 			if (this.isExpanded())
 				return;
 
-			if (!this.hasProperty('read'))
-				this.setProperty('read', true);
+			this.markAsRead();
 
 			if (entry.areExtrasDirty)
 				entry.loadExtras();
@@ -581,7 +592,7 @@ $().ready(function() {
 								.text(details.title)))
 						.append($('<div />', { 'class' : 'gofr-article-author' }))
 						.append($('<div />', { 'class' : 'gofr-article-pubDate' })
-							.text(_l("Published %s", [getPublishedDate(details.published)])))
+							.text(_l("Published %s", [getPublishedDate(entry.time)])))
 						.append($('<div />', { 'class' : 'gofr-article-body' })
 							.append(details.content)))
 					.append($('<div />', { 'class' : 'gofr-entry-footer'})

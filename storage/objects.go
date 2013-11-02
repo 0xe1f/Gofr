@@ -39,19 +39,25 @@ type User struct {
 	LastSubscriptionUpdate time.Time
 }
 
+type FeedMeta struct {
+	Feed *datastore.Key
+	InfoDigest []byte
+	Fetched time.Time
+	NextFetch time.Time
+	UpdateCounter int64
+	HourlyUpdateFrequency float32
+	Updated time.Time
+}
+
 type Feed struct {
 	URL string
 	Title string
 	Description string `datastore:",noindex"`
-	Updated time.Time
 	Link string
-	Format string
-	Fetched time.Time
-	NextFetch time.Time
-	HourlyUpdateFrequency float32
-	UpdateCounter int64
+	Format string `datastore:",noindex"`
 	Topic string
 	HubURL string
+	Updated time.Time
 }
 
 type FeedUsage struct {
@@ -61,7 +67,6 @@ type FeedUsage struct {
 }
 
 type EntryMeta struct {
-	Published time.Time
 	Fetched time.Time
 	Updated time.Time
 	UpdateIndex int64
@@ -69,15 +74,14 @@ type EntryMeta struct {
 }
 
 type Entry struct {
-	UniqueID string     `json:"-"`
 	Author string       `json:"author"`
 	Title string        `json:"title"`
 	Link string         `json:"link"`
-	Published time.Time `json:"published"`
+	Published time.Time `json:"-"`
 	Updated time.Time   `json:"-"`
 
 	Content string `json:"content" datastore:",noindex"`
-	Summary string `json:"summary"`
+	Summary string `json:"summary" datastore:",noindex"`
 }
 
 type likeCountShard struct {
@@ -178,8 +182,7 @@ type Article struct {
 	Details *Entry        `datastore:"-" json:"details"`
 
 	UpdateIndex int64     `json:"-"`
-	Published time.Time   `json:"-"`
-	Fetched time.Time     `json:"-"`
+	Time time.Time        `json:"time"`
 	Entry *datastore.Key  `json:"-"`
 
 	Properties []string   `json:"properties"`

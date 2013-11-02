@@ -244,9 +244,15 @@ a {
 }
 
 .gofr-entry-title {
+	color: black;
+	font-weight: bold;
 	font-size: 10pt;
 	display: inline;
 	margin: 0;
+}
+
+a.gofr-entry-title:hover {
+	text-decoration: underline;
 }
 
 .gofr-entry.read .gofr-entry-title {
