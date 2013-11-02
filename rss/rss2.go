@@ -155,8 +155,8 @@ func (nativeEntry *rss2Entry) Marshal() (entry *Entry, err error) {
 	return entry, err
 }
 
-var tzCodes = []string { "AST", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT", "AKST", "AKDT", "HAST", "HADT", "SST", "SDT", "CHST"}
-var tzOffsets = []string { "-0400", "-0500", "-0400", "-0600", "-0500", "-0700", "-0600", "-0800", "-0700", "-0900", "-0800", "-1000", "-0900", "-1100", "-1000", "+1000"}
+var tzCodes = []string { "AST", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT", "AKST", "AKDT", "HAST", "HADT", "SST", "SDT", "CHST", "CET" }
+var tzOffsets = []string { "-0400", "-0500", "-0400", "-0600", "-0500", "-0700", "-0600", "-0800", "-0700", "-0900", "-0800", "-1000", "-0900", "-1100", "-1000", "+1000", "+0100"}
 
 func parseRSS2Time(timeSpec string) (time.Time, error) {
 	if timeSpec != "" {
