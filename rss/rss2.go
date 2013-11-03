@@ -175,8 +175,7 @@ func parseRSS2Time(timeSpec string) (time.Time, error) {
 		// FIXME
 		// time.Parse doesn't deal with timezone codes predictably. 
 		// For that reason, we replace timezone codes with UTC offsets
-		// Note that this only works with USA TZ codes, so this is not a proper
-		// long-term solution
+		// Note that this is not a proper long-term solution
 
 		tryAgain := false
 		for i, tzCode := range tzCodes {

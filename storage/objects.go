@@ -182,7 +182,7 @@ type Article struct {
 	Details *Entry        `datastore:"-" json:"details"`
 
 	UpdateIndex int64     `json:"-"`
-	Time time.Time        `json:"time"`
+	Fetched time.Time        `json:"time"`
 	Entry *datastore.Key  `json:"-"`
 
 	Properties []string   `json:"properties"`

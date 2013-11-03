@@ -74,6 +74,8 @@ func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key
 
 		if err == datastore.Done {
 			break
+		} else if IsFieldMismatch(err) {
+			// Ignore
 		} else if err != nil {
 			c.Errorf("Error reading Entry: %s", err)
 			return batchWriter.Written(), err
@@ -87,13 +89,15 @@ func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key
 			article.Entry = entryMeta.Entry
 			article.Properties = []string { "unread" }
 			unreadDelta++
+		} else if IsFieldMismatch(err) {
+			// Ignore - migration
 		} else if err != nil {
 			c.Warningf("Error reading article %s: %s", entryMeta.Entry.StringID(), err)
 			continue
 		}
 
 		article.UpdateIndex = entryMeta.UpdateIndex
-		article.Time = entryMeta.Fetched
+		article.Fetched = entryMeta.Fetched
 
 		if entryMeta.UpdateIndex > largestUpdateIndexWritten {
 			largestUpdateIndexWritten = entryMeta.UpdateIndex

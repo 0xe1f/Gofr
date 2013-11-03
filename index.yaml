@@ -13,14 +13,14 @@ indexes:
 - kind: Article
   ancestor: yes
   properties:
-  - name: Properties
-  - name: Time
+  - name: Fetched
     direction: desc
 
 - kind: Article
   ancestor: yes
   properties:
-  - name: Time
+  - name: Properties
+  - name: Fetched
     direction: desc
 
 - kind: EntryMeta

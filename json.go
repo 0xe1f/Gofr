@@ -322,6 +322,10 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 				subscriptionURL = feedURL
 			}
 		}
+	} else if feed, err := storage.FeedByURL(pfc.C, subscriptionURL); err == nil {
+		if feed.Title != "" {
+			feedTitle = feed.Title
+		}
 	}
 
 	if subscribed, err := storage.IsSubscriptionDuplicate(pfc.C, pfc.UserID, subscriptionURL); err != nil {
@@ -373,6 +377,10 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 			} else {
 				feedTitle = feed.Title
 			}
+		}
+	} else if feed, err := storage.FeedByURL(pfc.C, subscriptionURL); err == nil {
+		if feed.Title != "" {
+			feedTitle = feed.Title
 		}
 	}
 

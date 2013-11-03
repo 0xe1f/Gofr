@@ -46,6 +46,11 @@ func NewBatchWriter(c appengine.Context, op BatchOp) *BatchWriter {
 	return NewBatchWriterWithSize(c, op, defaultBatchSize)
 }
 
+func IsFieldMismatch(err error) bool {
+	_, ok := err.(*datastore.ErrFieldMismatch)
+	return ok
+}
+
 func (ref FolderRef)IsZero() bool {
 	return ref.UserID == "" && ref.FolderID == ""
 }
@@ -130,7 +135,7 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 		return nil, err
 	}
 
-	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Time")
+	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Fetched")
 	if filter.Property != "" {
 		q = q.Filter("Properties = ", filter.Property)
 	}
@@ -154,6 +159,8 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 
 		if _, err := t.Next(article); err != nil && err == datastore.Done {
 			break
+		} else if IsFieldMismatch(err) {
+			// Ignore - migration issue
 		} else if err != nil {
 			return nil, err
 		}
@@ -178,7 +185,18 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 
 	entries := make([]Entry, readCount)
 	if err := datastore.GetMulti(c, entryKeys, entries); err != nil {
-		return nil, err
+		if multiError, ok := err.(appengine.MultiError); ok {
+			for _, singleError := range multiError {
+				if singleError != nil {
+					// Safely ignore ErrFieldMismatch
+					if !IsFieldMismatch(singleError) {
+						return nil, err
+					}
+				}
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	for i, _ := range articles {
@@ -218,12 +236,20 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 		totalUnreadCount += subscription.UnreadCount
 	}
 
-	var feedMultiError appengine.MultiError
 	feeds := make([]Feed, len(subscriptions))
 
 	if err := datastore.GetMulti(c, feedKeys, feeds); err != nil {
 		if multiError, ok := err.(appengine.MultiError); ok {
-			feedMultiError = multiError
+			for _, singleError := range multiError {
+				if singleError != nil {
+					// Safely ignore ErrFieldMismatch
+					if !IsFieldMismatch(singleError) {
+						// It's not ErrFieldMismatch, 
+						// but ignore the error anyway. We just
+						// won't have a feed link
+					}
+				}
+			}
 		} else {
 			return nil, err
 		}
@@ -234,12 +260,7 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 
 		subscription := &subscriptions[i]
 		subscription.ID = subscriptionKey.StringID()
-
-		if feedMultiError == nil || feedMultiError[i] == nil {
-			subscription.Link = feeds[i].Link
-		// } else if feedMultiError != nil && feedMultiError[i] != nil {
-		//   c.Warningf("MultiError for feed %s: %s", subscription.ID, feedMultiError[i])
-		}
+		subscription.Link = feeds[i].Link
 
 		if subscriptionKey.Parent().Kind() == "Folder" {
 			subscription.Parent = formatId("folder", subscriptionKey.Parent().IntID())
@@ -534,6 +555,8 @@ func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
 
 		if err == datastore.Done {
 			break
+		} else if IsFieldMismatch(err) {
+			// Ignore - migration issue
 		} else if err != nil {
 			c.Errorf("Error reading Article: %s", err)
 			return 0, err
@@ -644,6 +667,8 @@ func MoveArticles(c appengine.Context, subRef SubscriptionRef, destRef FolderRef
 
 		if err == datastore.Done {
 			break
+		} else if IsFieldMismatch(err) {
+			// Safely ignore - migration issue
 		} else if err != nil {
 			c.Errorf("Error reading Article: %s", err)
 			return err
@@ -710,7 +735,7 @@ func FeedByURL(c appengine.Context, url string) (*Feed, error) {
 	feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
 	feed := new(Feed)
 
-	if err := datastore.Get(c, feedKey, feed); err == nil {
+	if err := datastore.Get(c, feedKey, feed); err == nil || IsFieldMismatch(err) {
 		return feed, nil
 	} else if err != datastore.ErrNoSuchEntity {
 		return nil, err
@@ -720,10 +745,13 @@ func FeedByURL(c appengine.Context, url string) (*Feed, error) {
 }
 
 func IsFeedAvailable(c appengine.Context, url string) (bool, error) {
-	feedMetaKey := datastore.NewKey(c, "FeedMeta", url, 0, nil)
-	feedMeta := new(Feed)
+	feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
+	feed := new(Feed)
 
-	if err := datastore.Get(c, feedMetaKey, feedMeta); err == nil {
+	if err := datastore.Get(c, feedKey, feed); err == nil {
+		return true, nil
+	} else if IsFieldMismatch(err) {
+		// Some fields don't match - migration issue
 		return true, nil
 	} else if err != datastore.ErrNoSuchEntity {
 		return false, err
@@ -733,16 +761,18 @@ func IsFeedAvailable(c appengine.Context, url string) (bool, error) {
 }
 
 func WebToFeedURL(c appengine.Context, url string, title *string) (string, error) {
-	q := datastore.NewQuery("Feed").Filter("Link =", url).Limit(1)
-	var feeds []*Feed
-	if _, err := q.GetAll(c, &feeds); err == nil {
-		if len(feeds) > 0 {
-			if title != nil {
-				*title = feeds[0].Title
-			}
-			return feeds[0].URL, nil
+	q := datastore.NewQuery("Feed").Filter("Link =", url)
+	t := q.Run(c)
+	
+	feed := new(Feed)
+	if _, err := t.Next(feed); err == nil || IsFieldMismatch(err) {
+		if title != nil {
+			*title = feed.Title
 		}
-	} else {
+		return feed.URL, nil
+	} else if err == datastore.Done {
+		// No match
+	} else if err != nil {
 		return "", err
 	}
 
@@ -1075,8 +1105,6 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			Link: parsedEntry.WWWURL,
 			Summary: parsedEntry.GenerateSummary(),
 			Content: parsedEntry.Content,
-
-			// FIXME: Get rid of this eventually - already part of meta
 			Published: parsedEntry.Published,
 			Updated: parsedEntry.Updated,
 		}

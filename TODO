@@ -1,6 +1,9 @@
 Localization
 Use a mutex to prevent simultaneous feed updates
 
+"Subscribe" is inefficient in the way it performs lookups
+of potentially existing feeds
+
 Split the following tasks, so that some of the work is done immediately,
 while the rest is done in a background task:
 
