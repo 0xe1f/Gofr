@@ -26,6 +26,7 @@ package storage
 import (
 	"appengine"
 	"appengine/datastore"
+	"appengine/memcache"
 	"bytes"
 	"crypto/sha1"
 	"errors"
@@ -34,6 +35,7 @@ import (
 	"io"
 	"math/rand"
 	"rss"
+	"strconv"
 	"time"
 )
 
@@ -1271,4 +1273,71 @@ func LoadArticleExtras(c appengine.Context, ref ArticleRef) (ArticleExtras, erro
 			LikeCount: likeCount,
 		}, nil
 	}
+}
+
+func StorageVersion(c appengine.Context) (int, error) {
+	version := 0
+
+	if item, err := memcache.Get(c, "storageVersion"); err == memcache.ErrCacheMiss {
+		// check the datastore
+	} else if err != nil {
+		return 0, err
+	} else {
+		if version, err := strconv.Atoi(string(item.Value)); err != nil {
+			return version, nil
+		} // else, check the datastore
+	}
+
+	if version == 0 {
+		storageInfoKey := datastore.NewKey(c, "App", "storageInfo", 0, nil)
+		storageInfo := new(StorageInfo)
+
+		if err := datastore.Get(c, storageInfoKey, storageInfo); err == datastore.ErrNoSuchEntity {
+			// Initial version
+			version = 1
+		} else if err != nil {
+			return 0, err
+		} else {
+			version = storageInfo.Version
+		}
+	}
+
+	item := memcache.Item {
+		Key: "storageVersion",
+		Value: []byte(strconv.Itoa(version)),
+	}
+
+	if err := memcache.Set(c, &item); err != nil {
+	    c.Warningf("Storage version not set in memcache: %s", err)
+	}
+
+	return version, nil
+}
+
+func UpdateStorageVersion(c appengine.Context, version int) error {
+	storageInfoKey := datastore.NewKey(c, "App", "storageInfo", 0, nil)
+	storageInfo := new(StorageInfo)
+
+	if err := datastore.Get(c, storageInfoKey, storageInfo); err == datastore.ErrNoSuchEntity {
+		// No entry
+	} else if err != nil {
+		return err
+	}
+
+	storageInfo.Version = version
+
+	if _, err := datastore.Put(c, storageInfoKey, storageInfo); err != nil {
+		return err
+	}
+
+	item := memcache.Item {
+		Key: "storageVersion",
+		Value: []byte(strconv.Itoa(version)),
+	}
+
+	if err := memcache.Set(c, &item); err != nil {
+	    c.Warningf("Storage version not set in memcache: %s", err)
+	}
+
+	return nil
 }

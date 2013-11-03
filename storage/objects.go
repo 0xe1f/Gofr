@@ -188,6 +188,10 @@ type Article struct {
 	Properties []string   `json:"properties"`
 }
 
+type StorageInfo struct {
+	Version int
+}
+
 type Folder struct {
 	ID string    `datastore:"-" json:"id"`
 	Title string `json:"title"`

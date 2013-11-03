@@ -45,6 +45,7 @@ func registerTasks() {
 	RegisterTaskRoute("/tasks/moveSubscription", moveSubscriptionTask)
 	RegisterTaskRoute("/tasks/syncFeeds",     syncFeedsTask)
 	RegisterTaskRoute("/tasks/removeFolder",  removeFolderTask)
+	RegisterTaskRoute("/tasks/migrate",       migrateTask)
 }
 
 func startTask(pfc *PFContext, taskName string, params taskParams, queueName string) error {
@@ -343,4 +344,20 @@ func removeFolderTask(pfc *PFContext) (TaskMessage, error) {
 	}
 
 	return TaskMessage{}, nil
+}
+
+func migrateTask(pfc *PFContext) (TaskMessage, error) {
+	if pfc.currentStorageVersion >= pfc.requiredStorageVersion {
+		pfc.C.Errorf("Can't upgrade: at %d - required: %d",
+			pfc.currentStorageVersion, pfc.requiredStorageVersion)
+		return TaskMessage{}, errors.New("Nothing to upgrade")
+	}
+
+	finalVersion, err := storage.Migrate(pfc.C, pfc.currentStorageVersion, pfc.requiredStorageVersion)
+	if err != nil {
+		return TaskMessage{}, err
+	}
+
+	err = storage.UpdateStorageVersion(pfc.C, finalVersion)
+	return TaskMessage{}, err
 }
