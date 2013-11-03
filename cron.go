@@ -37,15 +37,15 @@ func registerCron() {
 	RegisterCronRoute("/cron/updateUnreadCounts", updateUnreadCountsJob)
 }
 
-func updateFeed(c appengine.Context, ch chan<- storage.Feed, feed storage.Feed) {
+func updateFeed(c appengine.Context, ch chan<- *storage.FeedMeta, url string, feedMeta *storage.FeedMeta) {
 	client := urlfetch.Client(c)
-	if response, err := client.Get(feed.URL); err != nil {
-		c.Errorf("Error downloading feed %s: %s", feed.URL, err)
+	if response, err := client.Get(url); err != nil {
+		c.Errorf("Error downloading feed %s: %s", url, err)
 		goto done
 	} else {
 		defer response.Body.Close()
-		if parsedFeed, err := rss.UnmarshalStream(feed.URL, response.Body); err != nil {
-			c.Errorf("Error reading RSS content (%s): %s", feed.URL, err)
+		if parsedFeed, err := rss.UnmarshalStream(url, response.Body); err != nil {
+			c.Errorf("Error reading RSS content (%s): %s", url, err)
 			goto done
 		} else if err := storage.UpdateFeed(c, parsedFeed); err != nil {
 			c.Errorf("Error updating feed: %s", err)
@@ -54,7 +54,7 @@ func updateFeed(c appengine.Context, ch chan<- storage.Feed, feed storage.Feed) 
 	}
 
 done:
-	ch<- feed
+	ch<- feedMeta
 }
 
 func updateFeedsJob(pfc *PFContext) error {
@@ -62,7 +62,7 @@ func updateFeedsJob(pfc *PFContext) error {
 	importing := 0
 	started := time.Now()
 	fetchTime := time.Now()
-	doneChannel := make(chan storage.Feed)
+	doneChannel := make(chan *storage.FeedMeta)
 	var jobError error
 
 	if appengine.IsDevAppServer() {
@@ -71,19 +71,22 @@ func updateFeedsJob(pfc *PFContext) error {
 		fetchTime = fetchTime.Add(time.Duration(24) * time.Hour)
 	}
 	
-	feed := storage.Feed{}
-
-	q := datastore.NewQuery("Feed").Filter("NextFetch <", fetchTime)
+	q := datastore.NewQuery("FeedMeta").Filter("NextFetch <", fetchTime)
 	for t := q.Run(c); ; {
-		if _, err := t.Next(&feed); err == datastore.Done {
+		feedMeta := new(storage.FeedMeta)
+		var feedMetaKey *datastore.Key
+
+		if key, err := t.Next(feedMeta); err == datastore.Done {
 			break
 		} else if err != nil {
 			c.Errorf("Error fetching feed record: %s", err)
 			jobError = err
 			break
+		} else {
+			feedMetaKey = key
 		}
 
-		go updateFeed(pfc.C, doneChannel, feed)
+		go updateFeed(pfc.C, doneChannel, feedMetaKey.StringID(), feedMeta)
 		importing++
 	}
 

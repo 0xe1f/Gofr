@@ -1079,11 +1079,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			// New; set defaults
 			entryMeta.Entry = entryKey
 			nuovo++
-		} else if err != nil {
-			// Some other error
-			c.Warningf("Error getting entry meta (GUID '%s'): %s", entryGUID, err)
-			continue
-		} else {
+		} else if err == nil || IsFieldMismatch(err) {
 			// Already in the store - check if it's new/updated
 			if !entryMeta.Updated.IsZero() && entryMeta.Updated.Equal(parsedEntry.Updated) {
 				// No updates - skip
@@ -1092,8 +1088,12 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			} else {
 				changed++
 			}
+		} else {
+			// Some other error
+			c.Warningf("Error getting entry meta (GUID '%s'): %s", entryGUID, err)
+			continue
 		}
-
+		
 		entryMeta.Updated = parsedEntry.Updated
 		entryMeta.Fetched = parsedFeed.Retrieved
 		entryMeta.UpdateIndex = updateCounter
