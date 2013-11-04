@@ -469,7 +469,7 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 	}
 
 	article := new(Article)
-	if err := datastore.Get(c, articleKey, article); err != nil {
+	if err := datastore.Get(c, articleKey, article); err != nil && !IsFieldMismatch(err) {
 		return nil, err
 	}
 
@@ -1093,7 +1093,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			c.Warningf("Error getting entry meta (GUID '%s'): %s", entryGUID, err)
 			continue
 		}
-		
+
 		entryMeta.Updated = parsedEntry.Updated
 		entryMeta.Fetched = parsedFeed.Retrieved
 		entryMeta.UpdateIndex = updateCounter
