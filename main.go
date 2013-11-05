@@ -61,6 +61,16 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 
 	storageVersion, err := storage.StorageVersion(c)
+	if storageVersion == 0 && err == nil {
+		// Version was indeterminate; possibly because the store is empty
+		storageVersion = requiredStorageVersion
+		if err := storage.UpdateStorageVersion(c, storageVersion); err != nil {
+			c.Errorf("Error updating storage version: %v", err)
+			http.Error(w, "Error initializing storage", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	if err != nil {
 		c.Errorf("Storage version check error: %v", err)
 		http.Error(w, "Error initializing storage", http.StatusInternalServerError)

@@ -1275,6 +1275,29 @@ func LoadArticleExtras(c appengine.Context, ref ArticleRef) (ArticleExtras, erro
 	}
 }
 
+func determineStorageVersion(c appengine.Context) (int, error) {
+	// Are there any Feed entities?
+	q := datastore.NewQuery("Feed").KeysOnly().Limit(1)
+	if keys, err := q.GetAll(c, nil); err != nil {
+		return 0, err
+	} else if len(keys) < 1 {
+		// No Feed entities; indeterminate version
+		return 0, nil
+	}
+
+	// There is at least one Feed entity; is there a FeedMeta?
+	q = datastore.NewQuery("FeedMeta").KeysOnly().Limit(1)
+	if keys, err := q.GetAll(c, nil); err != nil {
+		return 0, err
+	} else if len(keys) < 1 {
+		// If there are no FeedMeta entities, we're at version 1
+		return 1, nil
+	} else {
+		// There are FeedMeta entities; indeterminate
+		return 0, nil
+	}
+}
+
 func StorageVersion(c appengine.Context) (int, error) {
 	version := 0
 
@@ -1293,8 +1316,11 @@ func StorageVersion(c appengine.Context) (int, error) {
 		storageInfo := new(StorageInfo)
 
 		if err := datastore.Get(c, storageInfoKey, storageInfo); err == datastore.ErrNoSuchEntity {
-			// Initial version
-			version = 1
+			if determinedVersion, err := determineStorageVersion(c); err != nil {
+				return 0, err
+			} else {
+				version = determinedVersion
+			}
 		} else if err != nil {
 			return 0, err
 		} else {
@@ -1302,13 +1328,15 @@ func StorageVersion(c appengine.Context) (int, error) {
 		}
 	}
 
-	item := memcache.Item {
-		Key: "storageVersion",
-		Value: []byte(strconv.Itoa(version)),
-	}
+	if version != 0 {
+		item := memcache.Item {
+			Key: "storageVersion",
+			Value: []byte(strconv.Itoa(version)),
+		}
 
-	if err := memcache.Set(c, &item); err != nil {
-	    c.Warningf("Storage version not set in memcache: %s", err)
+		if err := memcache.Set(c, &item); err != nil {
+		    c.Warningf("Storage version not set in memcache: %s", err)
+		}
 	}
 
 	return version, nil
