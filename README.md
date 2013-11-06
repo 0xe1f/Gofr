@@ -5,7 +5,7 @@ Gofr
 
 Gofr is written in [Go] [3], and uses the [Google Cloud Datastore] [4].
 
-![Screenshot](http://i.imgur.com/DAPtc3j.png "Screenshot")
+![Screenshot](http://i.imgur.com/r4MjqY5.png "Screenshot")
 
 Features
 --------
