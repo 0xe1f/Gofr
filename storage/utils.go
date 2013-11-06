@@ -98,6 +98,7 @@ func updateSubscriptionByKey(c appengine.Context, subscriptionKey *datastore.Key
 
 		article.UpdateIndex = entryMeta.UpdateIndex
 		article.Fetched = entryMeta.Fetched
+		article.Published = entryMeta.Published
 
 		if entryMeta.UpdateIndex > largestUpdateIndexWritten {
 			largestUpdateIndexWritten = entryMeta.UpdateIndex

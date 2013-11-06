@@ -534,8 +534,9 @@ $().ready(function() {
 				.toggleClass('star', this.hasProperty('star'))
 				.toggleClass('like', this.hasProperty('like'))
 				.toggleClass('read', this.hasProperty('read'));
-			$entry.find('.action-like').text(this.extras.likeCount > 0 
-				? _l("Like (%s)", [this.extras.likeCount]) : _l("Like"));
+			$entry.find('.gofr-like-count')
+				.text(_l("(%s)", [this.extras.likeCount]))
+				.toggleClass('unliked', this.extras.likeCount < 1);
 		},
 		'isExpanded': function() {
 			return this.getDom().hasClass('open');
@@ -601,24 +602,30 @@ $().ready(function() {
 								entry.toggleStarred();
 							}))
 						.append($('<span />', { 'class' : 'action-unread gofr-entry-action'})
-							.text(_l("Keep unread"))
+							.append($('<span />', { 'class': 'gofr-action-text' })
+								.text(_l("Keep unread")))
 							.click(function(e) {
 								entry.toggleUnread();
 							}))
 						.append($('<span />', { 'class' : 'action-like gofr-entry-action'})
-							.text(entry.extras.likeCount > 0 
-								? _l("Like (%s)", [entry.extras.likeCount]) : _l("Like"))
+							.append($('<span />', { 'class': 'gofr-action-text' })
+								.text(_l("Like")))
+							.append($('<span />', { 'class': 'gofr-like-count' })
+								.text(_l("(%s)", [entry.extras.likeCount])))
 							.click(function(e) {
 								entry.toggleLike();
 							}))
 						.append($('<span />', { 'class' : 'gofr-entry-action-group gofr-entry-share-group'})
-							.text(_l("Share:")))
+							.append($('<span />', { 'class': 'gofr-action-text' })
+								.text(_l("Share: "))))
 						.append($('<a />', { 
 							'class': 'action-share-gplus gofr-entry-share',
 							'href': 'https://plus.google.com/share?url=' + encodeURIComponent(details.link),
 							'data-flags': 'width=600,height=460,menubar=no,location=no,status=no',
 							'title': _l('Share on Google+'),
-						}).click(function(e) {
+						})
+						.html('&nbsp;')
+						.click(function(e) {
 							return ui.share($(this));
 						}))
 						.append($('<a />', { 
@@ -626,7 +633,9 @@ $().ready(function() {
 							'href': 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(details.link),
 							'data-flags': 'width=626,height=436,menubar=no,location=no,status=no',
 							'title': _l('Share on Facebook'),
-						}).click(function(e) {
+						})
+						.html('&nbsp;')
+						.click(function(e) {
 							return ui.share($(this));
 						}))
 						.append($('<a />', { 
@@ -634,7 +643,9 @@ $().ready(function() {
 							'href': 'https://twitter.com/share?url=' + encodeURIComponent(details.link),
 							'data-flags': 'width=470,height=257,menubar=no,location=no,status=no',
 							'title': _l('Tweet'),
-						}).click(function(e) {
+						})
+						.html('&nbsp;')
+						.click(function(e) {
 							return ui.share($(this));
 						})))
 					.click(function(e) {

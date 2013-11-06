@@ -323,7 +323,7 @@ a.gofr-entry-title:hover {
 }
 
 .gofr-entry-share {
-	margin-left: 0.5em;
+	margin-left: 0;
 }
 
 .action-unread {
@@ -379,6 +379,14 @@ a.gofr-entry-title:hover {
 
 .like .action-like {
 	background-position: -75px -75px;
+}
+
+.gofr-entry-action .gofr-action-text {
+	margin-right: 0.35em;
+}
+
+.gofr-like-count.unliked {
+	display: none;
 }
 
 .gofr-entry-footer .action-star {
@@ -878,6 +886,18 @@ ul.menu {
 
 	.navigate {
 		display: inline-block;
+	}
+
+	.gofr-entry-action {
+		margin-left: 0.5em;
+	}
+
+	.gofr-entry-action-group {
+		margin-left: 1em;
+	}
+
+	.gofr-action-text {
+		display: none;
 	}
 
 	.gofr-entry-item,

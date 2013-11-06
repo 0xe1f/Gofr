@@ -69,6 +69,7 @@ type FeedUsage struct {
 type EntryMeta struct {
 	Fetched time.Time
 	Updated time.Time
+	Published time.Time
 	UpdateIndex int64
 	Entry *datastore.Key
 }
@@ -77,7 +78,6 @@ type Entry struct {
 	Author string       `json:"author"`
 	Title string        `json:"title"`
 	Link string         `json:"link"`
-	Published time.Time `json:"-"`
 	Updated time.Time   `json:"-"`
 
 	Content string `json:"content" datastore:",noindex"`
@@ -182,7 +182,8 @@ type Article struct {
 	Details *Entry        `datastore:"-" json:"details"`
 
 	UpdateIndex int64     `json:"-"`
-	Fetched time.Time        `json:"time"`
+	Fetched time.Time     `json:"time"`
+	Published time.Time   `json:"-"`
 	Entry *datastore.Key  `json:"-"`
 
 	Properties []string   `json:"properties"`

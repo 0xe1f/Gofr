@@ -15,12 +15,16 @@ indexes:
   properties:
   - name: Fetched
     direction: desc
+  - name: Published
+    direction: desc
 
 - kind: Article
   ancestor: yes
   properties:
   - name: Properties
   - name: Fetched
+    direction: desc
+  - name: Published
     direction: desc
 
 - kind: EntryMeta

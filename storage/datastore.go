@@ -26,7 +26,6 @@ package storage
 import (
 	"appengine"
 	"appengine/datastore"
-	"appengine/memcache"
 	"bytes"
 	"crypto/sha1"
 	"errors"
@@ -35,7 +34,6 @@ import (
 	"io"
 	"math/rand"
 	"rss"
-	"strconv"
 	"time"
 )
 
@@ -137,7 +135,7 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 		return nil, err
 	}
 
-	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Fetched")
+	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Fetched").Order("-Published")
 	if filter.Property != "" {
 		q = q.Filter("Properties = ", filter.Property)
 	}
@@ -1094,7 +1092,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			continue
 		}
 
-		entryMeta.Updated = parsedEntry.Updated
+		entryMeta.Published = parsedEntry.Published
 		entryMeta.Fetched = parsedFeed.Retrieved
 		entryMeta.UpdateIndex = updateCounter
 
@@ -1107,7 +1105,6 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			Link: parsedEntry.WWWURL,
 			Summary: parsedEntry.GenerateSummary(),
 			Content: parsedEntry.Content,
-			Published: parsedEntry.Published,
 			Updated: parsedEntry.Updated,
 		}
 
@@ -1273,99 +1270,4 @@ func LoadArticleExtras(c appengine.Context, ref ArticleRef) (ArticleExtras, erro
 			LikeCount: likeCount,
 		}, nil
 	}
-}
-
-func determineStorageVersion(c appengine.Context) (int, error) {
-	// Are there any Feed entities?
-	q := datastore.NewQuery("Feed").KeysOnly().Limit(1)
-	if keys, err := q.GetAll(c, nil); err != nil {
-		return 0, err
-	} else if len(keys) < 1 {
-		// No Feed entities; indeterminate version
-		return 0, nil
-	}
-
-	// There is at least one Feed entity; is there a FeedMeta?
-	q = datastore.NewQuery("FeedMeta").KeysOnly().Limit(1)
-	if keys, err := q.GetAll(c, nil); err != nil {
-		return 0, err
-	} else if len(keys) < 1 {
-		// If there are no FeedMeta entities, we're at version 1
-		return 1, nil
-	} else {
-		// There are FeedMeta entities; indeterminate
-		return 0, nil
-	}
-}
-
-func StorageVersion(c appengine.Context) (int, error) {
-	version := 0
-
-	if item, err := memcache.Get(c, "storageVersion"); err == memcache.ErrCacheMiss {
-		// check the datastore
-	} else if err != nil {
-		return 0, err
-	} else {
-		if version, err := strconv.Atoi(string(item.Value)); err != nil {
-			return version, nil
-		} // else, check the datastore
-	}
-
-	if version == 0 {
-		storageInfoKey := datastore.NewKey(c, "App", "storageInfo", 0, nil)
-		storageInfo := new(StorageInfo)
-
-		if err := datastore.Get(c, storageInfoKey, storageInfo); err == datastore.ErrNoSuchEntity {
-			if determinedVersion, err := determineStorageVersion(c); err != nil {
-				return 0, err
-			} else {
-				version = determinedVersion
-			}
-		} else if err != nil {
-			return 0, err
-		} else {
-			version = storageInfo.Version
-		}
-	}
-
-	if version != 0 {
-		item := memcache.Item {
-			Key: "storageVersion",
-			Value: []byte(strconv.Itoa(version)),
-		}
-
-		if err := memcache.Set(c, &item); err != nil {
-		    c.Warningf("Storage version not set in memcache: %s", err)
-		}
-	}
-
-	return version, nil
-}
-
-func UpdateStorageVersion(c appengine.Context, version int) error {
-	storageInfoKey := datastore.NewKey(c, "App", "storageInfo", 0, nil)
-	storageInfo := new(StorageInfo)
-
-	if err := datastore.Get(c, storageInfoKey, storageInfo); err == datastore.ErrNoSuchEntity {
-		// No entry
-	} else if err != nil {
-		return err
-	}
-
-	storageInfo.Version = version
-
-	if _, err := datastore.Put(c, storageInfoKey, storageInfo); err != nil {
-		return err
-	}
-
-	item := memcache.Item {
-		Key: "storageVersion",
-		Value: []byte(strconv.Itoa(version)),
-	}
-
-	if err := memcache.Set(c, &item); err != nil {
-	    c.Warningf("Storage version not set in memcache: %s", err)
-	}
-
-	return nil
 }
