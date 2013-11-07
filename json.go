@@ -27,7 +27,6 @@ import (
 	"appengine"
 	"appengine/blobstore"
 	"appengine/channel"
-	"appengine/urlfetch"
 	"io/ioutil"
 	"net/url"
 	"regexp"
@@ -46,13 +45,6 @@ const (
 
 	subscriptionStalePeriodInMinutes = 10
 )
-
-var validProperties = map[string]bool {
-	"unread": true,
-	"read":   true,
-	"star":   true,
-	"like":   true,
-}
 
 func registerJson() {
 	RegisterJSONRoute("/syncFeeds",     syncFeeds)
@@ -339,7 +331,7 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 		return nil, err
 	} else if !exists {
 		// Don't have the feed locally - fetch it
-		client := urlfetch.Client(c)
+		client := createHttpClient(c)
 		if response, err := client.Get(subscriptionURL); err != nil {
 			return nil, NewReadableError(_l("An error occurred while downloading the feed"), &err)
 		} else {

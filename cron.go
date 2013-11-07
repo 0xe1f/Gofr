@@ -78,12 +78,12 @@ func updateFeedsJob(pfc *PFContext) error {
 
 		if key, err := t.Next(feedMeta); err == datastore.Done {
 			break
-		} else if err != nil {
+		} else if err == nil || storage.IsFieldMismatch(err) {
+			feedMetaKey = key
+		} else {
 			c.Errorf("Error fetching feed record: %s", err)
 			jobError = err
 			break
-		} else {
-			feedMetaKey = key
 		}
 
 		go updateFeed(pfc.C, doneChannel, feedMetaKey.StringID(), feedMeta)

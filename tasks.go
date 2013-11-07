@@ -27,7 +27,6 @@ import (
 	"appengine"
 	"appengine/blobstore"
 	"appengine/taskqueue"
-	"appengine/urlfetch"
 	"errors"
 	"net/url"
 	"rss"
@@ -82,7 +81,7 @@ func importSubscription(pfc *PFContext, ch chan<- *rss.Outline, userID storage.U
 		goto done
 	} else if feed == nil {
 		// Feed not available locally - fetch it
-		client := urlfetch.Client(pfc.C)
+		client := createHttpClient(pfc.C)
 		if response, err := client.Get(subscriptionURL); err != nil {
 			c.Errorf("Error downloading feed %s: %s", subscriptionURL, err)
 			goto done
@@ -215,7 +214,7 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
 		return TaskMessage{}, err
 	} else if feed == nil {
 		// Feed not available locally - fetch it
-		client := urlfetch.Client(pfc.C)
+		client := createHttpClient(pfc.C)
 		if response, err := client.Get(subscriptionURL); err != nil {
 			pfc.C.Errorf("Error downloading feed (%s): %s", subscriptionURL, err)
 			return TaskMessage{}, NewReadableError(_l("An error occurred while downloading the feed"), &err)

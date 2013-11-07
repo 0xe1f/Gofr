@@ -106,9 +106,7 @@ $().ready(function() {
 
 	$('html')
 		.click(function() {
-			$('.shortcuts').hide();
-			ui.toggleNavBar(false);
-			$$menu.hideAll();
+			ui.unfloatAll();
 		})
 		.mouseup(function(e) {
 			$('#subscriptions').unbind("mousemove");
@@ -649,6 +647,7 @@ $().ready(function() {
 							return ui.share($(this));
 						})))
 					.click(function(e) {
+						ui.unfloatAll();
 						e.stopPropagation();
 					});
 
@@ -783,6 +782,7 @@ $().ready(function() {
 				ui.subscribe();
 			});
 			$('button.navigate').click(function(e) {
+				$$menu.hideAll();
 				ui.toggleNavBar(true);
 				e.stopPropagation();
 			});
@@ -838,7 +838,7 @@ $().ready(function() {
 					.append($('<li />', { 'class': 'menu-show-all-subs checkable' }).text(_l("Show read subscriptions")))
 					.append($('<li />', { 'class': 'divider' }))
 					.append($('<li />', { 'class': 'menu-shortcuts' }).text(_l("View shortcut keys…"))))
-				.append($('<ul />', { 'id': 'menu-view', 'class': 'menu' })
+				.append($('<ul />', { 'id': 'menu-view', 'class': 'menu selectable' })
 					.append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
 					.append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
 					.append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
@@ -1005,9 +1005,9 @@ $().ready(function() {
 					if ($('.gofr-entry.selected').length)
 						$('.gofr-entry.selected').find('.gofr-entry-link')[0].click();
 				})
-				// .bind('keypress', 't', function()
-				// {
-				//   editTags($('.gofr-entry.selected'));
+				// .bind('keypress', 't', function() {
+				// 	if ($('.gofr-entry.selected').length)
+				// 		ui.editTags($('.gofr-entry.selected').data('entry'));
 				// })
 				.bind('keypress', 'shift+a', function() {
 					ui.markAllAsRead();
@@ -1292,6 +1292,7 @@ $().ready(function() {
 										var selectedSubscription = getSelectedSubscription();
 										if (selectedSubscription != null) {
 											$('#menu-filter').selectItem('.menu-all-items');
+											$('#menu-view').selectItem('.menu-all-items');
 											selectedSubscription.refresh();
 										}
 
@@ -1315,6 +1316,26 @@ $().ready(function() {
 		'share': function($anchor) {
 			window.open($anchor.attr('href'), 'share', $anchor.attr('data-flags'));
 			return false;
+		},
+		'unfloatAll': function() {
+			$('.shortcuts').hide();
+			ui.toggleNavBar(false);
+			$$menu.hideAll();
+		},
+		'editTags': function(entry) {
+			// var tagString = entry.tags.join(', ');
+			// var tags = prompt(l('Separate multiple tags with commas'), tagString);
+
+			// if (tags != null) {
+			// 	$.post('?c=articles', {
+			// 		setTagsFor : entry.id, 
+			// 		tags       : tags
+			// 	},
+			// 	function(response) {
+			// 		entry.tags = response.entry.tags;
+			// 		refreshEntry(entryDom);
+			// 	}, 'json');
+			// }
 		},
 	};
 

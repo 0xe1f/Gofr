@@ -27,11 +27,9 @@ import (
 	"appengine"
 	"appengine/datastore"
 	"bytes"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"html"
-	"io"
 	"math/rand"
 	"rss"
 	"time"
@@ -929,16 +927,7 @@ func DeleteArticlesWithinScope(c appengine.Context, scope ArticleScope) error {
 func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 	var updateCounter int64
 
-	// Compute the hash for the info. part of the feed
-	sha1 := sha1.New()
-	io.WriteString(sha1, parsedFeed.Title)
-	io.WriteString(sha1, parsedFeed.Description)
-	io.WriteString(sha1, parsedFeed.WWWURL)
-	io.WriteString(sha1, parsedFeed.Format)
-	io.WriteString(sha1, parsedFeed.HubURL)
-	io.WriteString(sha1, parsedFeed.Topic)
-	infoDigest := sha1.Sum(nil)
-
+	feedDigest := parsedFeed.Digest()
 	feedMeta := new(FeedMeta)
 	feedMetaKey := datastore.NewKey(c, "FeedMeta", parsedFeed.URL, 0, nil)
 	feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
@@ -951,17 +940,17 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			// New; set defaults
 			feedMeta.Feed = feedKey
 			feedMeta.UpdateCounter = 0
-			feedMeta.InfoDigest = infoDigest
+			feedMeta.InfoDigest = feedDigest
 			updateInfo = true
-		} else if err != nil {
-			// Some other error
-			return err
-		} else {
+		} else if err == nil || IsFieldMismatch(err) {
 			// If the feed information has changed, update it
-			if !bytes.Equal(feedMeta.InfoDigest, infoDigest) {
-				feedMeta.InfoDigest = infoDigest
+			if !bytes.Equal(feedMeta.InfoDigest, feedDigest) {
+				feedMeta.InfoDigest = feedDigest
 				updateInfo = true
 			}
+		} else {
+			// Some other error
+			return err
 		}
 
 		durationBetweenUpdates := parsedFeed.DurationBetweenUpdates()
@@ -1071,20 +1060,22 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 
 		entryMetaKey := datastore.NewKey(c, "EntryMeta", entryGUID, 0, feedMeta.Feed)
 		entryKey := datastore.NewKey(c, "Entry", entryGUID, 0, feedMeta.Feed)
+		entryDigest := parsedEntry.Digest()
 		var entryMeta EntryMeta
 
 		if err := datastore.Get(c, entryMetaKey, &entryMeta); err == datastore.ErrNoSuchEntity {
 			// New; set defaults
 			entryMeta.Entry = entryKey
+			entryMeta.InfoDigest = entryDigest
 			nuovo++
 		} else if err == nil || IsFieldMismatch(err) {
-			// Already in the store - check if it's new/updated
-			if !entryMeta.Updated.IsZero() && entryMeta.Updated.Equal(parsedEntry.Updated) {
+			if !bytes.Equal(entryMeta.InfoDigest, entryDigest) {
+				entryMeta.InfoDigest = entryDigest
+				changed++
+			} else {
 				// No updates - skip
 				unchanged++
 				continue
-			} else {
-				changed++
 			}
 		} else {
 			// Some other error
@@ -1103,7 +1094,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			Author: html.UnescapeString(parsedEntry.Author),
 			Title: html.UnescapeString(parsedEntry.Title),
 			Link: parsedEntry.WWWURL,
-			Summary: parsedEntry.GenerateSummary(),
+			Summary: parsedEntry.Summary(),
 			Content: parsedEntry.Content,
 			Updated: parsedEntry.Updated,
 		}
@@ -1117,10 +1108,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 		pending++
 	}
 
-	if appengine.IsDevAppServer() {
-		c.Debugf("Completed %s: %d,%d,%d (n,c,u) (took %s, last fetch: %s ago)", 
-			parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
-	}
+	c.Debugf("Completed %s: %d,%d,%d (n,c,u) (took %s, last fetch: %s ago)", 
+		parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
 
 	return nil
 }

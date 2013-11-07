@@ -841,24 +841,8 @@ ul.menu {
 	display: none;
 }
 
-/*** Mobile ***/
-@media only screen and (max-width: 660px) {
-	.view-button {
-		display: inline;
-	}
-
-	.settings {
-		display: none;
-	}
-
-	.filter.dropdown {
-		display: none;
-	}
-
-	.mark-all-as-read {
-		display: none;
-	}
-
+/*** Smaller size window ***/
+@media only screen and (max-width: 800px) {
 	.feeds-container {
 		display: none;
 		position: absolute;
@@ -880,12 +864,35 @@ ul.menu {
 		z-index: 10000;
 	}
 
+	.navigate {
+		display: inline-block;
+	}
+
 	.gofr-entries-container {
 		left: 0;
 	}
 
-	.navigate {
-		display: inline-block;
+	.menu-show-sidebar {
+		display: none;
+	}
+}
+
+/*** Mobile ***/
+@media only screen and (max-width: 660px) {
+	.view-button {
+		display: inline;
+	}
+
+	.settings {
+		display: none;
+	}
+
+	.filter.dropdown {
+		display: none;
+	}
+
+	.mark-all-as-read {
+		display: none;
 	}
 
 	.gofr-entry-action {

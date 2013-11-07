@@ -27,6 +27,7 @@ import (
 	"bytes"
 	"code.google.com/p/go-charset/charset"
 	_ "code.google.com/p/go-charset/data"
+	"crypto/md5"
 	"encoding/xml"
 	"errors"
 	"html"
@@ -127,6 +128,19 @@ func (entry *Entry)LatestModification() time.Time {
 	return entry.Published
 }
 
+func (feed Feed)Digest() []byte {
+	hasher := md5.New()
+
+	io.WriteString(hasher, feed.Title)
+	io.WriteString(hasher, feed.Description)
+	io.WriteString(hasher, feed.WWWURL)
+	io.WriteString(hasher, feed.Format)
+	io.WriteString(hasher, feed.HubURL)
+	io.WriteString(hasher, feed.Topic)
+
+	return hasher.Sum(nil)
+}
+
 func (entry *Entry)UniqueID() string {
 	if entry.GUID != "" {
 		return entry.GUID
@@ -137,6 +151,31 @@ func (entry *Entry)UniqueID() string {
 	}
 
 	return entry.WWWURL
+}
+
+func (entry Entry)Digest() []byte {
+	hasher := md5.New()
+
+	// Why not just hash all of the content each time?
+	// Feeds like 'reddit' constantly change, with the only
+	// change being the comment count. So we avoid hashing
+	// by content as much as possible
+	if !entry.Updated.IsZero() {
+		// Use "Updated" as the hashing value if available
+		io.WriteString(hasher, entry.Updated.String())
+	} else if !entry.Published.IsZero() {
+		// "Updated" is not available, but "Published" is
+		io.WriteString(hasher, entry.Published.String())
+	} else {
+		// No publish or update information available
+		// Hash the content of the entry
+		io.WriteString(hasher, entry.Author)
+		io.WriteString(hasher, entry.Title)
+		io.WriteString(hasher, entry.WWWURL)
+		io.WriteString(hasher, entry.Content)
+	}
+
+	return hasher.Sum(nil)
 }
 
 type FeedMarshaler interface {
@@ -233,7 +272,7 @@ func DeHTMLize(str string) string {
 	return extraSpaceStripper.ReplaceAllString(unescaped, "")
 }
 
-func (entry Entry)GenerateSummary() string {
+func (entry Entry)Summary() string {
 	summary := DeHTMLize(entry.Content)
 	if runes := []rune(summary); len(runes) > maxSummaryLength {
 		return string(runes[:maxSummaryLength])

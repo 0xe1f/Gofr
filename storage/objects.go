@@ -46,7 +46,6 @@ type FeedMeta struct {
 	NextFetch time.Time
 	UpdateCounter int64
 	HourlyUpdateFrequency float32
-	Updated time.Time
 }
 
 type Feed struct {
@@ -68,8 +67,8 @@ type FeedUsage struct {
 
 type EntryMeta struct {
 	Fetched time.Time
-	Updated time.Time
 	Published time.Time
+	InfoDigest []byte
 	UpdateIndex int64
 	Entry *datastore.Key
 }
@@ -183,7 +182,7 @@ type Article struct {
 
 	UpdateIndex int64     `json:"-"`
 	Fetched time.Time     `json:"time"`
-	Published time.Time   `json:"-"`
+	Published time.Time   `json:"published"`
 	Entry *datastore.Key  `json:"-"`
 
 	Properties []string   `json:"properties"`
