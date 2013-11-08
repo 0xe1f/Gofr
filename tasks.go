@@ -90,9 +90,21 @@ func importSubscription(pfc *PFContext, ch chan<- *rss.Outline, userID storage.U
 			if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
 				c.Errorf("Error reading RSS content (%s): %s", subscriptionURL, err)
 				goto done
-			} else if err := storage.UpdateFeed(pfc.C, parsedFeed); err != nil {
-				c.Errorf("Error updating feed: %s", err)
-				goto done
+			} else {
+				favIconURL := ""
+				if parsedFeed.WWWURL != "" {
+					if url, err := locateFavIconURL(pfc.C, parsedFeed.WWWURL); err != nil {
+						// Not critical
+						pfc.C.Warningf("FavIcon retrieval error: %s", err)
+					} else if url != "" {
+						favIconURL = url
+					}
+				}
+
+				if err := storage.UpdateFeed(pfc.C, parsedFeed, favIconURL, time.Now()); err != nil {
+					c.Errorf("Error updating feed: %s", err)
+					goto done
+				}
 			}
 		}
 	}
@@ -223,8 +235,20 @@ func subscribeTask(pfc *PFContext) (TaskMessage, error) {
 			if parsedFeed, err := rss.UnmarshalStream(subscriptionURL, response.Body); err != nil {
 				pfc.C.Errorf("Error reading RSS content (%s): %s", subscriptionURL, err)
 				return TaskMessage{}, NewReadableError(_l("Error reading RSS content"), &err)
-			} else if err := storage.UpdateFeed(pfc.C, parsedFeed); err != nil {
-				return TaskMessage{}, err
+			} else {
+				favIconURL := ""
+				if parsedFeed.WWWURL != "" {
+					if url, err := locateFavIconURL(pfc.C, parsedFeed.WWWURL); err != nil {
+						// Not critical
+						pfc.C.Warningf("FavIcon retrieval error: %s", err)
+					} else if url != "" {
+						favIconURL = url
+					}
+				}
+
+				if err := storage.UpdateFeed(pfc.C, parsedFeed, favIconURL, time.Now()); err != nil {
+					return TaskMessage{}, err
+				}
 			}
 		}
 	}

@@ -259,6 +259,7 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 		subscription := &subscriptions[i]
 		subscription.ID = subscriptionKey.StringID()
 		subscription.Link = feeds[i].Link
+		subscription.FavIconURL = feeds[i].FavIconURL
 
 		if subscriptionKey.Parent().Kind() == "Folder" {
 			subscription.Parent = formatId("folder", subscriptionKey.Parent().IntID())
@@ -514,28 +515,6 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 	}
 
 	return article.Properties, nil
-}
-
-func LoadFavIcon(c appengine.Context, url string) (*FavIcon, error) {
-	key := datastore.NewKey(c, "FavIcon", url, 0, nil)
-	favIcon := new(FavIcon)
-
-	if err := datastore.Get(c, key, favIcon); err == datastore.ErrNoSuchEntity {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	} else {
-		return favIcon, nil
-	}
-}
-
-func (favIcon FavIcon) Save(c appengine.Context, url string) error {
-	key := datastore.NewKey(c, "FavIcon", url, 0, nil)
-	if _, err := datastore.Put(c, key, &favIcon); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
@@ -924,7 +903,7 @@ func DeleteArticlesWithinScope(c appengine.Context, scope ArticleScope) error {
 	return nil
 }
 
-func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
+func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fetched time.Time) error {
 	var updateCounter int64
 
 	feedDigest := parsedFeed.Digest()
@@ -957,8 +936,8 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 
 		lastFetched = feedMeta.Fetched
 
-		feedMeta.Fetched = parsedFeed.Retrieved
-		feedMeta.NextFetch = parsedFeed.Retrieved.Add(durationBetweenUpdates)
+		feedMeta.Fetched = fetched
+		feedMeta.NextFetch = fetched.Add(durationBetweenUpdates)
 		feedMeta.HourlyUpdateFrequency = float32(durationBetweenUpdates.Hours())
 		feedMeta.UpdateCounter += int64(len(parsedFeed.Entries))
 
@@ -984,6 +963,11 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 			feed.URL = parsedFeed.URL
 		} else if err != nil {
 			return err
+		}
+
+		if favIconURL != "" {
+			// FavIcon URL will not be passed when updating
+			feed.FavIconURL = favIconURL
 		}
 
 		feed.Title = parsedFeed.Title
@@ -1084,7 +1068,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed) error {
 		}
 
 		entryMeta.Published = parsedEntry.Published
-		entryMeta.Fetched = parsedFeed.Retrieved
+		entryMeta.Fetched = fetched
 		entryMeta.UpdateIndex = updateCounter
 
 		// At this point, metadata tells us the record needs updating, so we 

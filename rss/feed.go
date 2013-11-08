@@ -46,7 +46,6 @@ type Feed struct {
 	Updated time.Time
 	WWWURL string
 	Format string
-	Retrieved time.Time
 	HourlyUpdateFrequency float32
 	Entries []*Entry
 	HubURL string
@@ -228,7 +227,6 @@ func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
 	
 	feed, err := xmlFeed.Marshal()
 	feed.URL = url
-	feed.Retrieved = time.Now().UTC()
 
 	if err != nil {
 		return nil, err

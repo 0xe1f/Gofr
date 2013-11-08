@@ -26,7 +26,6 @@ package gofr
 import (
 	"appengine"
 	"appengine/datastore"
-	"appengine/urlfetch"
 	"rss"
 	"storage"
 	"time"
@@ -38,7 +37,7 @@ func registerCron() {
 }
 
 func updateFeed(c appengine.Context, ch chan<- *storage.FeedMeta, url string, feedMeta *storage.FeedMeta) {
-	client := urlfetch.Client(c)
+	client := createHttpClient(c)
 	if response, err := client.Get(url); err != nil {
 		c.Errorf("Error downloading feed %s: %s", url, err)
 		goto done
@@ -47,7 +46,7 @@ func updateFeed(c appengine.Context, ch chan<- *storage.FeedMeta, url string, fe
 		if parsedFeed, err := rss.UnmarshalStream(url, response.Body); err != nil {
 			c.Errorf("Error reading RSS content (%s): %s", url, err)
 			goto done
-		} else if err := storage.UpdateFeed(c, parsedFeed); err != nil {
+		} else if err := storage.UpdateFeed(c, parsedFeed, "", time.Now()); err != nil {
 			c.Errorf("Error updating feed: %s", err)
 			goto done
 		}

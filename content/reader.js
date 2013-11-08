@@ -168,8 +168,8 @@ $().ready(function() {
 			return false;
 		},
 		'getFavIconUrl': function() {
-			if (this.link)
-				return '/favicon?url=' + this.link;
+			if (this.favIconUrl)
+				return this.favIconUrl;
 
 			return '/content/favicon-default.png';
 		},

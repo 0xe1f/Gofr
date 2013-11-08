@@ -49,6 +49,7 @@ func ExtractRSSLink(c appengine.Context, sourceURL string, html string) (string,
 		if link["rel"] == "alternate" {
 			if link["type"] == "application/rss+xml" || link["type"] == "application/atom+xml" {
 				linkURL = link["href"]
+				break
 			}
 		}
 	}

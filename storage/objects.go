@@ -53,9 +53,10 @@ type Feed struct {
 	Title string
 	Description string `datastore:",noindex"`
 	Link string
-	Format string `datastore:",noindex"`
+	Format string      `datastore:",noindex"`
 	Topic string
 	HubURL string
+	FavIconURL string  `datastore:",noindex"`
 	Updated time.Time
 }
 
@@ -86,12 +87,6 @@ type Entry struct {
 type likeCountShard struct {
 	Entry *datastore.Key
 	LikeCount int
-}
-
-type FavIcon struct {
-	Data []byte
-	MimeType string
-	LastUpdated time.Time
 }
 
 type UserSubscriptions struct {
@@ -157,9 +152,10 @@ type ArticleRef struct {
 }
 
 type Subscription struct {
-	ID string     `datastore:"-" json:"id"`
-	Link string   `datastore:"-" json:"link"`
-	Parent string `datastore:"-" json:"parent,omitempty"`
+	ID string         `datastore:"-" json:"id"`
+	Link string       `datastore:"-" json:"link"`
+	FavIconURL string `datastore:"-" json:"favIconUrl"`
+	Parent string     `datastore:"-" json:"parent,omitempty"`
 
 	Updated time.Time    `json:"-"`
 	Subscribed time.Time `json:"-"`
