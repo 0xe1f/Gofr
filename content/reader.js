@@ -939,7 +939,8 @@ $().ready(function() {
 		'initShortcuts': function() {
 			$(document)
 				.bind('keypress', '', function(e) {
-					if (!ui.isNavBarVisible() || !_.contains([78, 79, 80], e.charCode))
+					var isNavBarKey = e.charCode >= 78 && e.charCode <= 80;
+					if (!ui.isNavBarVisible() || !isNavBarKey)
 						ui.toggleNavBar(false);
 
 					$('.shortcuts').hide();
@@ -1567,8 +1568,8 @@ $().ready(function() {
 
 		subscriptionMap = newSubscriptionMap;
 
-		_.each(newSubscriptions, function(subscription) {
-			subscription.syncView();
+		$.each(newSubscriptions, function() {
+			this.syncView();
 		});
 
 		ui.updateUnreadCount();

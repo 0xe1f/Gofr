@@ -7,10 +7,6 @@ handlers:
 - url: /content
   static_dir: content
   expiration: "1d"
-- url: /res
-  static_dir: res
-  expiration: "1d"
-  application_readable: true
 - url: /(favicon\.ico)
   static_files: content/\1
   upload: content/(.*)
