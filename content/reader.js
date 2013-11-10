@@ -1453,12 +1453,7 @@ $().ready(function() {
 					.append($('<span />', { 'class' : 'subscription-unread-count' }))
 					.click(function() {
 						subscription.select();
-					}))
-				.bind('contextmenu', function(e) {
-					var $menu = $('#menu-' + subscription.getType());
-					$menu.openMenu(e.pageX, e.pageY, subscription.id);
-					return false;
-				});
+					}));
 
 			if (!subscription.isFolder()) {
 				// Favicons
@@ -1468,6 +1463,9 @@ $().ready(function() {
 				// Drag-and-drop code
 				$subscription
 					.mousedown(function(e) {
+						if (e.which != 1)
+							return;
+						
 						var $elem = $(document.elementFromPoint(e.pageX, e.pageY)).closest('.subscription');
 						if (!$elem.length)
 							return;
