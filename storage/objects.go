@@ -81,7 +81,6 @@ type Entry struct {
 	HasMedia bool       `json:"-"`
 	Updated time.Time   `json:"-"`
 
-	Media []EntryMedia  `json:"media"   datastore:"-"`
 	Content string      `json:"content" datastore:",noindex"`
 	Summary string      `json:"summary" datastore:",noindex"`
 }
@@ -182,7 +181,9 @@ type ArticlePage struct {
 type Article struct {
 	ID string             `datastore:"-" json:"id"`
 	Source string         `datastore:"-" json:"source"`
+
 	Details *Entry        `datastore:"-" json:"details"`
+	Media []*EntryMedia   `datastore:"-" json:"media,omitempty"`
 
 	UpdateIndex int64     `json:"-"`
 	Fetched time.Time     `json:"time"`

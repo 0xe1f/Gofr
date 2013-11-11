@@ -198,6 +198,13 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 	}
 
 	for i, _ := range articles {
+		if entries[i].HasMedia {
+			if media, err := MediaForEntry(c, entryKeys[i]); err != nil {
+				c.Warningf("Error loading media for entry: %s", err)
+			} else {
+				articles[i].Media = media
+			}
+		}
 		articles[i].Details = &entries[i]
 	}
 
@@ -1084,10 +1091,10 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fe
 		}
 
 		if len(parsedEntry.Media) > 0 {
-			if err := UpdateMedia(c, entryKey, parsedEntry); err == nil {
-				entry.HasMedia = true
+			if err := UpdateMedia(c, entryKey, parsedEntry); err != nil {
+				c.Warningf("Error writing media for entry: %s")
 			} else {
-				c.Warningf("Unable to write media for entry: %s")
+				entry.HasMedia = true
 			}
 		}
 
@@ -1104,6 +1111,27 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fe
 		parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
 
 	return nil
+}
+
+func MediaForEntry(c appengine.Context, entryKey *datastore.Key) ([]*EntryMedia, error) {
+	mediaList := make([]*EntryMedia, 0, 40)
+	q := datastore.NewQuery("EntryMedia").Filter("Entry =", entryKey)
+	for t := q.Run(c); ; {
+		entryMedia := new(EntryMedia)
+		_, err := t.Next(entryMedia)
+
+		if err == datastore.Done {
+			break
+		} else if IsFieldMismatch(err) {
+			// Ignore - possibly a missing field
+		} else if err != nil {
+			return []*EntryMedia{}, err
+		}
+
+		mediaList = append(mediaList, entryMedia)
+	}
+
+	return mediaList, nil
 }
 
 func UpdateMedia(c appengine.Context, entryKey *datastore.Key, entry *rss.Entry) error {
