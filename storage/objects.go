@@ -78,10 +78,18 @@ type Entry struct {
 	Author string       `json:"author"`
 	Title string        `json:"title"`
 	Link string         `json:"link"`
+	HasMedia bool       `json:"-"`
 	Updated time.Time   `json:"-"`
 
-	Content string `json:"content" datastore:",noindex"`
-	Summary string `json:"summary" datastore:",noindex"`
+	Media []EntryMedia  `json:"media"   datastore:"-"`
+	Content string      `json:"content" datastore:",noindex"`
+	Summary string      `json:"summary" datastore:",noindex"`
+}
+
+type EntryMedia struct {
+	URL string           `json:"url"`
+	Type string          `json:"-"`
+	Entry *datastore.Key `json:"-"`
 }
 
 type likeCountShard struct {

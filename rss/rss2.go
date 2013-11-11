@@ -60,6 +60,13 @@ type rss2Entry struct {
 	Author string `xml:"creator"`
 	EncodedContent string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
 	Content string `xml:"description"`
+	Enclosures []rss2Enclosure `xml:"enclosure"`
+}
+
+type rss2Enclosure struct {
+	URL string `xml:"url,attr"`
+	Length int `xml:"length,attr"`
+	Type string `xml:"type,attr"`
 }
 
 func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
@@ -149,6 +156,16 @@ func (nativeEntry *rss2Entry) Marshal() (entry *Entry, err error) {
 		Content: content,
 		Published: published,
 		WWWURL: nativeEntry.Link,
+		Media: make([]Media, len(nativeEntry.Enclosures)),
+	}
+
+	for i, enclosure := range nativeEntry.Enclosures {
+		media := Media {
+			URL: enclosure.URL,
+			Type: enclosure.Type,
+		}
+
+		entry.Media[i] = media
 	}
 
 	return entry, err

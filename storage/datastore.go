@@ -1072,7 +1072,7 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fe
 		entryMeta.UpdateIndex = updateCounter
 
 		// At this point, metadata tells us the record needs updating, so we 
-		// just overwrite everything under the entry
+		// just overwrite everything in the entry
 
 		entry := Entry {
 			Author: html.UnescapeString(parsedEntry.Author),
@@ -1081,6 +1081,14 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fe
 			Summary: parsedEntry.Summary(),
 			Content: parsedEntry.Content,
 			Updated: parsedEntry.Updated,
+		}
+
+		if len(parsedEntry.Media) > 0 {
+			if err := UpdateMedia(c, entryKey, parsedEntry); err == nil {
+				entry.HasMedia = true
+			} else {
+				c.Warningf("Unable to write media for entry: %s")
+			}
 		}
 
 		entryMetas[pending] = &entryMeta
@@ -1094,6 +1102,42 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fe
 
 	c.Debugf("Completed %s: %d,%d,%d (n,c,u) (took %s, last fetch: %s ago)", 
 		parsedFeed.URL, nuovo, changed, unchanged, time.Since(started), time.Since(lastFetched))
+
+	return nil
+}
+
+func UpdateMedia(c appengine.Context, entryKey *datastore.Key, entry *rss.Entry) error {
+	// Find and remove any existing media
+	q := datastore.NewQuery("EntryMedia").Filter("Entry =", entryKey).KeysOnly().Limit(40)
+	if entryMediaKeys, err := q.GetAll(c, nil); err != nil {
+		return err
+	} else if len(entryMediaKeys) > 0 {
+		if datastore.DeleteMulti(c, entryMediaKeys); err != nil {
+			return err
+		}
+	}
+
+	batchWriter := NewBatchWriter(c, BatchPut)
+
+	// Add media
+	for _, media := range entry.Media {
+		entryMediaKey := datastore.NewIncompleteKey(c, "EntryMedia", nil)
+		entryMedia := EntryMedia {
+			URL: media.URL,
+			Type: media.Type,
+			Entry: entryKey,
+		}
+
+		if err := batchWriter.Enqueue(entryMediaKey, &entryMedia); err != nil {
+			c.Errorf("Error queueing media for batch write: %s", err)
+			return err
+		}
+	}
+
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch queue: %s", err)
+		return err
+	}
 
 	return nil
 }

@@ -60,6 +60,12 @@ type Entry struct {
 	Content string
 	Published time.Time
 	Updated time.Time
+	Media []Media
+}
+
+type Media struct {
+	URL string
+	Type string
 }
 
 const (
@@ -156,9 +162,9 @@ func (entry Entry)Digest() []byte {
 	hasher := md5.New()
 
 	// Why not just hash all of the content each time?
-	// Feeds like 'reddit' constantly change, with the only
-	// change being the comment count. So we avoid hashing
-	// by content as much as possible
+	// Contents in entries of feeds like 'reddit' constantly 
+	// change, because the comment count in the article
+	// changes. So we avoid hashing by content as much as possible
 	if !entry.Updated.IsZero() {
 		// Use "Updated" as the hashing value if available
 		io.WriteString(hasher, entry.Updated.String())
@@ -172,6 +178,10 @@ func (entry Entry)Digest() []byte {
 		io.WriteString(hasher, entry.Title)
 		io.WriteString(hasher, entry.WWWURL)
 		io.WriteString(hasher, entry.Content)
+
+		for _, media := range entry.Media {
+			io.WriteString(hasher, media.URL)
+		}
 	}
 
 	return hasher.Sum(nil)
