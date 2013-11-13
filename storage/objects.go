@@ -87,7 +87,8 @@ type Entry struct {
 
 type EntryMedia struct {
 	URL string           `json:"url"`
-	Type string          `json:"-"`
+	Type string          `json:"type"`
+	Title string         `json:"-"`
 	Entry *datastore.Key `json:"-"`
 }
 

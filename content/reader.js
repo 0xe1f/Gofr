@@ -327,10 +327,8 @@ $().ready(function() {
 			var $title = $item.find('.subscription-title');
 			var $unreadCount = $item.find('.subscription-unread-count');
 
-			var unreadCount = this.unread > 0 ? '(' + this.unread + ')' : '';
-
 			$title.text(this.title);
-			$unreadCount.text(unreadCount);
+			$unreadCount.text(_l("(%d)", [this.unread]));
 			$item.toggleClass('has-unread', this.unread > 0);
 			$sub.toggleClass('no-unread', this.unread < 1);
 
@@ -533,7 +531,7 @@ $().ready(function() {
 				.toggleClass('like', this.hasProperty('like'))
 				.toggleClass('read', this.hasProperty('read'));
 			$entry.find('.gofr-like-count')
-				.text(_l("(%s)", [this.extras.likeCount]))
+				.text(_l("(%d)", [this.extras.likeCount]))
 				.toggleClass('unliked', this.extras.likeCount < 1);
 		},
 		'isExpanded': function() {
@@ -585,17 +583,18 @@ $().ready(function() {
 
 			var $content = 
 				$('<div />', { 'class' : 'gofr-entry-content' })
-					.append($('<div />', { 'class' : 'gofr-article' })
-						.append($('<a />', { 'href' : details.link, 'target' : '_blank', 'class' : 'gofr-article-title' })
+					.append($('<div />', { 'class': 'gofr-article' })
+						.append($('<a />', { 'href': details.link, 'target': '_blank', 'class': 'gofr-article-title' })
 							.append($('<h2 />')
 								.text(details.title)))
-						.append($('<div />', { 'class' : 'gofr-article-author' }))
-						.append($('<div />', { 'class' : 'gofr-article-pubDate' })
+						.append($('<div />', { 'class': 'gofr-article-author' }))
+						.append($('<div />', { 'class': 'gofr-article-pubDate' })
 							.text(_l("Published %s", [getPublishedDate(entry.time)])))
-						.append($('<div />', { 'class' : 'gofr-article-body' })
+						.append($('<div />', { 'class': 'gofr-media-container' }))
+						.append($('<div />', { 'class': 'gofr-article-body' })
 							.append(details.content)))
-					.append($('<div />', { 'class' : 'gofr-entry-footer'})
-						.append($('<span />', { 'class' : 'action-star' })
+					.append($('<div />', { 'class': 'gofr-entry-footer'})
+						.append($('<span />', { 'class': 'action-star' })
 							.click(function(e) {
 								entry.toggleStarred();
 							}))
@@ -609,7 +608,8 @@ $().ready(function() {
 							.append($('<span />', { 'class': 'gofr-action-text' })
 								.text(_l("Like")))
 							.append($('<span />', { 'class': 'gofr-like-count' })
-								.text(_l("(%s)", [entry.extras.likeCount])))
+								.text(_l("(%d)", [entry.extras.likeCount]))
+								.toggleClass('unliked', this.extras.likeCount < 1))
 							.click(function(e) {
 								entry.toggleLike();
 							}))
@@ -678,6 +678,19 @@ $().ready(function() {
 					return entry.resolveUrl(value);
 				})
 			});
+
+			// Add any media
+			if (entry.media) {
+				var $mediaContainer = $content.find('.gofr-media-container');
+				$.each(entry.media, function() {
+					var media = this;
+					var $audio = $('<audio />', { 'controls': 'controls' })
+						.append($('<source />', { 'src': media.url, 'type': media.type }))
+						.append($('<embed />', { 'class': 'gofr-embedded-media', 'src': media.url }));
+
+					$mediaContainer.append($audio);
+				});
+			}
 
 			$entry.toggleClass('open', true);
 			$entry.append($content);
@@ -755,6 +768,7 @@ $().ready(function() {
 			this.initMenus();
 			this.initShortcuts();
 			this.initModals();
+			this.initBookmarklet();
 
 			$('#menu-filter').selectItem('.menu-all-items');
 			$('.mark-all-as-read').toggleClass('unavailable', 
@@ -884,7 +898,7 @@ $().ready(function() {
 					{ keys: _l('[v]'),       action: _l("Open link") },
 					{ keys: _l('[o]'),       action: _l("Open article") },
 					// { keys: _l('t'),       action: _l("Tag article") },
-					// { keys: _l('l'),       action: _l("Like article") },
+					{ keys: _l('[l]'),         action: _l("Like article") },
 					{ keys: _l('[Shift]+[a]'), action: _l("Mark all as read") },
 				]}];
 
@@ -935,6 +949,18 @@ $().ready(function() {
 			});
 
 			$('body').append($('<div />', { 'class': 'shortcuts' }).append($table));
+		},
+		'initBookmarklet': function() {
+			var subscribeUrl = location.protocol + '//' + location.host + '/subBm?url=';
+			var bookmarklet = 'javascript:(function(){open(\'' + subscribeUrl + '\' + encodeURIComponent(location.href));})()';
+
+			$('.bookmarklet')
+				.attr('href', bookmarklet)
+				.click(function() {
+					window.alert(_l("1. Drop this shortcut in your Bookmarks bar\n2. While browsing the web, click the bookmark to subscribe"));
+
+					return false;
+				});
 		},
 		'initShortcuts': function() {
 			$(document)
@@ -1428,6 +1454,14 @@ $().ready(function() {
 		if (selectedSubscription != null)
 			selectedSubscriptionId = selectedSubscription.id;
 
+		var collapsedFolderIds = [];
+		$.each($('#subscriptions .folder-collapsed'), function() {
+			var $subscription = $(this).closest('.subscription');
+			var subscription = $subscription.data('subscription');
+
+			collapsedFolderIds.push(subscription.id);
+		});
+
 		var $newSubscriptions = $('<ul />', { 'id': 'subscriptions' });
 		var newSubscriptionMap = {};
 		var newSubscriptions = [];
@@ -1527,6 +1561,22 @@ $().ready(function() {
 
 						return false;
 					});
+			} else /* if (subscription.isFolder()) */ {
+				if (!subscription.isRoot()) {
+					$subscription.find('.subscription-item')
+						.append($('<span />', { 'class' : 'folder-toggle' })
+							.click(function(e) {
+								var $toggleIcon = $(this);
+								$toggleIcon.toggleClass('folder-collapsed');
+								if ($toggleIcon.hasClass('folder-collapsed'))
+									$subscription.find('ul').slideUp('fast');
+								else
+									$subscription.find('ul').slideDown('fast');
+								
+								return false;
+							})
+							.toggleClass('folder-collapsed', $.inArray(subscription.id, collapsedFolderIds) > -1));
+				}
 			}
 
 			return $subscription.addClass(subscription.getType());
@@ -1542,6 +1592,9 @@ $().ready(function() {
 					var children = subMap[subscription.id];
 					if (children) {
 						var $child = $('<ul />');
+						if ($.inArray(subscription.id, collapsedFolderIds) > -1)
+							$child.hide();
+
 						$subscription.append($child);
 
 						buildDom($child, children);

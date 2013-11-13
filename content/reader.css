@@ -69,6 +69,12 @@ a {
 	text-decoration: none;
 }
 
+#footer .bookmarklet {
+	display: none; /* not ready */
+	position: absolute;
+	left: 1em;
+}
+
 #sign-out {
 	display: none;
 }
@@ -283,6 +289,15 @@ a.gofr-entry-title:hover {
 	text-decoration: underline;
 }
 
+.gofr-media-container {
+	margin: 0.7em 0;
+}
+
+.gofr-embedded-media {
+	width: 200px;
+	height: 30px;
+}
+
 .gofr-entry-summary {
 	color: #777;
 }
@@ -433,7 +448,7 @@ ul#subscriptions,
 	overflow: hidden;
 	text-overflow: ellipsis;
 	cursor: pointer;
-	padding: 0.35em 1em 0.35em 1em;
+	padding: 0.35em 1em 0.35em 25px;
 	border: solid 1px transparent;
 }
 
@@ -451,8 +466,21 @@ ul#subscriptions,
 	visibility: visible;
 }
 
+.subscription-item .folder-toggle {
+	width: 15px;
+	height: 15px;
+	background-image: url(sprites.png);
+	background-position: -180px -180px;
+	position: absolute;
+	left: 5px;
+}
+
+.subscription-item .folder-toggle.folder-collapsed {
+	background-position: -195px -195px;
+}
+
 .subscription.folder > ul > .leaf > .subscription-item {
-	padding-left: 2em;
+	padding-left: 50px;
 }
 
 .subscription.root .subscription-item {
@@ -828,6 +856,8 @@ ul.menu {
 	background-color: #fffacd;
 	font-size: 9pt;
 	font-weight: normal;
+	text-align: center;
+	min-width: 1.5em;
 }
 
 /*** Desktop ****/
@@ -977,5 +1007,25 @@ ul.menu {
 
 	.gofr-article-title h2 {
 		font-size: 12pt;
+	}
+
+	#footer {
+		display: none;
+	}
+
+	#reader {
+		bottom: 0;
+	}
+
+	.subscription-item {
+		padding: 0.35em 1em;
+	}
+
+	.subscription.folder > ul > .leaf > .subscription-item {
+		padding-left: 2em;
+	}
+	
+	.subscription-item .folder-toggle {
+		display: none;
 	}
 }

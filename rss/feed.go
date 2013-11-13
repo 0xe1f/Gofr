@@ -66,6 +66,7 @@ type Entry struct {
 type Media struct {
 	URL string
 	Type string
+	Title string
 }
 
 const (

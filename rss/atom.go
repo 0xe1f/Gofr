@@ -45,9 +45,10 @@ type atomFeed struct {
 }
 
 type atomLink struct {
-	Type string `xml:"type,attr"`
-	Rel string `xml:"rel,attr"`
-	Href string `xml:"href,attr"`
+	Type string  `xml:"type,attr"`
+	Rel string   `xml:"rel,attr"`
+	Href string  `xml:"href,attr"`
+	Title string `xml:"title,attr"`
 }
 
 type atomAuthor struct {
@@ -123,13 +124,6 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed, err error) {
 }
 
 func (nativeEntry *atomEntry) Marshal() (entry *Entry, err error) {
-	linkUrl := ""
-	for _, link := range nativeEntry.Link {
-		if linkUrl == "" || link.Rel == "alternate" {
-			linkUrl = link.Href
-		}
-	}
-
 	guid := nativeEntry.Id
 	
 	content := nativeEntry.Content.Content
@@ -157,7 +151,22 @@ func (nativeEntry *atomEntry) Marshal() (entry *Entry, err error) {
 		Content: content,
 		Published: published,
 		Updated: updated,
-		WWWURL: linkUrl,
+		Media: make([]Media, 0, 20),
+	}
+
+	// Links and enclosures
+	for _, link := range nativeEntry.Link {
+		if link.Rel == "" || link.Rel == "alternate" {
+			entry.WWWURL = link.Href
+		} else if link.Rel == "enclosure" {
+			media := Media {
+				URL: link.Href,
+				Type: link.Type,
+				Title: link.Title,
+			}
+
+			entry.Media = append(entry.Media, media)
+		}
 	}
 
 	return entry, err
