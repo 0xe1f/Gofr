@@ -276,6 +276,7 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 		}
 	}
 
+	// Get all folders
 	var folders []Folder
 	var folderKeys []*datastore.Key
 
@@ -293,6 +294,15 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 		folder.ID = formatId("folder", folderKeys[i].IntID())
 	}
 
+	// Get all tags
+	var tags []Tag
+	q = datastore.NewQuery("Tag").Ancestor(userKey).Limit(defaultBatchSize)
+	if _, err := q.GetAll(c, &tags); err != nil {
+		return nil, err
+	} else if tags == nil {
+		tags = make([]Tag, 0)
+	}
+
 	allItems := Folder {
 		ID: "",
 		Title: "", // All items
@@ -301,6 +311,7 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 	userSubscriptions := UserSubscriptions {
 		Subscriptions: subscriptions,
 		Folders: append(folders, allItems),
+		Tags: tags,
 	}
 
 	return &userSubscriptions, nil

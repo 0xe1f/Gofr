@@ -100,6 +100,7 @@ type likeCountShard struct {
 type UserSubscriptions struct {
 	Subscriptions  []Subscription  `json:"subscriptions"`
 	Folders        []Folder        `json:"folders"`
+	Tags           []Tag           `json:"tags"`
 }
 
 type UserID string
@@ -197,7 +198,7 @@ type Article struct {
 
 type Tag struct {
 	Title string      `json:"title"`
-	Created time.Time `json:"created"`
+	Created time.Time `json:"-"`
 }
 
 type StorageInfo struct {
