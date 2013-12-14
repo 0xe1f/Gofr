@@ -98,20 +98,20 @@ type likeCountShard struct {
 }
 
 type UserSubscriptions struct {
-	Subscriptions []Subscription `json:"subscriptions"`
-	Folders []Folder             `json:"folders"`
+	Subscriptions  []Subscription  `json:"subscriptions"`
+	Folders        []Folder        `json:"folders"`
 }
 
 type UserID string
 
 type FolderRef struct {
-	UserID UserID
-	FolderID string `json:"f"`
+	UserID UserID   `json:",omitempty"`
+	FolderID string `json:"f,omitempty"`
 }
 
 type SubscriptionRef struct {
 	FolderRef
-	SubscriptionID string  `json:"s"`
+	SubscriptionID string  `json:"s,omitempty"`
 }
 
 type ArticleExtras struct {
@@ -151,7 +151,7 @@ func (ref SubscriptionRef)IsSubscriptionExplicit() bool {
 
 type ArticleFilter struct {
 	ArticleScope
-	Property string `json:"p"`
+	Property string `json:"p,omitempty"`
 }
 
 type ArticleRef struct {
@@ -192,6 +192,12 @@ type Article struct {
 	Entry *datastore.Key  `json:"-"`
 
 	Properties []string   `json:"properties"`
+	Tags []string         `json:"tags"`
+}
+
+type Tag struct {
+	Title string      `json:"title"`
+	Created time.Time `json:"created"`
 }
 
 type StorageInfo struct {
@@ -199,7 +205,7 @@ type StorageInfo struct {
 }
 
 type Folder struct {
-	ID string    `datastore:"-" json:"id"`
+	ID string    `json:"id"    datastore:"-"`
 	Title string `json:"title"`
 }
 

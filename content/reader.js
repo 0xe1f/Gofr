@@ -533,6 +533,13 @@ $().ready(function() {
 			$entry.find('.gofr-like-count')
 				.text(_l("(%d)", [this.extras.likeCount]))
 				.toggleClass('unliked', this.extras.likeCount < 1);
+
+			var $tagNode = $entry.find('.action-tag');
+			$tagNode.toggleClass('has-tags', this.tags.length > 0);
+			$tagNode.find('.gofr-action-text')
+				.text(this.tags.length > 0 
+					? _l("Edit tags: %s", [ this.tags.join(", ") ]) 
+					: _l("Add tags"));
 		},
 		'isExpanded': function() {
 			return this.getDom().hasClass('open');
@@ -604,6 +611,14 @@ $().ready(function() {
 							.click(function(e) {
 								entry.toggleUnread();
 							}))
+						.append($('<span />', { 'class' : 'action-tag gofr-entry-action' })
+							.append($('<span />', { 'class': 'gofr-action-text' })
+								.text(this.tags.length > 0 
+									? _l("Edit tags: %s", [ this.tags.join(", ") ]) 
+									: _l("Add tags")))
+							.click(function(e) {
+								ui.editTags(entry);
+							}))
 						.append($('<span />', { 'class' : 'action-like gofr-entry-action'})
 							.append($('<span />', { 'class': 'gofr-action-text' })
 								.text(_l("Like")))
@@ -660,6 +675,9 @@ $().ready(function() {
 			$content.find('.gofr-article-author').html(template);
 			if (!subscription.link)
 				$content.find('.gofr-article-author a').contents().unwrap();
+
+			// Whether tags are set
+			$content.find('.action-tag').toggleClass('has-tags', this.tags.length > 0);
 
 			// Links in the content should open in a new window
 			$content.find('.gofr-article-body a').attr('target', '_blank');
@@ -897,7 +915,7 @@ $().ready(function() {
 					{ keys: _l('[s]'),       action: _l("Star article") },
 					{ keys: _l('[v]'),       action: _l("Open link") },
 					{ keys: _l('[o]'),       action: _l("Open article") },
-					// { keys: _l('t'),       action: _l("Tag article") },
+					{ keys: _l('[t]'),       action: _l("Tag article") },
 					{ keys: _l('[l]'),         action: _l("Like article") },
 					{ keys: _l('[Shift]+[a]'), action: _l("Mark all as read") },
 				]}];
@@ -1032,10 +1050,10 @@ $().ready(function() {
 					if ($('.gofr-entry.selected').length)
 						$('.gofr-entry.selected').find('.gofr-entry-link')[0].click();
 				})
-				// .bind('keypress', 't', function() {
-				// 	if ($('.gofr-entry.selected').length)
-				// 		ui.editTags($('.gofr-entry.selected').data('entry'));
-				// })
+				.bind('keypress', 't', function() {
+					if ($('.gofr-entry.selected').length)
+						ui.editTags($('.gofr-entry.selected').data('entry'));
+				})
 				.bind('keypress', 'shift+a', function() {
 					ui.markAllAsRead();
 				})
@@ -1350,19 +1368,22 @@ $().ready(function() {
 			$$menu.hideAll();
 		},
 		'editTags': function(entry) {
-			// var tagString = entry.tags.join(', ');
-			// var tags = prompt(l('Separate multiple tags with commas'), tagString);
+			var tagString = entry.tags.join(', ');
+			var tags = prompt(_l("Separate multiple tags with commas"), tagString);
 
-			// if (tags != null) {
-			// 	$.post('?c=articles', {
-			// 		setTagsFor : entry.id, 
-			// 		tags       : tags
-			// 	},
-			// 	function(response) {
-			// 		entry.tags = response.entry.tags;
-			// 		refreshEntry(entryDom);
-			// 	}, 'json');
-			// }
+			if (tags != null) {
+				$.post('setTags', {
+					'article':      entry.id,
+					'subscription': entry.source,
+					'folder':       entry.getSubscription().parent,
+					'tags':         tags,
+				},
+				function(tags) {
+					entry.tags = tags;
+					entry.syncView();
+				}, 'json');
+
+			}
 		},
 	};
 

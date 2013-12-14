@@ -54,6 +54,7 @@ func registerJson() {
 	RegisterJSONRoute("/createFolder",  createFolder)
 	RegisterJSONRoute("/rename",        rename)
 	RegisterJSONRoute("/setProperty",   setProperty)
+	RegisterJSONRoute("/setTags",       setTags)
 	RegisterJSONRoute("/subscribe",     subscribe)
 	RegisterJSONRoute("/unsubscribe",   unsubscribe)
 	RegisterJSONRoute("/markAllAsRead", markAllAsRead)
@@ -254,6 +255,50 @@ func setProperty(pfc *PFContext) (interface{}, error) {
 	}
 
 	if properties, err := storage.SetProperty(pfc.C, ref, propertyName, propertyValue); err != nil {
+		return nil, NewReadableError(_l("Error updating article"), &err)
+	} else {
+		return properties, nil
+	}
+}
+
+func setTags(pfc *PFContext) (interface{}, error) {
+	r := pfc.R
+
+	folderID := r.PostFormValue("folder")
+	subscriptionID := r.PostFormValue("subscription")
+	articleID := r.PostFormValue("article")
+	tagsAsString := r.PostFormValue("tags")
+
+	tags := make([]string, 0, 10)
+OuterLoop:
+	for _, tag := range strings.Split(tagsAsString, ",") {
+		if trimmedTag := strings.TrimSpace(tag); len(trimmedTag) > 0 {
+			for _, existingTag := range tags {
+				if existingTag == trimmedTag {
+					continue OuterLoop
+				}
+			}
+			
+			tags = append(tags, trimmedTag)
+		}
+	}
+
+	if articleID == "" || subscriptionID == "" {
+		return nil, NewReadableError(_l("Article not found"), nil)
+	}
+
+	ref := storage.ArticleRef {
+		SubscriptionRef: storage.SubscriptionRef {
+			FolderRef: storage.FolderRef {
+				UserID: pfc.UserID,
+				FolderID: folderID,
+			},
+			SubscriptionID: subscriptionID,
+		},
+		ArticleID: articleID,
+	}
+
+	if properties, err := storage.SetTags(pfc.C, ref, tags); err != nil {
 		return nil, NewReadableError(_l("Error updating article"), &err)
 	} else {
 		return properties, nil

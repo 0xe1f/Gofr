@@ -206,6 +206,9 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 			}
 		}
 		articles[i].Details = &entries[i]
+		if articles[i].Tags == nil {
+			articles[i].Tags = make([]string, 0)
+		}
 	}
 
 	page := ArticlePage {
@@ -522,6 +525,60 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 	}
 
 	return article.Properties, nil
+}
+
+func SetTags(c appengine.Context, ref ArticleRef, tags []string) ([]string, error) {
+	articleKey, err := ref.key(c)
+	if err != nil {
+		return nil, err
+	}
+
+	article := new(Article)
+	if err := datastore.Get(c, articleKey, article); err != nil && !IsFieldMismatch(err) {
+		return nil, err
+	}
+
+	article.Tags = tags
+
+	if _, err := datastore.Put(c, articleKey, article); err != nil {
+		return nil, err
+	}
+
+	var userKey *datastore.Key
+	if key, err := ref.UserID.key(c); err != nil {
+		return nil, err
+	} else {
+		userKey = key
+	}
+
+	batchWriter := NewBatchWriter(c, BatchPut)
+	for _, tagTitle := range tags {
+		tagKey := datastore.NewKey(c, "Tag", tagTitle, 0, userKey)
+		tag := Tag{}
+
+		if err := datastore.Get(c, tagKey, &tag); err == nil || IsFieldMismatch(err) {
+			// Already available
+		} else if err == datastore.ErrNoSuchEntity {
+			// Not yet available - add it
+			tag.Title = tagTitle
+			tag.Created = time.Now()
+
+			if err := batchWriter.Enqueue(tagKey, &tag); err != nil {
+				c.Errorf("Error queueing tag for batch write: %s", err)
+				return nil, err
+			}
+		} else {
+			// Some other error
+			return nil, err
+		}
+	}
+
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch queue: %s", err)
+		return nil, err
+	}
+
+	return article.Tags, nil
 }
 
 func MarkAllAsRead(c appengine.Context, scope ArticleScope) (int, error) {
