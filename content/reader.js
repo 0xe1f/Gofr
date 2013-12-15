@@ -465,6 +465,28 @@ $().ready(function() {
 		},
 	});
 
+	var tagMethods = $.extend({}, subscriptionMethods, {
+		'getFilter': function(filter) {
+			return { 't': this.title };
+		},
+		'select': function(reloadItems /* = true */) {
+			if (typeof reloadItems === 'undefined')
+				reloadItems = true;
+
+			$('#subscriptions').find('.subscription.selected').removeClass('selected');
+			this.getDom().addClass('selected');
+
+			if (reloadItems) {
+				this.selectedEntry = null;
+
+				$('#gofr-entries').toggleClass('single-source', false);
+				$('.gofr-entries-header').text(this.title);
+
+				this.refresh();
+			}
+		},
+	});
+
 	var entryMethods = {
 		'getSubscription': function() {
 			return subscriptionMap[this.source];
@@ -1426,6 +1448,14 @@ $().ready(function() {
 			map[""].push(folder);
 		});
 
+		$.each(userSubs.tags, function(index, tag) {
+			tag.domId = 'tag-' + idCounter++;
+
+			// Inject methods
+			for (var name in tagMethods)
+				tag[name] = tagMethods[name];
+		});
+
 		var root = fmap[""];
 		$.each(userSubs.subscriptions, function(index, subscription) {
 			subscription.domId = 'sub-' + idCounter++;
@@ -1635,6 +1665,31 @@ $().ready(function() {
 		};
 
 		buildDom($newSubscriptions, subMap[""]);
+
+		$.each(userSubscriptions.tags, function(index, tag) {
+			var firstClass = index == 0 ? ' first-tag' : '';
+			var $tag = $('<li />', { 'class' : 'subscription tag ' + tag.domId + firstClass })
+				.data('tag', tag)
+				.append($('<div />', { 'class' : 'subscription-item' })
+					.append($('<span />', { 'class' : 'chevron' })
+						.click(function(e) {
+							// var $menu = $('#menu-' + subscription.getType());
+							// $menu.openMenu(e.pageX, e.pageY, subscription.id);
+							e.stopPropagation();
+						}))
+					.append($('<img />', { 
+						'class' : 'subscription-icon', 
+						'src': 'content/favicon-placeholder.png' 
+					}))
+					.append($('<span />', { 'class' : 'subscription-title' })
+						.text(tag.title))
+					.attr('title', tag.title)
+					.click(function() {
+						tag.select();
+					}));
+
+			$newSubscriptions.append($tag);
+		});
 
 		$('#subscriptions').replaceWith($newSubscriptions)
 

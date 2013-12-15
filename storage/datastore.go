@@ -136,6 +136,8 @@ func NewArticlePage(c appengine.Context, filter ArticleFilter, start string) (*A
 	q := datastore.NewQuery("Article").Ancestor(scopeKey).Order("-Fetched").Order("-Published")
 	if filter.Property != "" {
 		q = q.Filter("Properties = ", filter.Property)
+	} else if filter.Tag != "" {
+		q = q.Filter("Tags = ", filter.Tag)
 	}
 
 	if start != "" {

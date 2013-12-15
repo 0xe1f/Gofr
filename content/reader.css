@@ -497,6 +497,15 @@ ul#subscriptions,
 	background-position: -135px -135px;
 }
 
+.subscription.first-tag .subscription-item {
+	margin-top: 1em;
+}
+
+.subscription.tag .subscription-icon {
+	background-image: url(sprites.png);
+	background-position: -225px -45px;
+}
+
 .subscription.leaf .subscription-icon {
 	background-image: none;
 }

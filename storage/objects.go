@@ -153,6 +153,7 @@ func (ref SubscriptionRef)IsSubscriptionExplicit() bool {
 type ArticleFilter struct {
 	ArticleScope
 	Property string `json:"p,omitempty"`
+	Tag string `json:"t,omitempty"`
 }
 
 type ArticleRef struct {

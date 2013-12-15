@@ -27,6 +27,15 @@ indexes:
   - name: Published
     direction: desc
 
+- kind: Article
+  ancestor: yes
+  properties:
+  - name: Tags
+  - name: Fetched
+    direction: desc
+  - name: Published
+    direction: desc
+
 - kind: EntryMeta
   ancestor: yes
   properties:
