@@ -684,11 +684,14 @@ $().ready(function() {
 				var $mediaContainer = $content.find('.gofr-media-container');
 				$.each(entry.media, function() {
 					var media = this;
-					var $audio = $('<audio />', { 'controls': 'controls' })
-						.append($('<source />', { 'src': media.url, 'type': media.type }))
-						.append($('<embed />', { 'class': 'gofr-embedded-media', 'src': media.url }));
+					var $playNow = $('<a />', { 'class': 'media-play-now', 'href': media.url, })
+						.data('type', media.type)
+						.data('title', details.title)
+						.data('sub-title', subscription.title)
+						.click(mediaPlayer.onPlayNowClick)
+						.text(_l("Play now"));
 
-					$mediaContainer.append($audio);
+					$mediaContainer.append($playNow);
 				});
 			}
 
@@ -760,6 +763,85 @@ $().ready(function() {
 		}
 	});
 
+	var mediaPlayer = {
+		'init': function() {
+			$('#player-controls')
+				.bind("ended", function() {
+					$('#player-mini').removeClass('playing');
+				})
+				.bind("pause", function() {
+					$('#player-mini').removeClass('playing');
+				})
+				.bind("playing", function() {
+					$('#player-mini').addClass('playing');
+				});
+		},
+		'onEnqueueClick': function() {
+			mediaPlayer.enqueue($(this));
+			return false;
+		},
+		'onPlayNowClick': function() {
+			var $mediaTrack = mediaPlayer.enqueue($(this));
+			mediaPlayer.play($mediaTrack);
+			return false;
+		},
+		'onListenNowClick': function() {
+			mediaPlayer.play($(this).closest('.media-track'));
+			return false;
+		},
+		'play': function($mediaTrack) {
+			$('.media-track.selected').removeClass('selected');
+			$mediaTrack.addClass('selected');
+
+			var $a = $mediaTrack.find('.media-listen');
+
+			$('#player-controls')
+				.trigger('pause')
+				.empty()
+				.append($('<source />', {
+					'src': $a.attr('href'),
+					'type': $a.data('type'),
+				}))
+				.trigger('play');
+
+			$('#player-mini .track-name').text($mediaTrack.find('.media-title').text());
+		},
+		'enqueue': function($playNowAnchor) {
+			var mediaUrl = $playNowAnchor.attr('href');
+
+			var $mediaTrack = null;
+			$('#player-tracklist .media-listen').each(function() {
+				if ($(this).attr('href') == mediaUrl) {
+					$mediaTrack = $(this).closest('.media-track');
+					return false;
+				}
+			});
+
+			if ($mediaTrack === null) {
+				var title = $playNowAnchor.data('title');
+				var mediaType = $playNowAnchor.data('type');
+				var subscriptionTitle = $playNowAnchor.data('sub-title');
+
+				if (subscriptionTitle)
+					subscriptionTitle += " - ";
+
+				$mediaTrack = $('<li />', { 'class': 'media-track' })
+					.append($('<span />', { 'class': 'media-sub-title' })
+						.text(subscriptionTitle))
+					.append($('<span />', { 'class': 'media-title' })
+						.text(title))
+					.append($('<a />', { 'class': 'media-listen', 'href': mediaUrl, 'data-type': mediaType, })
+						.text(_l("Play"))
+						.click(mediaPlayer.onListenNowClick));
+
+				$('#player-tracklist')
+					.append($mediaTrack);
+			}
+
+			return $mediaTrack;
+		},
+	}
+
 	var ui = {
 		'init': function() {
 			this.localizeStatics();
@@ -769,6 +851,7 @@ $().ready(function() {
 			this.initShortcuts();
 			this.initModals();
 			this.initBookmarklet();
+			mediaPlayer.init();
 
 			$('#menu-filter').selectItem('.menu-all-items');
 			$('.mark-all-as-read').toggleClass('unavailable', 
