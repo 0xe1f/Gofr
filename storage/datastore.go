@@ -305,14 +305,9 @@ func NewUserSubscriptions(c appengine.Context, userID UserID) (*UserSubscription
 		tags = make([]Tag, 0)
 	}
 
-	allItems := Folder {
-		ID: "",
-		Title: "", // All items
-	}
-
 	userSubscriptions := UserSubscriptions {
 		Subscriptions: subscriptions,
-		Folders: append(folders, allItems),
+		Folders: folders,
 		Tags: tags,
 	}
 

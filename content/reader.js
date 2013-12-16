@@ -947,7 +947,7 @@ $().ready(function() {
 					.append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
 					.append($('<li />', { 'class': 'menu-delete-folder' }).text(_l("Delete…"))))
 				.append($('<ul />', { 'id': 'menu-tag', 'class': 'menu' })
-					.append($('<li />', { 'class': 'menu-delete-tag' }).text(_l("Delete…"))))
+					.append($('<li />', { 'class': 'menu-delete-tag' }).text(_l("Remove tag…"))))
 				.append($('<ul />', { 'id': 'menu-root', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-create-folder' }).text(_l("New folder…")))
 					.append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…"))))
@@ -1494,6 +1494,10 @@ $().ready(function() {
 		var fmap = { };
 		var idCounter = 0;
 
+		userSubs.folders.push({
+			'id': '',
+		});
+		
 		// Create a combined list of folders & subscriptions
 		$.each(userSubs.folders, function(index, folder) {
 			folder.domId = 'sub-' + idCounter++;
@@ -1512,6 +1516,18 @@ $().ready(function() {
 
 			fmap[folder.id] = folder;
 			map[""].push(folder);
+		});
+
+		userSubs.tags.sort(function(a, b) {
+			var aTitle = a.title.toLowerCase();
+			var bTitle = b.title.toLowerCase();
+
+			if (aTitle < bTitle)
+				return -1;
+			else if (aTitle > bTitle)
+				return 1;
+
+			return 0;
 		});
 
 		$.each(userSubs.tags, function(index, tag) {
