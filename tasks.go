@@ -44,6 +44,7 @@ func registerTasks() {
 	RegisterTaskRoute("/tasks/moveSubscription", moveSubscriptionTask)
 	RegisterTaskRoute("/tasks/syncFeeds",     syncFeedsTask)
 	RegisterTaskRoute("/tasks/removeFolder",  removeFolderTask)
+	RegisterTaskRoute("/tasks/removeTag",     removeTagTask)
 }
 
 func startTask(pfc *PFContext, taskName string, params taskParams, queueName string) error {
@@ -362,6 +363,15 @@ func removeFolderTask(pfc *PFContext) (TaskMessage, error) {
 	}
 
 	if err := storage.DeleteArticlesWithinScope(pfc.C, ref); err != nil {
+		return TaskMessage{}, err
+	}
+
+	return TaskMessage{}, nil
+}
+
+func removeTagTask(pfc *PFContext) (TaskMessage, error) {
+	tagID := pfc.R.PostFormValue("tagID")
+	if err := storage.RemoveTag(pfc.C, pfc.UserID, tagID); err != nil {
 		return TaskMessage{}, err
 	}
 

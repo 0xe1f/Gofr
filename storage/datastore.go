@@ -411,6 +411,23 @@ func FolderExists(c appengine.Context, ref FolderRef) (bool, error) {
 	return false, nil
 }
 
+func TagExists(c appengine.Context, userID UserID, tagID string) (bool, error) {
+	userKey, err := userID.key(c)
+	if err != nil {
+		return false, err
+	}
+
+	tagKey := datastore.NewKey(c, "Tag", tagID, 0, userKey)
+	tag := new(Tag)
+	if err := datastore.Get(c, tagKey, tag); err == nil || IsFieldMismatch(err) {
+		return true, nil
+	} else if err != datastore.ErrNoSuchEntity {
+		return false, err
+	}
+
+	return false, nil
+}
+
 func SubscriptionExists(c appengine.Context, ref SubscriptionRef) (bool, error) {
 	if subscriptionKey, err := ref.key(c); err != nil {
 		return false, err
@@ -785,6 +802,21 @@ func DeleteFolder(c appengine.Context, ref FolderRef) error {
 	return nil
 }
 
+func DeleteTag(c appengine.Context, userID UserID, tagID string) error {
+	userKey, err := userID.key(c)
+	if err != nil {
+		return err
+	}
+
+	tagKey := datastore.NewKey(c, "Tag", tagID, 0, userKey)
+	if err := datastore.Delete(c, tagKey); err != nil {
+		c.Errorf("Error deleting tag: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 func FeedByURL(c appengine.Context, url string) (*Feed, error) {
 	feedKey := datastore.NewKey(c, "Feed", url, 0, nil)
 	feed := new(Feed)
@@ -979,6 +1011,46 @@ func DeleteArticlesWithinScope(c appengine.Context, scope ArticleScope) error {
 
 	return nil
 }
+
+func RemoveTag(c appengine.Context, userID UserID, tag string) error {
+	userKey, err := userID.key(c)
+	if err != nil {
+		return err
+	}
+
+	batchWriter := NewBatchWriter(c, BatchPut)
+
+	q := datastore.NewQuery("Article").Ancestor(userKey).Filter("Tags = ", tag)
+	for t := q.Run(c); ; {
+		article := new(Article)
+		articleKey, err := t.Next(article)
+
+		if err == datastore.Done {
+			break
+		} else if IsFieldMismatch(err) {
+			// Not a proper error
+		} else if err != nil {
+			return err
+		}
+
+		// Unset the tag
+		article.SetTag(tag, false)
+
+		// Queue for write
+		if err := batchWriter.Enqueue(articleKey, article); err != nil {
+			c.Errorf("Error queueing article for batch untag: %s", err)
+			return err
+		}
+	}
+
+	if err := batchWriter.Flush(); err != nil {
+		c.Errorf("Error flushing batch queue: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 
 func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fetched time.Time) error {
 	var updateCounter int64

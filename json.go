@@ -60,6 +60,7 @@ func registerJson() {
 	RegisterJSONRoute("/markAllAsRead", markAllAsRead)
 	RegisterJSONRoute("/moveSubscription", moveSubscription)
 	RegisterJSONRoute("/removeFolder",  removeFolder);
+	RegisterJSONRoute("/removeTag",     removeTag);
 
 	RegisterJSONRoute("/authUpload",    authUpload)
 	RegisterJSONRoute("/initChannel",   initChannel)
@@ -298,10 +299,14 @@ OuterLoop:
 		ArticleID: articleID,
 	}
 
-	if properties, err := storage.SetTags(pfc.C, ref, tags); err != nil {
+	if updatedTags, err := storage.SetTags(pfc.C, ref, tags); err != nil {
 		return nil, NewReadableError(_l("Error updating article"), &err)
 	} else {
-		return properties, nil
+		subs, err := storage.NewUserSubscriptions(pfc.C, pfc.UserID)
+		return map[string]interface{} {
+			"tags": updatedTags,
+			"subscriptions": subs,
+		}, err
 	}
 }
 
@@ -663,6 +668,36 @@ func removeFolder(pfc *PFContext) (interface{}, error) {
 	}
 	if err := startTask(pfc, "removeFolder", params, modificationQueue); err != nil {
 		return nil, NewReadableError(_l("Cannot unsubscribe - too busy"), &err)
+	}
+
+	return storage.NewUserSubscriptions(pfc.C, pfc.UserID)
+}
+
+func removeTag(pfc *PFContext) (interface{}, error) {
+	r := pfc.R
+
+	tagID := r.PostFormValue("tag")
+	if tagID == "" {
+		return nil, NewReadableError(_l("Tag not found"), nil)
+	}
+
+	if exists, err := storage.TagExists(pfc.C, pfc.UserID, tagID); err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, NewReadableError(_l("Tag not found"), nil)
+	}
+
+	// Delete the tag
+	if err := storage.DeleteTag(pfc.C, pfc.UserID, tagID); err != nil {
+		return nil, err
+	}
+
+	// Start a task to remove existing tag
+	params := taskParams {
+		"tagID": tagID,
+	}
+	if err := startTask(pfc, "removeTag", params, modificationQueue); err != nil {
+		return nil, NewReadableError(_l("Cannot remove tag - too busy"), &err)
 	}
 
 	return storage.NewUserSubscriptions(pfc.C, pfc.UserID)

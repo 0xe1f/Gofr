@@ -871,7 +871,7 @@ ul.menu {
 
 /*** Desktop ****/
 
-.mark-all-as-read.unavailable {
+.unavailable {
 	display: none;
 }
 
@@ -919,6 +919,10 @@ ul.menu {
 @media only screen and (max-width: 660px) {
 	.view-button {
 		display: inline;
+	}
+
+	.view-button.unavailable {
+		display: none;
 	}
 
 	.settings {

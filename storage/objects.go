@@ -229,20 +229,20 @@ func (article Article)HasProperty(propName string) bool {
 	return false
 }
 
-func (article *Article)SetProperty(propName string, value bool) {
+func (article *Article)SetProperty(propName string, set bool) {
 	propMap := make(map[string]bool)
 	for _, property := range article.Properties {
 		propMap[property] = true
 	}
 
-	if value && !propMap[propName] {
+	if set && !propMap[propName] {
 		propMap[propName] = true
 		if propName == "read" {
 			delete(propMap, "unread")
 		} else if propName == "unread" {
 			delete(propMap, "read")
 		}
-	} else if !value && propMap[propName] {
+	} else if !set && propMap[propName] {
 		delete(propMap, propName)
 		if propName == "read" {
 			propMap["unread"] = true
@@ -262,4 +262,25 @@ func (article *Article)SetProperty(propName string, value bool) {
 
 func (article *Article)ToggleProperty(propName string) {
 	article.SetProperty(propName, !article.HasProperty(propName))
+}
+
+func (article *Article)SetTag(tagName string, set bool) {
+	tagMap := make(map[string]bool)
+	for _, tag := range article.Tags {
+		tagMap[tag] = true
+	}
+
+	if set && !tagMap[tagName] {
+		tagMap[tagName] = true
+	} else if !set && tagMap[tagName] {
+		delete(tagMap, tagName)
+	}
+
+	article.Tags = make([]string, len(tagMap))
+	i := 0
+
+	for key, _ := range tagMap {
+		article.Tags[i] = key
+		i++
+	}
 }

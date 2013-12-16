@@ -146,43 +146,71 @@ $().ready(function() {
 			ui.showToast(errorJson.infoMessage, false);
 	});
 
-	var subscriptionMethods = {
-		'getRef': function() {
-			return {
-				's': this.id,
-				'f': this.parent ? this.parent : undefined,
-			};
+	var articleGroupingMethods = {
+		'getFilter': function() {
+			return { };
 		},
-		'getFilter': function(filter) {
-			return $.extend({}, this.getRef(), { 
-				'p': filter ? filter : undefined,
-			});
+		'getSourceUrl': function() {
+			// returns source URL (e.g. http://www.arstechnica.com/)
+			// or null if N/A
+			return null;
+		},
+		'supportsAggregateActions': function() {
+			return false;
+		},
+		'supportsPropertyFilters': function() {
+			return false;
 		},
 		'getDom': function() {
 			return $('#subscriptions').find('.' + this.domId);
 		},
-		'isFolder': function() {
-			return false;
-		},
-		'isRoot': function() {
-			return false;
-		},
-		'getFavIconUrl': function() {
-			if (this.favIconUrl)
-				return this.favIconUrl;
+		'loadEntries': function() {
+			lastContinued = continueFrom;
 
-			return '/content/favicon-default.png';
-		},
-		'getChildren': function() {
 			var subscription = this;
-			var children = [];
-
-			$.each(subscriptionMap, function(key, sub) {
-				if (subscription.id === "" || sub.parent === subscription.id)
-					children.push(sub);
+			$.getJSON('articles', {
+				'filter':   JSON.stringify(subscription.getFilter()),
+				'continue': continueFrom ? continueFrom : undefined,
+				'client':   clientId,
+			})
+			.success(function(response) {
+				continueFrom = response.continue;
+				subscription.addPage(response.articles, response.continue);
 			});
+		},
+		'refresh': function() {
+			continueFrom = null;
+			lastContinued = null;
 
-			return children;
+			$('#gofr-entries').empty();
+			this.loadEntries();
+		},
+		'select': function(reloadItems /* = true */) {
+			if (typeof reloadItems === 'undefined')
+				reloadItems = true;
+
+			$('#subscriptions').find('.subscription.selected').removeClass('selected');
+			this.getDom().addClass('selected');
+
+			if (reloadItems) {
+				this.selectedEntry = null;
+
+				var sourceUrl = this.getSourceUrl();
+				$('#gofr-entries').toggleClass('single-source', 
+					sourceUrl != null);
+
+				if (sourceUrl == null)
+					$('.gofr-entries-header').text(this.title);
+				else
+					$('.gofr-entries-header').html($('<a />', { 
+						'href' : sourceUrl, 
+						'target' : '_blank' 
+					}).text(this.title).append($('<span />').text(' »')));
+
+				this.refresh();
+			}
+
+			ui.onScopeChanged();
 		},
 		'addPage': function(entries) {
 			var subscription = this;
@@ -272,54 +300,62 @@ $().ready(function() {
 						}));
 			}
 		},
-		'loadEntries': function() {
-			lastContinued = continueFrom;
+	};
 
-			var subscription = this;
-			var selectedFilter = $('.group-filter.selected-menu-item').data('value');
-
-			$.getJSON('articles', {
-				'filter':   JSON.stringify(subscription.getFilter(selectedFilter)),
-				'continue': continueFrom ? continueFrom : undefined,
-				'client':   clientId,
-			})
-			.success(function(response) {
-				continueFrom = response.continue;
-				subscription.addPage(response.articles, response.continue);
-			});
+	var subscriptionMethods = $.extend({}, articleGroupingMethods, {
+		'getRef': function() {
+			return {
+				's': this.id,
+				'f': this.parent ? this.parent : undefined,
+			};
 		},
-		'refresh': function() {
-			continueFrom = null;
-			lastContinued = null;
+		'getFilter': function() {
+			var filter = this.getRef();
+			var selectedPropertyFilter = 
+				$('.group-filter.selected-menu-item').data('value');
 
-			$('#gofr-entries').empty();
-			this.loadEntries();
-		},
-		'select': function(reloadItems /* = true */) {
-			if (typeof reloadItems === 'undefined')
-				reloadItems = true;
-
-			$('#subscriptions').find('.subscription.selected').removeClass('selected');
-			this.getDom().addClass('selected');
-
-			if (reloadItems) {
-				this.selectedEntry = null;
-
-				$('#gofr-entries').toggleClass('single-source', this.link != null);
-
-				if (!this.link)
-					$('.gofr-entries-header').text(this.title);
-				else
-					$('.gofr-entries-header').html($('<a />', { 'href' : this.link, 'target' : '_blank' })
-						.text(this.title)
-						.append($('<span />')
-							.text(' »')));
-
-				this.refresh();
+			if (selectedPropertyFilter) {
+				$.extend(filter, {
+					'p': selectedPropertyFilter,
+				});
 			}
 
-			if (!syncInitted)
-				initSync();
+			return filter;
+		},
+		'supportsAggregateActions': function() {
+			return true;
+		},
+		'supportsPropertyFilters': function() {
+			return true;
+		},
+		'getDom': function() {
+			return $('#subscriptions').find('.' + this.domId);
+		},
+		'isFolder': function() {
+			return false;
+		},
+		'isRoot': function() {
+			return false;
+		},
+		'getSourceUrl': function() {
+			return this.link;
+		},
+		'getFavIconUrl': function() {
+			if (this.favIconUrl)
+				return this.favIconUrl;
+
+			return '/content/favicon-default.png';
+		},
+		'getChildren': function() {
+			var subscription = this;
+			var children = [];
+
+			$.each(subscriptionMap, function(key, sub) {
+				if (subscription.id === "" || sub.parent === subscription.id)
+					children.push(sub);
+			});
+
+			return children;
 		},
 		'syncView': function($sub) {
 			var $sub = this.getDom();
@@ -418,26 +454,16 @@ $().ready(function() {
 				resetSubscriptionDom(response, false);
 			}, 'json');
 		},
-		'removeFolder': function() {
-			var subscription = this;
-			if (subscription.isFolder()) {
-				$.post('removeFolder', {
-					'client': clientId,
-					'folder': subscription.id,
-				}, 
-				function(response) {
-					resetSubscriptionDom(response, false);
-					ui.pruneDeadEntries();
-				}, 'json');
-			}
-		},
-	};
+	});
 
 	var folderMethods = $.extend({}, subscriptionMethods, {
 		'getRef': function() {
 			return {
 				'f': this.id ? this.id : undefined,
 			};
+		},
+		'getSourceUrl': function() {
+			return null;
 		},
 		'subscribe': function(url) {
 			var params = {
@@ -463,27 +489,41 @@ $().ready(function() {
 
 			return 'folder';
 		},
+		'remove': function() {
+			var folder = this;
+			$.post('removeFolder', {
+				'client': clientId,
+				'folder': folder.id,
+			}, 
+			function(response) {
+				resetSubscriptionDom(response, false);
+				ui.pruneDeadEntries();
+			}, 'json');
+		},
 	});
 
-	var tagMethods = $.extend({}, subscriptionMethods, {
-		'getFilter': function(filter) {
-			return { 't': this.title };
+	var tagMethods = $.extend({}, articleGroupingMethods, {
+		'getFilter': function() {
+			return { 't': this.title, };
 		},
-		'select': function(reloadItems /* = true */) {
-			if (typeof reloadItems === 'undefined')
-				reloadItems = true;
-
-			$('#subscriptions').find('.subscription.selected').removeClass('selected');
-			this.getDom().addClass('selected');
-
-			if (reloadItems) {
-				this.selectedEntry = null;
-
-				$('#gofr-entries').toggleClass('single-source', false);
-				$('.gofr-entries-header').text(this.title);
-
-				this.refresh();
-			}
+		'getSourceUrl': function() {
+			return null;
+		},
+		'supportsAggregateActions': function() {
+			return false;
+		},
+		'supportsPropertyFilters': function() {
+			return false;
+		},
+		'remove': function() {
+			var tag = this;
+			$.post('removeTag', {
+				'client': clientId,
+				'tag': tag.title,
+			}, 
+			function(response) {
+				resetSubscriptionDom(response, false);
+			}, 'json');
 		},
 	});
 
@@ -770,8 +810,7 @@ $().ready(function() {
 			var subscription = getSelectedSubscription();
 			if (subscription != null)
 				subscription.refresh();
-			$('.mark-all-as-read').toggleClass('unavailable', 
-				$('#menu-filter').isSelected('.menu-starred-items'));
+			ui.onScopeChanged();
 		} else if ($item.is('.menu-show-sidebar')) {
 			ui.toggleSidebar(e.isChecked);
 		} else if ($item.is('.menu-import-subscriptions')) {
@@ -786,7 +825,7 @@ $().ready(function() {
 			$('#sign-out')[0].click();
 		} else if ($item.is('.menu-shortcuts')) {
 			$('.shortcuts').show();
-		} else if ($item.is('.menu-subscribe, .menu-rename, .menu-unsubscribe, .menu-delete')) {
+		} else if ($item.is('.menu-subscribe, .menu-rename, .menu-unsubscribe, .menu-delete-folder')) {
 			var subscription = subscriptionMap[e.context];
 			if ($item.is('.menu-subscribe')) {
 				ui.subscribe(subscription);
@@ -794,9 +833,12 @@ $().ready(function() {
 				ui.rename(subscription);
 			} else if ($item.is('.menu-unsubscribe')) {
 				ui.unsubscribe(subscription);
-			} else if ($item.is('.menu-delete')) {
+			} else if ($item.is('.menu-delete-folder')) {
 				ui.removeFolder(subscription);
 			}
+		} else if ($item.is('.menu-delete-tag')) {
+			var tag = $('.' + e.context).data('subscription');
+			ui.deleteTag(tag);
 		}
 	});
 
@@ -811,8 +853,7 @@ $().ready(function() {
 			this.initBookmarklet();
 
 			$('#menu-filter').selectItem('.menu-all-items');
-			$('.mark-all-as-read').toggleClass('unavailable', 
-				$('#menu-filter').isSelected('.menu-starred-items'));
+			this.onScopeChanged();
 
 			this.toggleSidebar($.cookie('show-sidebar') !== 'false');
 			this.toggleReadSubscriptions($.cookie('show-all-subs') !== 'false');
@@ -904,7 +945,9 @@ $().ready(function() {
 				.append($('<ul />', { 'id': 'menu-folder', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…")))
 					.append($('<li />', { 'class': 'menu-rename' }).text(_l("Rename…")))
-					.append($('<li />', { 'class': 'menu-delete' }).text(_l("Delete…"))))
+					.append($('<li />', { 'class': 'menu-delete-folder' }).text(_l("Delete…"))))
+				.append($('<ul />', { 'id': 'menu-tag', 'class': 'menu' })
+					.append($('<li />', { 'class': 'menu-delete-tag' }).text(_l("Delete…"))))
 				.append($('<ul />', { 'id': 'menu-root', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-create-folder' }).text(_l("New folder…")))
 					.append($('<li />', { 'class': 'menu-subscribe' }).text(_l("Subscribe…"))))
@@ -1278,11 +1321,16 @@ $().ready(function() {
 		},
 		'markAllAsRead': function() {
 			var subscription = getSelectedSubscription();
-			if (subscription == null || subscription.unread < 1)
+			if (subscription == null || 
+				subscription.unread < 1 ||
+				!subscription.supportsAggregateActions()) {
 				return;
+			}
 
-			if (subscription.unread > 10 && !confirm(_l("Mark %s messages as read?", [subscription.unread])))
+			if (subscription.unread > 10 && 
+				!confirm(_l("Mark %s messages as read?", [subscription.unread]))) {
 				return;
+			}
 
 			var filter = $('.group-filter.selected-menu-item').data('value');
 			subscription.markAllAsRead(filter);
@@ -1291,7 +1339,13 @@ $().ready(function() {
 			if (!confirm(_l("You will be unsubscribed from all subscriptions in this folder. Delete %s?", [folder.title])))
 				return;
 
-			folder.removeFolder();
+			folder.remove();
+		},
+		'deleteTag': function(tag) {
+			if (!confirm(_l("Tag \"%s\" will be removed from all matching articles. Continue?", [tag.title])))
+				return;
+
+			tag.remove();
 		},
 		'removeSubscriptionEntries': function(subscription) {
 			$('#gofr-entries .gofr-entry').each(function() {
@@ -1400,13 +1454,25 @@ $().ready(function() {
 					'folder':       entry.getSubscription().parent,
 					'tags':         tags,
 				},
-				function(tags) {
-					entry.tags = tags;
+				function(response) {
+					resetSubscriptionDom(response.subscriptions, false);
+					entry.tags = response.tags;
 					entry.syncView();
 				}, 'json');
-
 			}
 		},
+		'onScopeChanged': function() {
+			var subscription = getSelectedSubscription();
+			if (subscription != null) {
+				$('.mark-all-as-read').toggleClass('unavailable', 
+					$('#menu-filter').isSelected('.menu-starred-items') ||
+					!subscription.supportsAggregateActions());
+				$('.filter').toggleClass('unavailable', 
+					!subscription.supportsPropertyFilters());
+				$('.view-button').toggleClass('unavailable', 
+					!subscription.supportsPropertyFilters());
+			}
+		}
 	};
 
 	var getRootSubscription = function() {
@@ -1449,7 +1515,7 @@ $().ready(function() {
 		});
 
 		$.each(userSubs.tags, function(index, tag) {
-			tag.domId = 'tag-' + idCounter++;
+			tag.id = tag.domId = ('tag-' + idCounter++);
 
 			// Inject methods
 			for (var name in tagMethods)
@@ -1669,12 +1735,12 @@ $().ready(function() {
 		$.each(userSubscriptions.tags, function(index, tag) {
 			var firstClass = index == 0 ? ' first-tag' : '';
 			var $tag = $('<li />', { 'class' : 'subscription tag ' + tag.domId + firstClass })
-				.data('tag', tag)
+				.data('subscription', tag)
 				.append($('<div />', { 'class' : 'subscription-item' })
 					.append($('<span />', { 'class' : 'chevron' })
 						.click(function(e) {
-							// var $menu = $('#menu-' + subscription.getType());
-							// $menu.openMenu(e.pageX, e.pageY, subscription.id);
+							var $menu = $('#menu-tag');
+							$menu.openMenu(e.pageX, e.pageY, tag.id);
 							e.stopPropagation();
 						}))
 					.append($('<img />', { 
