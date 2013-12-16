@@ -527,6 +527,25 @@ $().ready(function() {
 		},
 	});
 
+	var specialFolderMethods = $.extend({}, articleGroupingMethods, {
+		'getFilter': function() {
+			if (this.type == 'starred') {
+				return { 'p': 'star', };
+			}
+
+			return {};
+		},
+		'getSourceUrl': function() {
+			return null;
+		},
+		'supportsAggregateActions': function() {
+			return false;
+		},
+		'supportsPropertyFilters': function() {
+			return false;
+		},
+	});
+
 	var entryMethods = {
 		'getSubscription': function() {
 			return subscriptionMap[this.source];
@@ -1497,7 +1516,7 @@ $().ready(function() {
 		userSubs.folders.push({
 			'id': '',
 		});
-		
+
 		// Create a combined list of folders & subscriptions
 		$.each(userSubs.folders, function(index, folder) {
 			folder.domId = 'sub-' + idCounter++;
@@ -1586,6 +1605,26 @@ $().ready(function() {
 
 		if (selectedSubscription != null)
 			selectedSubscriptionId = selectedSubscription.id;
+
+		// Special folders
+		specialFolders = [{
+			'id':    '',
+			'domId': 'sf-all',
+			'type':  'all',
+			'title': _l("All items"),
+		}, {
+			'id':    'sf-starred',
+			'domId': 'sf-starred',
+			'type':  'starred',
+			'title': _l("Starred items"),
+		}];
+		$.each(specialFolders, function(index, specialFolder) {
+			specialFolder.id = specialFolder.domId = ('sf-' + index);
+
+			// Inject methods
+			for (var name in specialFolderMethods)
+				specialFolder[name] = specialFolderMethods[name];
+		});
 
 		var collapsedFolderIds = [];
 		$.each($('#subscriptions .folder-collapsed'), function() {
@@ -1746,6 +1785,30 @@ $().ready(function() {
 			});
 		};
 
+		// $.each(specialFolders, function(index, specialFolder) {
+		// 	var $specialFolder = $('<li />', { 'class' : 'subscription special-folder ' + specialFolder.domId })
+		// 		.data('subscription', specialFolder)
+		// 		.append($('<div />', { 'class' : 'subscription-item' })
+		// 			.append($('<span />', { 'class' : 'chevron' })
+		// 				.click(function(e) {
+		// 					// var $menu = $('#menu-tag');
+		// 					// $menu.openMenu(e.pageX, e.pageY, tag.id);
+		// 					// e.stopPropagation();
+		// 				}))
+		// 			.append($('<img />', { 
+		// 				'class' : 'subscription-icon', 
+		// 				'src': 'content/favicon-placeholder.png' 
+		// 			}))
+		// 			.append($('<span />', { 'class' : 'subscription-title' })
+		// 				.text(specialFolder.title))
+		// 			.attr('title', specialFolder.title)
+		// 			.click(function() {
+		// 				specialFolder.select();
+		// 			}));
+
+		// 	$newSubscriptions.append($specialFolder);
+		// });
+
 		buildDom($newSubscriptions, subMap[""]);
 
 		$.each(userSubscriptions.tags, function(index, tag) {
@@ -1840,9 +1903,9 @@ $().ready(function() {
 					if (obj.message)
 						ui.showToast(obj.message, false);
 					if (obj.refresh)
-						refresh(false);
+						refresh(true);
 					if (obj.subscriptions)
-						resetSubscriptionDom(response, false);
+						resetSubscriptionDom(response, true);
 				}
 			};
 			socket.onerror = function(error) {
