@@ -210,6 +210,9 @@ $().ready(function() {
 				this.refresh();
 			}
 
+			if (!syncInitted)
+				initSync();
+
 			ui.onScopeChanged();
 		},
 		'addPage': function(entries) {
@@ -619,8 +622,8 @@ $().ready(function() {
 			$tagNode.toggleClass('has-tags', this.tags.length > 0);
 			$tagNode.find('.gofr-action-text')
 				.text(this.tags.length > 0 
-					? _l("Edit tags: %s", [ this.tags.join(", ") ]) 
-					: _l("Add tags"));
+					? _l("%s", [ this.tags.join(", ") ]) 
+					: _l("Tag"));
 		},
 		'isExpanded': function() {
 			return this.getDom().hasClass('open');
@@ -695,8 +698,8 @@ $().ready(function() {
 						.append($('<span />', { 'class' : 'action-tag gofr-entry-action' })
 							.append($('<span />', { 'class': 'gofr-action-text' })
 								.text(this.tags.length > 0 
-									? _l("Edit tags: %s", [ this.tags.join(", ") ]) 
-									: _l("Add tags")))
+									? _l("%s", [ this.tags.join(", ") ]) 
+									: _l("Tag")))
 							.click(function(e) {
 								ui.editTags(entry);
 							}))
@@ -1857,6 +1860,7 @@ $().ready(function() {
 	};
 
 	var initSync = function() {
+		var timeoutId = -1;
 		(function feedUpdater() {
 			$.post('syncFeeds', {
 				'client': clientId,
@@ -1867,7 +1871,9 @@ $().ready(function() {
 					console.debug("Refresh succeeded");
 			}, 'json')
 			.always(function() {
-				setTimeout(feedUpdater, 600000); // 10 minutes
+				if (timeoutId > -1)
+					clearTimeout(timeoutId);
+				timeoutId = setTimeout(feedUpdater, 600000); // 10 minutes
 			});
 
 			syncInitted = true;

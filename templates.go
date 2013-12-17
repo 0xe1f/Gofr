@@ -113,7 +113,7 @@ const readerTemplateHTML = `
 				<button class="settings dropdown _l" data-dropdown="menu-settings" title="Settings">&nbsp;</button>
 				<button class="select-article up _l" title="Previous Article">&nbsp;</button><button class="select-article down _l" title="Next Article">&nbsp;</button>
 			</div>
-			<button class="navigate _l">&nbsp;</button>
+			<button class="navigate _l" title="Navigate">&nbsp;</button>
 			<button class="refresh _l" title="Refresh">&nbsp;</button>
 			<button class="filter dropdown _l" data-dropdown="menu-filter">All Items</button>
 			<button class="mark-all-as-read _l">Mark all as read</button>

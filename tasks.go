@@ -348,7 +348,7 @@ func syncFeedsTask(pfc *PFContext) (TaskMessage, error) {
 	}
 
 	return TaskMessage {
-		Refresh: true,
+		Refresh: false,
 		Subscriptions: userSubscriptions,
 	}, nil
 }

@@ -397,6 +397,12 @@ a.gofr-entry-title:hover {
 }
 
 .gofr-entry-action .gofr-action-text {
+	display: inline-block;
+	max-width: 18em;
+	vertical-align: middle;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	margin-right: 0.35em;
 }
 
@@ -576,6 +582,7 @@ ul#subscriptions,
 
 button {
 	height: 30px;
+	margin: 0 0.25em;
 	padding: 0.5em 1.5em;
 	background-color: #eee;
 	border: solid 1px #aaa;
@@ -667,7 +674,6 @@ button.dropdown {
 
 .refresh {
 	width: 60px;
-	padding: 0;
 	background: url(sprites.png) no-repeat 0 -270px #eee;
 }
 
@@ -879,8 +885,14 @@ ul.menu {
 	display: none;
 }
 
+@media only screen and (max-width: 1000px) {
+	.gofr-entry-action .gofr-action-text {
+		max-width: 8em;
+	}
+}
+
 /*** Smaller size window ***/
-@media only screen and (max-width: 800px) {
+@media only screen and (max-width: 900px) {
 	.feeds-container {
 		display: none;
 		position: absolute;
@@ -945,7 +957,7 @@ ul.menu {
 		margin-left: 1em;
 	}
 
-	.gofr-action-text {
+	.gofr-entry-action .gofr-action-text {
 		display: none;
 	}
 
