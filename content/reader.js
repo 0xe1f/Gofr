@@ -31,8 +31,9 @@ $().ready(function() {
 	var continueFrom = null;
 	var lastContinued = null;
 	var lastGPressTime = 0;
+	var lastRefresh = -1;
+	var timeoutId = -1;
 	var channel;
-	var syncInitted = false;
 
 	var linkify = function(str, args) {
 		var re = /\(((?:[a-z]+:\/\/|%s)[^\)]*)\)\[([^\]]*)\]/g;
@@ -208,10 +209,8 @@ $().ready(function() {
 					}).text(this.title).append($('<span />').text(' »')));
 
 				this.refresh();
+				syncFeeds();
 			}
-
-			if (!syncInitted)
-				initSync();
 
 			ui.onScopeChanged();
 		},
@@ -1859,9 +1858,28 @@ $().ready(function() {
 		});
 	};
 
-	var initSync = function() {
-		var timeoutId = -1;
+	var syncFeeds = function() {
 		(function feedUpdater() {
+			var now = new Date().getTime();
+			var delta = now - lastRefresh;
+
+			if (delta < 60000) {
+				if (console && console.debug)
+					console.debug("Ignoring sync request (last sync " + (delta / 1000) + "s ago)");
+
+				return; // No need to sync yet
+			}
+
+			if (timeoutId > -1) {
+				clearTimeout(timeoutId);
+				timeoutId = -1;
+			}
+
+			if (console && console.debug)
+				console.debug("Synchronizing feeds (last sync " + (delta / 1000) + "s ago)");
+
+			lastRefresh = now;
+
 			$.post('syncFeeds', {
 				'client': clientId,
 			},
@@ -1871,12 +1889,8 @@ $().ready(function() {
 					console.debug("Refresh succeeded");
 			}, 'json')
 			.always(function() {
-				if (timeoutId > -1)
-					clearTimeout(timeoutId);
 				timeoutId = setTimeout(feedUpdater, 600000); // 10 minutes
 			});
-
-			syncInitted = true;
 		})();
 	};
 
