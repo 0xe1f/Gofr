@@ -489,8 +489,8 @@ ul#subscriptions,
 	padding-left: 50px;
 }
 
-.subscription.root .subscription-item {
-	margin-bottom: 1em;
+.subscription.first > .subscription-item {
+	margin-top: 1em;
 }
 
 .subscription.root .subscription-icon {
@@ -498,13 +498,19 @@ ul#subscriptions,
 	background-position: -165px -165px;
 }
 
+.subscription.sf-starred .subscription-icon {
+	background-image: url(sprites.png);
+	background-position: -45px -45px;
+}
+
+.subscription.sf-liked .subscription-icon {
+	background-image: url(sprites.png);
+	background-position: -75px -75px;
+}
+
 .subscription.folder .subscription-icon {
 	background-image: url(sprites.png);
 	background-position: -135px -135px;
-}
-
-.subscription.first-tag .subscription-item {
-	margin-top: 1em;
 }
 
 .subscription.tag .subscription-icon {
@@ -1052,5 +1058,21 @@ ul.menu {
 	
 	.subscription-item .folder-toggle {
 		display: none;
+	}
+}
+
+/** High dpi **/
+@media only screen and (min--moz-device-pixel-ratio: 2), 
+only screen and (-o-min-device-pixel-ratio: 2/1), 
+only screen and (-webkit-min-device-pixel-ratio: 2), 
+only screen and (min-device-pixel-ratio: 2) {
+	.navigate {
+		background-image: url(sprites@2x.png);
+		background-size: 300px 300px;
+	}
+
+	.navigate:hover {
+		background-image: url(sprites@2x.png);
+		background-size: 300px 300px;
 	}
 }

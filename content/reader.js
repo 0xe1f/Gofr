@@ -531,11 +531,7 @@ $().ready(function() {
 
 	var specialFolderMethods = $.extend({}, articleGroupingMethods, {
 		'getFilter': function() {
-			if (this.type == 'starred') {
-				return { 'p': 'star', };
-			}
-
-			return {};
+			return this.filter;
 		},
 		'getSourceUrl': function() {
 			return null;
@@ -827,7 +823,7 @@ $().ready(function() {
 
 	$$menu.click(function(e) {
 		var $item = e.$item;
-		if ($item.is('.menu-all-items, .menu-new-items, .menu-starred-items')) {
+		if ($item.is('.menu-all-items, .menu-new-items')) {
 			var subscription = getSelectedSubscription();
 			if (subscription != null)
 				subscription.refresh();
@@ -947,8 +943,7 @@ $().ready(function() {
 			$('body')
 				.append($('<ul />', { 'id': 'menu-filter', 'class': 'menu selectable' })
 					.append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
-					.append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
-					.append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
+					.append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items"))))
 				.append($('<ul />', { 'id': 'menu-settings', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-show-sidebar checkable' }).text(_l("Show sidebar")))
 					.append($('<li />', { 'class': 'menu-show-all-subs checkable' }).text(_l("Show read subscriptions")))
@@ -956,8 +951,7 @@ $().ready(function() {
 					.append($('<li />', { 'class': 'menu-shortcuts' }).text(_l("View shortcut keys…"))))
 				.append($('<ul />', { 'id': 'menu-view', 'class': 'menu selectable' })
 					.append($('<li />', { 'class': 'menu-all-items group-filter' }).text(_l("All items")))
-					.append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items")))
-					.append($('<li />', { 'class': 'menu-starred-items group-filter', 'data-value': 'star' }).text(_l("Starred"))))
+					.append($('<li />', { 'class': 'menu-new-items group-filter', 'data-value': 'unread' }).text(_l("New items"))))
 				.append($('<ul />', { 'id': 'menu-user-options', 'class': 'menu' })
 					.append($('<li />', { 'class': 'menu-import-subscriptions' }).text(_l("Import subscriptions…")))
 					.append($('<li />', { 'class': 'menu-export-subscriptions' }).text(_l("Export subscriptions")))
@@ -1486,7 +1480,6 @@ $().ready(function() {
 			var subscription = getSelectedSubscription();
 			if (subscription != null) {
 				$('.mark-all-as-read').toggleClass('unavailable', 
-					$('#menu-filter').isSelected('.menu-starred-items') ||
 					!subscription.supportsAggregateActions());
 				$('.filter').toggleClass('unavailable', 
 					!subscription.supportsPropertyFilters());
@@ -1610,19 +1603,20 @@ $().ready(function() {
 
 		// Special folders
 		specialFolders = [{
-			'id':    '',
-			'domId': 'sf-all',
-			'type':  'all',
-			'title': _l("All items"),
+			'id':     'sf-liked',
+			'domId':  'sf-liked',
+			'type':   'liked',
+			'title':  _l("Liked items"),
+			'filter': { 'p': 'like', },
 		}, {
 			'id':    'sf-starred',
 			'domId': 'sf-starred',
 			'type':  'starred',
 			'title': _l("Starred items"),
+			'filter': { 'p': 'star', },
 		}];
-		$.each(specialFolders, function(index, specialFolder) {
-			specialFolder.id = specialFolder.domId = ('sf-' + index);
 
+		$.each(specialFolders, function(index, specialFolder) {
 			// Inject methods
 			for (var name in specialFolderMethods)
 				specialFolder[name] = specialFolderMethods[name];
@@ -1639,6 +1633,7 @@ $().ready(function() {
 		var $newSubscriptions = $('<ul />', { 'id': 'subscriptions' });
 		var newSubscriptionMap = {};
 		var newSubscriptions = [];
+		var markedFirstSub = false;
 
 		var subMap = generateSubscriptionMap(userSubscriptions);
 		var createSubDom = function(subscription) {
@@ -1753,6 +1748,11 @@ $().ready(function() {
 				}
 			}
 
+			if (!subscription.isRoot() && !markedFirstSub) {
+				$subscription.addClass('first');
+				markedFirstSub = true;
+			}
+
 			return $subscription.addClass(subscription.getType());
 		};
 
@@ -1787,35 +1787,35 @@ $().ready(function() {
 			});
 		};
 
-		// $.each(specialFolders, function(index, specialFolder) {
-		// 	var $specialFolder = $('<li />', { 'class' : 'subscription special-folder ' + specialFolder.domId })
-		// 		.data('subscription', specialFolder)
-		// 		.append($('<div />', { 'class' : 'subscription-item' })
-		// 			.append($('<span />', { 'class' : 'chevron' })
-		// 				.click(function(e) {
-		// 					// var $menu = $('#menu-tag');
-		// 					// $menu.openMenu(e.pageX, e.pageY, tag.id);
-		// 					// e.stopPropagation();
-		// 				}))
-		// 			.append($('<img />', { 
-		// 				'class' : 'subscription-icon', 
-		// 				'src': 'content/favicon-placeholder.png' 
-		// 			}))
-		// 			.append($('<span />', { 'class' : 'subscription-title' })
-		// 				.text(specialFolder.title))
-		// 			.attr('title', specialFolder.title)
-		// 			.click(function() {
-		// 				specialFolder.select();
-		// 			}));
-
-		// 	$newSubscriptions.append($specialFolder);
-		// });
-
 		buildDom($newSubscriptions, subMap[""]);
 
+		var $appendAfter = $newSubscriptions.find('.root.subscription');
+		var firstClass = 'first';
+
+		$.each(specialFolders, function(index, specialFolder) {
+			var $specialFolder = $('<li />', { 'class' : 'subscription special-folder ' + specialFolder.domId + ' ' + firstClass})
+				.data('subscription', specialFolder)
+				.append($('<div />', { 'class' : 'subscription-item' })
+					.append($('<img />', { 
+						'class' : 'subscription-icon', 
+						'src': 'content/favicon-placeholder.png' 
+					}))
+					.append($('<span />', { 'class' : 'subscription-title' })
+						.text(specialFolder.title))
+					.attr('title', specialFolder.title)
+					.click(function() {
+						specialFolder.select();
+					}));
+
+			$appendAfter.after($specialFolder);
+
+			firstClass = '';
+			$appendAfter = $specialFolder;
+		});
+
+		firstClass = 'first';
 		$.each(userSubscriptions.tags, function(index, tag) {
-			var firstClass = index == 0 ? ' first-tag' : '';
-			var $tag = $('<li />', { 'class' : 'subscription tag ' + tag.domId + firstClass })
+			var $tag = $('<li />', { 'class' : 'subscription tag ' + tag.domId + ' ' + firstClass })
 				.data('subscription', tag)
 				.append($('<div />', { 'class' : 'subscription-item' })
 					.append($('<span />', { 'class' : 'chevron' })
@@ -1835,6 +1835,7 @@ $().ready(function() {
 						tag.select();
 					}));
 
+			firstClass = '';
 			$newSubscriptions.append($tag);
 		});
 
