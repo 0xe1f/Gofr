@@ -899,6 +899,11 @@ ul.menu {
 
 /*** Smaller size window ***/
 @media only screen and (max-width: 900px) {
+	.menu li.hovered {
+		cursor: default;
+		background-color: inherit;
+	}
+
 	.feeds-container {
 		display: none;
 		position: absolute;
@@ -1066,12 +1071,45 @@ ul.menu {
 only screen and (-o-min-device-pixel-ratio: 2/1), 
 only screen and (-webkit-min-device-pixel-ratio: 2), 
 only screen and (min-device-pixel-ratio: 2) {
-	.navigate {
-		background-image: url(sprites@2x.png);
-		background-size: 300px 300px;
-	}
+	button.dropdown,
 
-	.navigate:hover {
+	.subscription-item .folder-toggle,
+	.subscription-item .chevron,
+
+	.menu li.selected-menu-item span,
+	.menu li.checked span,
+
+	.navigate,
+	.navigate:hover,
+
+	.action-tag,
+	.action-tag.has-tags,
+
+	.action-star,
+	.star .action-star,
+
+	.gofr-entry-link,
+
+	.subscription.root .subscription-icon,
+	.subscription.folder .subscription-icon,
+	.subscription.sf-starred .subscription-icon,
+	.subscription.sf-liked .subscription-icon,
+	.subscription.tag .subscription-icon,
+
+	.refresh,
+	.refresh:hover, 
+	.refresh:active,
+
+	.settings.dropdown,
+	.settings.dropdown:hover, 
+	.settings.dropdown:active,
+
+	.select-article.down,
+	.select-article.down:hover, 
+	.select-article.down:active,
+	.select-article.up,
+	.select-article.up:hover, 
+	.select-article.up:active {
 		background-image: url(sprites@2x.png);
 		background-size: 300px 300px;
 	}
