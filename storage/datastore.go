@@ -889,6 +889,10 @@ func Subscribe(c appengine.Context, ref FolderRef, url string, title string) (Su
 		return SubscriptionRef{}, err
 	}
 
+	if err := updateSubscriberCount(c, url, 1); err != nil {
+		c.Warningf("Error incrementing subscriber count: %s", err)
+	}
+
 	return SubscriptionRef{
 		FolderRef: ref,
 		SubscriptionID: url,
@@ -970,6 +974,10 @@ func Unsubscribe(c appengine.Context, ref SubscriptionRef) error {
 
 	if err := datastore.Delete(c, subscriptionKey); err != nil {
 		return err
+	}
+
+	if err := updateSubscriberCount(c, ref.SubscriptionID, -1); err != nil {
+		c.Warningf("Error decrementing subscriber count: %s", err)
 	}
 
 	return nil
@@ -1422,6 +1430,32 @@ func (article Article) UpdateLikeCount(c appengine.Context, delta int) error {
 		}
 
 		shard.LikeCount += delta
+		_, err := datastore.Put(c, key, &shard)
+
+		return err
+	}, nil)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateSubscriberCount(c appengine.Context, feedURL string, delta int) error {
+	err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+		shardName := fmt.Sprintf("%s#%d", 
+			feedURL, rand.Intn(subscriberCountShards))
+		key := datastore.NewKey(c, "SubscriberCountShard", shardName, 0, nil)
+
+		var shard subscriberCountShard
+		if err := datastore.Get(c, key, &shard); err == datastore.ErrNoSuchEntity {
+			shard.Feed = datastore.NewKey(c, "Feed", feedURL, 0, nil)
+		} else if err != nil {
+			return err
+		}
+
+		shard.SubscriberCount += delta
 		_, err := datastore.Put(c, key, &shard)
 
 		return err

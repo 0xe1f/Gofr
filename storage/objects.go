@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	likeCountShards = 20
+	likeCountShards = 40
+	subscriberCountShards = 40
 )
 
 type User struct {
@@ -95,6 +96,11 @@ type EntryMedia struct {
 type likeCountShard struct {
 	Entry *datastore.Key
 	LikeCount int
+}
+
+type subscriberCountShard struct {
+	Feed *datastore.Key
+	SubscriberCount int
 }
 
 type UserSubscriptions struct {
