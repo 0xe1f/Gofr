@@ -3,7 +3,7 @@ Gofr
 
 **Gofr** is a Feed Reader (Google Reader clone) for [Google App Engine] [1]. It grew out of my frustration with the relational backend of [grr] [2] and my inability to optimize it beyond unsatisfactory results. 
 
-Gofr is written in [Go] [3], and uses the [Google Cloud Datastore] [4]. It's one of the [Google Cloud Developer Challenge] [6] finalists in the United States, Europe and the Rest of the World region, Social/Entertainment category, currently hosted at [gcdc2013-gofr.appspot.com] [7].
+Gofr is written in [Go] [3], and uses the [Google Cloud Datastore] [4]. It's one of the [Google Cloud Developer Challenge] [6] finalists, currently hosted at [gcdc2013-gofr.appspot.com] [7].
 
 ![Screenshot](http://i.imgur.com/r4MjqY5.png "Screenshot")
 

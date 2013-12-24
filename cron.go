@@ -28,14 +28,12 @@ import (
 	"appengine/datastore"
 	"rss"
 	"storage"
-	"strings"
 	"time"
 )
 
 func registerCron() {
 	RegisterCronRoute("/cron/updateFeeds", updateFeedsJob)
 	RegisterCronRoute("/cron/updateUnreadCounts", updateUnreadCountsJob)
-	RegisterCronRoute("/cron/updateFavIcons", updateFavIconsJob)
 }
 
 func updateFeed(c appengine.Context, ch chan<- *storage.FeedMeta, url string, feedMeta *storage.FeedMeta) {
@@ -131,61 +129,3 @@ func updateUnreadCountsJob(pfc *PFContext) error {
 
 	return jobError
 }
-
-func updateFavIcon(c appengine.Context, ch chan<- *storage.Feed, feedKey *datastore.Key, feed *storage.Feed) {
-	if favIconURL, err := locateFavIconURL(c, feed.Link); err != nil {
-		// Not critical
-		c.Warningf("FavIcon retrieval error: %s", err)
-	} else if favIconURL != "" {
-		feed.FavIconURL = favIconURL
-		if _, err := datastore.Put(c, feedKey, feed); err != nil {
-			c.Warningf("FavIcon write error: %s", err)
-		}
-	}
-
-	ch<- feed
-}
-
-func updateFavIconsJob(pfc *PFContext) error {
-	var jobError error
-	c := pfc.C
-	doneChannel := make(chan *storage.Feed)
-	started := time.Now()
-	count, routines, skipped := 0, 0, 0
-	fullRefresh := strings.ToLower(pfc.R.PostFormValue("fullRefresh")) == "true"
-
-	q := datastore.NewQuery("Feed")
-	for t := q.Run(c); ; {
-		feed := new(storage.Feed)
-
-		if feedKey, err := t.Next(feed); err == datastore.Done {
-			break
-		} else if err == nil || storage.IsFieldMismatch(err) {
-			if feed.FavIconURL != "" && !fullRefresh {
-				// FavIcon already present
-				skipped++
-			} else if feed.Link == "" {
-				// No link to the home page
-				skipped++
-			} else {
-				routines++
-				go updateFavIcon(c, doneChannel, feedKey, feed)
-			}
-		} else {
-			c.Warningf("Error fetching feed record: %s", err)
-			jobError = err
-			break
-		}
-
-		count++
-	}
-
-	for i := 0; i < routines; i++ {
-		<-doneChannel;
-	}
-
- 	c.Infof("%d feeds completed (%d skipped) in %s", count, skipped, time.Since(started))
-
-	return jobError
-}
-

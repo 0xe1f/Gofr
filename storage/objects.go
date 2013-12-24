@@ -49,6 +49,11 @@ type FeedMeta struct {
 	HourlyUpdateFrequency float32
 }
 
+type FeedSubscriber struct {
+	Feed *datastore.Key
+	Count int
+}
+
 type Feed struct {
 	URL string
 	Title string
@@ -159,7 +164,7 @@ func (ref SubscriptionRef)IsSubscriptionExplicit() bool {
 type ArticleFilter struct {
 	ArticleScope
 	Property string `json:"p,omitempty"`
-	Tag string `json:"t,omitempty"`
+	Tag string      `json:"t,omitempty"`
 }
 
 type ArticleRef struct {
@@ -213,7 +218,7 @@ type StorageInfo struct {
 }
 
 type Folder struct {
-	ID string    `json:"id"    datastore:"-"`
+	ID string    `json:"id" datastore:"-"`
 	Title string `json:"title"`
 }
 

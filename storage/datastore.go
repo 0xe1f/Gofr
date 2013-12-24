@@ -527,9 +527,9 @@ func SetProperty(c appengine.Context, ref ArticleRef, propertyName string, prope
 
 		if wasLiked != article.IsLiked() {
 			if wasLiked {
-				article.UpdateLikeCount(c, -1)
+				article.updateLikeCount(c, -1)
 			} else {
-				article.UpdateLikeCount(c, 1)
+				article.updateLikeCount(c, 1)
 			}
 		}
 
@@ -1054,17 +1054,15 @@ func RemoveTag(c appengine.Context, userID UserID, tag string) error {
 	return nil
 }
 
-
 func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fetched time.Time) error {
 	var updateCounter int64
+	var lastFetched time.Time
 
 	feedDigest := parsedFeed.Digest()
 	feedMeta := new(FeedMeta)
 	feedMetaKey := datastore.NewKey(c, "FeedMeta", parsedFeed.URL, 0, nil)
 	feedKey := datastore.NewKey(c, "Feed", parsedFeed.URL, 0, nil)
 	updateInfo := false
-
-	var lastFetched time.Time
 
 	err := datastore.RunInTransaction(c, func(c appengine.Context) error {
 		if err := datastore.Get(c, feedMetaKey, feedMeta); err == datastore.ErrNoSuchEntity {
@@ -1109,6 +1107,35 @@ func UpdateFeed(c appengine.Context, parsedFeed *rss.Feed, favIconURL string, fe
 		return err
 	}
 
+	// Consolidate subscriber count from shards
+	if subscriberCount, err := consolidatedSubscriberCount(c, feedKey); err != nil {
+		c.Warningf("Error reading subscriber count: %s", err)
+	} else {
+		feedSubKey := datastore.NewKey(c, "FeedSubscriber", parsedFeed.URL, 0, nil)
+		feedSub := new(FeedSubscriber)
+		updateCounts := false
+
+		if err := datastore.Get(c, feedSubKey, feedSub); err == datastore.ErrNoSuchEntity {
+			feedSub.Feed = feedKey
+			updateCounts = true
+		} else if err == nil || IsFieldMismatch(err) {
+			// No error
+			updateCounts = (feedSub.Count != subscriberCount)
+		} else {
+			// Some other error
+			c.Warningf("Error reading FeedSubscriber entity: %s", err)
+		}
+
+		// If the count has changed, update it
+		if updateCounts {
+			feedSub.Count = subscriberCount
+			if _, err := datastore.Put(c, feedSubKey, feedSub); err != nil {
+				c.Warningf("Error writing FeedSubscriber entity: %s", err)
+			}
+		}
+	}
+
+	// Update information (Feed entity)
 	if updateInfo {
 		feed := new(Feed)
 		if err := datastore.Get(c, feedKey, feed); err == datastore.ErrNoSuchEntity {
@@ -1416,7 +1443,7 @@ func (article Article) LikeCount(c appengine.Context) (int, error) {
 	return count, nil
 }
 
-func (article Article) UpdateLikeCount(c appengine.Context, delta int) error {
+func (article Article) updateLikeCount(c appengine.Context, delta int) error {
 	err := datastore.RunInTransaction(c, func(c appengine.Context) error {
 		shardName := fmt.Sprintf("%s#%d", 
 			article.Entry.StringID(), rand.Intn(likeCountShards))
@@ -1440,6 +1467,22 @@ func (article Article) UpdateLikeCount(c appengine.Context, delta int) error {
 	}
 
 	return nil
+}
+
+func consolidatedSubscriberCount(c appengine.Context, feedKey *datastore.Key) (int, error) {
+	count := 0
+	q := datastore.NewQuery("SubscriberCountShard").Filter("Feed =", feedKey)
+	for t := q.Run(c); ; {
+		var shard subscriberCountShard
+		if _, err := t.Next(&shard); err == datastore.Done {
+			break
+		} else if err != nil {
+			return count, err
+		}
+		count += shard.SubscriberCount
+	}
+
+	return count, nil
 }
 
 func updateSubscriberCount(c appengine.Context, feedURL string, delta int) error {

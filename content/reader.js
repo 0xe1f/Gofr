@@ -1485,6 +1485,8 @@ $().ready(function() {
 					!subscription.supportsPropertyFilters());
 				$('.view-button').toggleClass('unavailable', 
 					!subscription.supportsPropertyFilters());
+				
+				ui.updateUnreadCount();
 			}
 		}
 	};
