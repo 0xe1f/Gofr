@@ -624,7 +624,7 @@ $().ready(function() {
 			return this.getDom().hasClass('open');
 		},
 		'resolveUrl': function(url) {
-			if (url.match(/^(?:[a-z]+:)?\/\//))
+			if (url.match(/^\s*(?:[a-z]+:)?\/\//))
 				return url; // Already absolute
 
 			if (typeof this.articleRoot === 'undefined')
@@ -1485,7 +1485,7 @@ $().ready(function() {
 					!subscription.supportsPropertyFilters());
 				$('.view-button').toggleClass('unavailable', 
 					!subscription.supportsPropertyFilters());
-				
+
 				ui.updateUnreadCount();
 			}
 		}
