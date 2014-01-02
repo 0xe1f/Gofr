@@ -529,6 +529,11 @@ ul#subscriptions,
 	background-image: none;
 }
 
+.subscription.leaf .subscription-icon.no-favicon {
+	background-image: url(sprites.png);
+	background-position: -150px -150px;
+}
+
 .subscription-item:hover {
 	background-color: #eee;
 }
@@ -1127,6 +1132,7 @@ only screen and (min-device-pixel-ratio: 2) {
 	.subscription.sf-liked .subscription-icon,
 	.subscription.tag .subscription-icon,
 	.subscription.folder > .subscription-item > .subscription-icon,
+	.subscription.leaf .subscription-icon.no-favicon,
 
 	.refresh,
 	.refresh:hover, 

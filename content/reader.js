@@ -35,6 +35,9 @@ $().ready(function() {
 	var timeoutId = -1;
 	var channel;
 
+	// A 15x15 transparent image
+	var transparentIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAPCAYAAAA71pVKAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsSAAALEgHS3X78AAAAB3RJTUUH3QkaEBchBQxHYwAAAbxJREFUKM+lkr1rFEEYxn8zs7eXu1u4i3prwJOAqBeicCBYCYIgCgraSBRt/ANSia2FdsbCIkVsLDVaqdiJYJqQWGkTUEyQBYNfJ5ecObMfszMWl2wIuYiQt5qB+T3P+77zwA5KACw9uYyTqv+GtEqpXHmKBDJQeP663j9r/b2TtVDop3jhPjYJMa0A0/qMDmYxzU/bi2Rwrkj64yOyfxDl11F+nVz9LHp+ivj9JDbubA+b9iLh6zuAQHo+cu8wbuMSzsFTqNoxwle3MSvfN8Fy4+TQd/oW7vHryIFhdDDN6sub6IU3iL4y+ROjIFVvZ1neh/KHUP4QAO6Ri0QzE0RvHyJKVdTAUdzGCPG7ya3OphXw59ko4dQ9dDCLKFXJn7yBKO4imnmATUJyh8+AUD3aXvt122kSTY+TzL1AuB5uYwS72sL8/ADKRVZqPWDHpXBujML5u8hyjXjuOViDrB4CIP210AV2H9g6M2mKDZcAsEkHdIxZ/oKs7EfkPUxzvgtXBjfHc+XR1bWbAqVAx9kSbdjGRr9B5ZClPZj2N8DiXXvcddYq7UbOpqDTTNksL27sI00w7a9ZtndcfwE4Q5nI69qxywAAAABJRU5ErkJggg==";
+
 	var linkify = function(str, args) {
 		var re = /\(((?:[a-z]+:\/\/|%s)[^\)]*)\)\[([^\]]*)\]/g;
 		var m;
@@ -343,10 +346,7 @@ $().ready(function() {
 			return this.link;
 		},
 		'getFavIconUrl': function() {
-			if (this.favIconUrl)
-				return this.favIconUrl;
-
-			return '/content/favicon-default.png';
+			return this.favIconUrl;
 		},
 		'getChildren': function() {
 			var subscription = this;
@@ -1649,7 +1649,7 @@ $().ready(function() {
 						}))
 					.append($('<img />', { 
 						'class' : 'subscription-icon', 
-						'src': 'content/favicon-placeholder.png' 
+						'src': transparentIcon,
 					}))
 					.append($('<span />', { 'class' : 'subscription-title' })
 						.text(subscription.title))
@@ -1661,8 +1661,12 @@ $().ready(function() {
 
 			if (!subscription.isFolder()) {
 				// Favicons
-				$subscription.find('.subscription-icon')
-					.attr('src', subscription.getFavIconUrl());
+				if (subscription.favIconUrl) {
+					$subscription.find('.subscription-icon')
+						.attr('src', subscription.favIconUrl);
+				} else {
+					$subscription.find('.subscription-icon').addClass('no-favicon');
+				}
 
 				// Drag-and-drop code
 				$subscription
@@ -1799,7 +1803,7 @@ $().ready(function() {
 				.append($('<div />', { 'class' : 'subscription-item' })
 					.append($('<img />', { 
 						'class' : 'subscription-icon', 
-						'src': 'content/favicon-placeholder.png' 
+						'src': transparentIcon,
 					}))
 					.append($('<span />', { 'class' : 'subscription-title' })
 						.text(specialFolder.title))
@@ -1827,7 +1831,7 @@ $().ready(function() {
 						}))
 					.append($('<img />', { 
 						'class' : 'subscription-icon', 
-						'src': 'content/favicon-placeholder.png' 
+						'src': transparentIcon,
 					}))
 					.append($('<span />', { 'class' : 'subscription-title' })
 						.text(tag.title))
