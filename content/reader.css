@@ -113,7 +113,7 @@ a {
 	background-color: #fff;
 }
 
-.floated-nav .feeds-container {
+.floated-sidebar .feeds-container {
 	display: none;
 	position: absolute;
 	width: 280px;
@@ -124,7 +124,7 @@ a {
 	box-shadow: 2px 2px 5px #aaa;
 }
 
-.floated-nav .feeds-container.floated {
+.floated-sidebar.sidebar-open .feeds-container {
 	top: -106px;
 	bottom: -30px;
 	margin: 0;
@@ -163,7 +163,7 @@ a {
 	overflow: auto;
 }
 
-.floated-nav .gofr-entries-container {
+.floated-sidebar .gofr-entries-container {
 	left: 0;
 }
 
@@ -335,6 +335,8 @@ a.gofr-entry-title:hover {
 	padding-left: 20px;
 	margin-left: 1em;
 	cursor: pointer;
+	display: inline-block;
+	height: 15px;
 }
 
 .gofr-entry-share {
@@ -508,7 +510,7 @@ ul#subscriptions,
 	background-position: -75px -75px;
 }
 
-.subscription.folder .subscription-icon {
+.subscription.folder > .subscription-item > .subscription-icon {
 	background-image: url(sprites.png);
 	background-position: -135px -135px;
 }
@@ -642,7 +644,7 @@ button.dropdown {
 	background-position: -145px -240px;
 }
 
-.floated-nav .navigate {
+.floated-sidebar .navigate {
 	display: inline-block;
 }
 
@@ -881,6 +883,15 @@ ul.menu {
 	min-width: 1.5em;
 }
 
+.modal-blocker {
+	display: none;
+}
+
+.sidebar-open .modal-blocker,
+.modal-open .modal-blocker {
+	display: block;
+}
+
 /*** Desktop ****/
 
 .unavailable {
@@ -914,7 +925,7 @@ ul.menu {
 		box-shadow: 2px 2px 5px #aaa;
 	}
 
-	.feeds-container.floated {
+	.sidebar-open .feeds-container {
 		top: -106px;
 		bottom: -30px;
 		margin: 0;
@@ -1099,10 +1110,10 @@ only screen and (min-device-pixel-ratio: 2) {
 	.gofr-entry-link,
 
 	.subscription.root .subscription-icon,
-	.subscription.folder .subscription-icon,
 	.subscription.sf-starred .subscription-icon,
 	.subscription.sf-liked .subscription-icon,
 	.subscription.tag .subscription-icon,
+	.subscription.folder > .subscription-item > .subscription-icon,
 
 	.refresh,
 	.refresh:hover, 

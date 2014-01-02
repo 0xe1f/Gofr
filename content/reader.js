@@ -878,13 +878,13 @@ $().ready(function() {
 			$('a').not('#sign-out').attr('target', '_blank');
 		},
 		'isNavBarVisible': function() {
-			return $('.feeds-container').is(".floated");
+			return $('body').is(".sidebar-open");
 		},
 		'toggleNavBar': function(show) {
 			if (typeof show === 'undefined')
 				show = !ui.isNavBarVisible();
 
-			$('.feeds-container').toggleClass('floated', show);
+			$('body').toggleClass('sidebar-open', show);
 		},
 		'initButtons': function() {
 			$('button.refresh').click(function() {
@@ -1142,18 +1142,17 @@ $().ready(function() {
 				});
 		},
 		'initModals': function() {
-			$('.modal-blocker').hide();
 			$('.modal').wrapInner('<div class="modal-inner"></div>').hide();
 
 			$.fn.showModal = function(show) {
 				if (!$(this).hasClass('modal'))
 					return;
 
+				$('body').toggleClass('modal-open', show);
+
 				if (show) {
-					$('.modal-blocker').show();
 					$(this).show();
 				} else {
-					$('.modal-blocker').hide();
 					$(this).hide();
 				}
 			};
@@ -1180,7 +1179,7 @@ $().ready(function() {
 			if (typeof showSidebar === 'undefined')
 				showSidebar = $('.navigate').is(':visible');
 
-			$('body').toggleClass('floated-nav', !showSidebar);
+			$('body').toggleClass('floated-sidebar', !showSidebar);
 			$('.menu-show-sidebar').setChecked(showSidebar);
 
 			$.cookie('show-sidebar', showSidebar);
