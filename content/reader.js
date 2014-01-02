@@ -624,8 +624,8 @@ $().ready(function() {
 			return this.getDom().hasClass('open');
 		},
 		'resolveUrl': function(url) {
-			if (url.match(/^\s*(?:[a-z]+:)?\/\//))
-				return url; // Already absolute
+			if (!url || url.match(/^\s*(?:[a-z]+:)?\/\//))
+				return url; // Invalid or already absolute
 
 			if (typeof this.articleRoot === 'undefined')
 			{

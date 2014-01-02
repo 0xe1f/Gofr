@@ -1085,8 +1085,16 @@ only screen and (min-device-pixel-ratio: 2) {
 	.action-tag,
 	.action-tag.has-tags,
 
+	.action-like,
+	.like .action-like,
 	.action-star,
 	.star .action-star,
+	.action-unread,
+	.gofr-entry.read .action-unread,
+
+	.action-share-gplus,
+	.action-share-fb,
+	.action-share-twitter,
 
 	.gofr-entry-link,
 
