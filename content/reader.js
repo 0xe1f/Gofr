@@ -976,28 +976,28 @@ $().ready(function() {
 			var categories = [{
 				'title': _l('Navigation'),
 				'shortcuts': [
-					{ keys: _l('[j]/[k]'),       action: _l("Open next/previous article") },
-					{ keys: _l('[n]/[p]'),       action: _l("Move to next/previous article") },
-					{ keys: _l('[Shift]+[n]/[p]'), action: _l("Move to next/previous subscription") },
-					{ keys: _l('[Shift]+[o]'),   action: _l("Open subscription or folder") },
-					{ keys: _l('[g] then [a]'), action: _l("Open All Items") },
+					{ keys: _l('[J]/[K]'),       action: _l("Open next/previous article") },
+					{ keys: _l('[N]/[P]'),       action: _l("Move to next/previous article") },
+					{ keys: _l('[Shift]+[N]/[P]'), action: _l("Move to next/previous subscription") },
+					{ keys: _l('[Shift]+[O]'),   action: _l("Open subscription or folder") },
+					{ keys: _l('[G] then [A]'), action: _l("Open All Items") },
 				]}, {
 				'title': _l('Application'),
 				'shortcuts': [
-					{ keys: _l('[r]'), action: _l("Refresh") },
-					{ keys: _l('[u]'), action: _l("Toggle sidebar") },
-					{ keys: _l('[a]'), action: _l("Add subscription") },
+					{ keys: _l('[R]'), action: _l("Refresh") },
+					{ keys: _l('[U]'), action: _l("Toggle sidebar") },
+					{ keys: _l('[A]'), action: _l("Add subscription") },
 					{ keys: _l('[?]'), action: _l("Help") },
 				]}, {
 				'title': _l('Articles'),
 				'shortcuts': [
-					{ keys: _l('[m]'),       action: _l("Mark as read/unread") },
-					{ keys: _l('[s]'),       action: _l("Star article") },
-					{ keys: _l('[v]'),       action: _l("Open link") },
-					{ keys: _l('[o]'),       action: _l("Open article") },
-					{ keys: _l('[t]'),       action: _l("Tag article") },
-					{ keys: _l('[l]'),         action: _l("Like article") },
-					{ keys: _l('[Shift]+[a]'), action: _l("Mark all as read") },
+					{ keys: _l('[M]'),       action: _l("Mark as read/unread") },
+					{ keys: _l('[S]'),       action: _l("Star article") },
+					{ keys: _l('[V]'),       action: _l("Open link") },
+					{ keys: _l('[O]'),       action: _l("Open article") },
+					{ keys: _l('[T]'),       action: _l("Tag article") },
+					{ keys: _l('[L]'),         action: _l("Like article") },
+					{ keys: _l('[Shift]+[A]'), action: _l("Mark all as read") },
 				]}];
 
 			var maxColumns = 2; // Number of columns in the resulting table
@@ -1844,9 +1844,13 @@ $().ready(function() {
 
 		subscriptionMap = newSubscriptionMap;
 
+		$('body').toggleClass('sidebar-hidden', true);
+
 		$.each(newSubscriptions, function() {
 			this.syncView();
 		});
+
+		$('body').toggleClass('sidebar-hidden', false);
 
 		ui.updateUnreadCount();
 		selectedSubscription.select(reloadItems);

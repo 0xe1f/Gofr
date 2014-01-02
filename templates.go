@@ -35,14 +35,14 @@ const introTemplateHTML = `
 	<body>
 		<div class="content">
 			<div class="header">
-				<button class="sign-in" onclick="window.location='/reader';">Sign in with Google</button>
-				<div class="clear"></div>
 			</div>
 			<div class="stripe">
 				<div class="text">
-					<img src="/content/logo.png" class="logo" alt="Logo" />
 					<h1>Gofr</h1>
 					<h3>An open source RSS reader for the cloud.</h3>
+
+					<button class="sign-in" onclick="window.location='/reader';">Sign in with Google</button>
+					<div style="clear: both;"></div>
 				</div>
 			</div>
 			<div class="features">

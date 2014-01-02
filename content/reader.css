@@ -124,6 +124,7 @@ a {
 	box-shadow: 2px 2px 5px #aaa;
 }
 
+.floated-sidebar.sidebar-hidden .feeds-container,
 .floated-sidebar.sidebar-open .feeds-container {
 	top: -106px;
 	bottom: -30px;
@@ -133,6 +134,10 @@ a {
 	box-shadow: 2px 0 5px #aaa;
 	display: block;
 	z-index: 10000;
+}
+
+.floated-sidebar.sidebar-hidden .feeds-container {
+	visibility: hidden;
 }
 
 #gofr-entries {
@@ -488,7 +493,7 @@ ul#subscriptions,
 }
 
 .subscription.folder > ul > .leaf > .subscription-item {
-	padding-left: 50px;
+	padding-left: 3em;
 }
 
 .subscription.first > .subscription-item {
@@ -801,7 +806,7 @@ ul.menu {
 	right: 2em;
 	bottom: 2em;
 	left: 2em;
-	background-color: #000;
+	background-color: #888;
 	border-radius: 1em;
 	display: none;
 	overflow: auto;
@@ -820,11 +825,28 @@ ul.menu {
 
 .shortcuts .sh-keys {
 	text-align: right;
+	white-space: nowrap;
+	font-size: 11pt;
 }
 
 .shortcuts .sh-action {
 	text-align: left;
 	padding-right: 2em;
+	font-size: 11pt;
+}
+
+.key {
+	display: inline-block;
+	color: #000;
+	padding: 0.1em 0.66em;
+	margin: 0 0.5em;
+	border: solid 3px #fff;
+	border-radius: 3px;
+	background-color: #fffacd;
+	font-size: 11pt;
+	font-weight: normal;
+	text-align: center;
+	min-width: 1.05em;
 }
 
 .modal-blocker {
@@ -835,6 +857,11 @@ ul.menu {
 	bottom: 0;
 	opacity: 0.6;
 	background-color: #fff;
+	display: none;
+}
+
+.modal-open .modal-blocker {
+	display: block;
 }
 
 .modal {
@@ -867,29 +894,6 @@ ul.menu {
 #about p {
 	font-size: 12pt;
 	line-height: 1.5;
-}
-
-.key {
-	display: inline-block;
-	color: #000;
-	padding: 0.1em 1em;
-	margin: 0 1em;
-	border: solid 3px #fff;
-	border-radius: 3px;
-	background-color: #fffacd;
-	font-size: 9pt;
-	font-weight: normal;
-	text-align: center;
-	min-width: 1.5em;
-}
-
-.modal-blocker {
-	display: none;
-}
-
-.sidebar-open .modal-blocker,
-.modal-open .modal-blocker {
-	display: block;
 }
 
 /*** Desktop ****/
@@ -925,6 +929,7 @@ ul.menu {
 		box-shadow: 2px 2px 5px #aaa;
 	}
 
+	.sidebar-hidden .feeds-container,
 	.sidebar-open .feeds-container {
 		top: -106px;
 		bottom: -30px;
@@ -934,6 +939,10 @@ ul.menu {
 		box-shadow: 2px 0 5px #aaa;
 		display: block;
 		z-index: 10000;
+	}
+
+	.sidebar-hidden .feeds-container {
+		visibility: hidden;
 	}
 
 	.navigate {
@@ -1074,6 +1083,10 @@ ul.menu {
 	
 	.subscription-item .folder-toggle {
 		display: none;
+	}
+
+	.too-long {
+		padding-right: 3.5em;
 	}
 }
 

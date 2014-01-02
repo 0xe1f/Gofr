@@ -33,10 +33,7 @@ body {
 	border-bottom: solid 1px #ccc;
 	background-color: #ddd;
 	padding: 0.5em 3em;
-}
-
-.header .clear {
-	clear: both;
+	min-height: 37px;
 }
 
 .header h1 {
@@ -50,6 +47,7 @@ body {
 	background-color: #222;
 	color: #eee;
 	padding: 2em 4em;
+	vertical-align: middle;
 }
 
 .stripe h1 {
@@ -70,14 +68,13 @@ a {
 	text-decoration: none;
 }
 
-button.sign-in {
+.sign-in {
 	float: right;
 	padding: 0.5em 1.5em;
 	border: solid 1px #999;
 	border-radius: 3px;
-	font-size: 16px;
+	font-size: 16pt;
 	text-shadow: 0px -1px 1px #888;
-	box-shadow: 1px 1px 1px #bbb;
 	color: #fff;
 
 	/* http://www.colorzilla.com/gradient-editor/ */
@@ -91,11 +88,11 @@ button.sign-in {
 	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f9c667', endColorstr='#f79621',GradientType=0 );
 }
 
-button.sign-in:hover {
+.sign-in:hover {
 	border-color: #000;
 }
 
-button.sign-in:active {
+.sign-in:active {
 	background: #d8811e;
 	background: -moz-linear-gradient(top,  #f9c667 0%, #d8811e 100%);
 	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#f9c667), color-stop(100%,#d8811e));
@@ -188,6 +185,10 @@ button.sign-in:active {
 	.features .box.three {
 		border-bottom: none;
 		padding-bottom: none;
+	}
+
+	.sign-in {
+		font-size: 12pt;
 	}
 
 	.screenshot {
