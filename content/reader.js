@@ -685,12 +685,14 @@ $().ready(function() {
 								entry.toggleStarred();
 							}))
 						.append($('<span />', { 'class' : 'action-unread gofr-entry-action'})
+							.html("&nbsp;")
 							.append($('<span />', { 'class': 'gofr-action-text' })
 								.text(_l("Keep unread")))
 							.click(function(e) {
 								entry.toggleUnread();
 							}))
 						.append($('<span />', { 'class' : 'action-tag gofr-entry-action' })
+							.html("&nbsp;")
 							.append($('<span />', { 'class': 'gofr-action-text' })
 								.text(this.tags.length > 0 
 									? _l("%s", [ this.tags.join(", ") ]) 
@@ -699,6 +701,7 @@ $().ready(function() {
 								ui.editTags(entry);
 							}))
 						.append($('<span />', { 'class' : 'action-like gofr-entry-action'})
+							.html("&nbsp;")
 							.append($('<span />', { 'class': 'gofr-action-text' })
 								.text(_l("Like")))
 							.append($('<span />', { 'class': 'gofr-like-count' })

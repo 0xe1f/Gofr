@@ -997,6 +997,10 @@ ul.menu {
 		display: none;
 	}
 
+	.gofr-entry-action {
+		margin-left: 0.5em;
+	}
+
 	.gofr-entry-item,
 	.gofr-entry.selected.open .gofr-entry-item {
 		padding-top: 0.25em;
