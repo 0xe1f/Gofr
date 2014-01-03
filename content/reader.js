@@ -1154,6 +1154,7 @@ $().ready(function() {
 				$('body').toggleClass('modal-open', show);
 
 				if (show) {
+					$(this).css('margin-top', -($(this).outerHeight() / 2) + 'px');
 					$(this).show();
 				} else {
 					$(this).hide();
