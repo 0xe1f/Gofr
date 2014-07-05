@@ -24,13 +24,13 @@ Installation
 
 To run locally on development server:
 
-1. Clone the repository: `git clone https://github.com/melllvar/Gofr.git`
+1. Clone the repository: `git clone https://github.com/pokebyte/Gofr.git`
 2. Install the [go-charset](https://code.google.com/p/go-charset/) library: `go get code.google.com/p/go-charset/charset`
 3. Run the development server: `goapp serve Gofr/`
 
 To deploy:
 
-1. Clone the repository: `git clone https://github.com/melllvar/Gofr.git`
+1. Clone the repository: `git clone https://github.com/pokebyte/Gofr.git`
 2. Change into the new directory: `cd Gofr`
 3. Edit [app.yaml](app.yaml) and change the name of the application (initially "gofr-io") to one of your choosing
 4. Deploy to production: `goapp deploy`

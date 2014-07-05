@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
  ** Gofr
- ** https://github.com/melllvar/Gofr
+ ** https://github.com/pokebyte/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
@@ -59,7 +59,7 @@ const introTemplateHTML = `
 					</div>
 					<div class="box three">
 						<h3>Extensible.</h3>
-						<p>Gofr is <a href="https://github.com/melllvar/Gofr">open source</a> - use it as-is, or improve it and share with everyone else.</p>
+						<p>Gofr is <a href="https://github.com/pokebyte/Gofr">open source</a> - use it as-is, or improve it and share with everyone else.</p>
 					</div>
 				</div>
 				<div class="hr"></div>
@@ -70,7 +70,7 @@ const introTemplateHTML = `
 			<div class="footer">
 				Written by <a href="http://www.akop.org/">Akop Karapetyan</a>
 				&bull; <a class="license" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
-				&bull; <a class="source" href="https://github.com/melllvar/Gofr">Source</a>
+				&bull; <a class="source" href="https://github.com/pokebyte/Gofr">Source</a>
 			</div>
 		</div>
 	</body>
@@ -132,7 +132,7 @@ const readerTemplateHTML = `
 		<div id="footer">
 			<a class="about _l" href="http://www.akop.org/">About</a>
 			&bull; <a class="license _l" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
-			&bull; <a class="source _l" href="https://github.com/melllvar/Gofr">Source</a>
+			&bull; <a class="source _l" href="https://github.com/pokebyte/Gofr">Source</a>
 			<a class="bookmarklet _l" href="#">Bookmarklet</a>
 		</div>
 		<div class="modal-blocker"></div>
@@ -154,7 +154,7 @@ const readerTemplateHTML = `
 			(Google Reader clone) for 
 			<a href="https://developers.google.com/appengine/">Google App Engine</a>, 
 			with source code available on 
-			<a href="https://github.com/melllvar/Gofr">GitHub</a>.</p>
+			<a href="https://github.com/pokebyte/Gofr">GitHub</a>.</p>
 			<p>It's written in <a href="http://golang.org/">Go</a> and JavaScript 
 			(using <a href="http://jquery.com/">jQuery</a>) and is loosely based on 
 			<a href="https://github.com/melllvar/grr">grr</a> - 

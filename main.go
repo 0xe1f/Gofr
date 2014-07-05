@@ -1,7 +1,7 @@
 /*****************************************************************************
  **
  ** Gofr
- ** https://github.com/melllvar/Gofr
+ ** https://github.com/pokebyte/Gofr
  ** Copyright (C) 2013 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
