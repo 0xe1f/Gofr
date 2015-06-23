@@ -30,43 +30,88 @@ import (
 	"encoding/xml"
 )
 
-var supportedRSS2TimeFormats = []string {
-	"Mon, 02 Jan 2006 15:04:05 -0700",
-	"2006-01-02T15:04:05-07:00",
-	"Mon, 02 Jan 2006 15:04:05 Z",
-	"Mon, 02 Jan 2006 15:04:05",
-	"Mon, 2 Jan 2006 15:04:05 -0700",
-	"Mon, 2 Jan 2006 15:04:05",
-	"2 Jan 2006 15:04:05 -0700",
-	"Mon, 2 Jan 2006 15:04 -0700",
-}
+var (
+	// Basic TZ map to improve Golang's understanding of timezone shorthands
 
-type rss2Feed struct {
-	XMLName xml.Name `xml:"rss"`
-	Title string `xml:"channel>title"`
-	Description string `xml:"channel>description"`
-	Updated string `xml:"channel>lastBuildDate"`
-	Link []*rssLink `xml:"channel>link"`
-	Entry []*rss2Entry `xml:"channel>item"`
-	UpdatePeriod string `xml:"channel>updatePeriod"`
-	UpdateFrequency int `xml:"channel>updateFrequency"`
-}
+	// Note that the replacement is very basic, so make sure that tz names
+	// that contain other tz names as substrings are listed first. For example,
+	// EEST should be listed before EST.
+	tzMap = map[string]string {
+		"EEST": "+0300",
+		"AKST": "-0900",
+		"AKDT": "-0800",
+		"HAST": "-1000",
+		"HADT": "-0900",
+		"CHST": "+1000",
+		"EET":  "+0200",
+		"AST":  "-0400",
+		"EST":  "-0500",
+		"EDT":  "-0400",
+		"CST":  "-0600",
+		"CDT":  "-0500",
+		"MST":  "-0700",
+		"MDT":  "-0600",
+		"PST":  "-0800",
+		"PDT":  "-0700",
+		"SST":  "-1100",
+		"SDT":  "-1000",
+		"CET":  "+0100",
+	}
+	tzCodes []string
+	tzOffsets []string
 
-type rss2Entry struct {
-	Id string `xml:"guid"`
-	Published string `xml:"pubDate"`
-	EntryTitle string `xml:"title"`
-	Link string `xml:"link"`
-	Author string `xml:"creator"`
-	EncodedContent string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
-	Content string `xml:"description"`
-	Enclosures []rss2Enclosure `xml:"enclosure"`
-}
+	supportedRSS2TimeFormats = []string {
+		"Mon, 02 Jan 2006 15:04:05 -0700",
+		"2006-01-02T15:04:05-07:00",
+		"Mon, 02 Jan 2006 15:04:05 Z",
+		"Mon, 02 Jan 2006 15:04:05",
+		"Mon, 2 Jan 2006 15:04:05 -0700",
+		"Mon, 2 Jan 2006 15:04:05",
+		"2 Jan 2006 15:04:05 -0700",
+		"Mon, 2 Jan 2006 15:04 -0700",
+		"Mon, 2 Jan 06 15:04:05 -0700",
+		"January 2, 2006",
+	}
+)
 
-type rss2Enclosure struct {
-	URL string `xml:"url,attr"`
-	Length int `xml:"length,attr"`
-	Type string `xml:"type,attr"`
+type (
+	rss2Feed struct {
+		XMLName xml.Name `xml:"rss"`
+		Title string `xml:"channel>title"`
+		Description string `xml:"channel>description"`
+		Updated string `xml:"channel>lastBuildDate"`
+		Link []*rssLink `xml:"channel>link"`
+		Entry []*rss2Entry `xml:"channel>item"`
+		UpdatePeriod string `xml:"channel>updatePeriod"`
+		UpdateFrequency int `xml:"channel>updateFrequency"`
+	}
+	rss2Entry struct {
+		Id string `xml:"guid"`
+		Published string `xml:"pubDate"`
+		EntryTitle string `xml:"title"`
+		Link string `xml:"link"`
+		Author string `xml:"creator"`
+		EncodedContent string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
+		Content string `xml:"description"`
+		Enclosures []rss2Enclosure `xml:"enclosure"`
+	}
+	rss2Enclosure struct {
+		URL string `xml:"url,attr"`
+		Length int `xml:"length,attr"`
+		Type string `xml:"type,attr"`
+	}
+)
+
+func init() {
+	tzCodes = make([]string, len(tzMap))
+	tzOffsets = make([]string, len(tzMap))
+
+	i := 0
+	for code, offset := range tzMap {
+		tzCodes[i] = code
+		tzOffsets[i] = offset
+		i++
+	}
 }
 
 func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
@@ -170,9 +215,6 @@ func (nativeEntry *rss2Entry) Marshal() (entry *Entry, err error) {
 
 	return entry, err
 }
-
-var tzCodes = []string { "AST", "EST", "EDT", "CST", "CDT", "MST", "MDT", "PST", "PDT", "AKST", "AKDT", "HAST", "HADT", "SST", "SDT", "CHST", "CET" }
-var tzOffsets = []string { "-0400", "-0500", "-0400", "-0600", "-0500", "-0700", "-0600", "-0800", "-0700", "-0900", "-0800", "-1000", "-0900", "-1100", "-1000", "+1000", "+0100"}
 
 func parseRSS2Time(timeSpec string) (time.Time, error) {
 	if timeSpec != "" {

@@ -396,6 +396,8 @@ func subscribe(pfc *PFContext) (interface{}, error) {
 
 			reader := strings.NewReader(body)
 			if feed, err := rss.UnmarshalStream(subscriptionURL, reader); err != nil {
+				c.Warningf("Error parsing RSS (URL %s): %s", subscriptionURL, err)
+
 				// Parse failed. Assume it's an HTML document and 
 				// try to pull out an RSS <link />
 				if linkURL, err := rss.ExtractRSSLink(c, subscriptionURL, body); linkURL == "" || err != nil {
