@@ -114,7 +114,7 @@ func init() {
 	}
 }
 
-func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
+func (nativeFeed *rss2Feed) Marshal() (feed *Feed, err error) {
 	updated := time.Time {}
 	if nativeFeed.Updated != "" {
 		updated, err = parseRSS2Time(nativeFeed.Updated)
@@ -140,7 +140,7 @@ func (nativeFeed *rss2Feed) Marshal() (feed Feed, err error) {
 		}
 	}
 
-	feed = Feed {
+	feed = &Feed {
 		Title: nativeFeed.Title,
 		Description: nativeFeed.Description,
 		Updated: updated,

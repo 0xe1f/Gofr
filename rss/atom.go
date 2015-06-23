@@ -72,7 +72,7 @@ type atomText struct {
 	Content string `xml:",chardata"`
 }
 
-func (nativeFeed *atomFeed) Marshal() (feed Feed, err error) {
+func (nativeFeed *atomFeed) Marshal() (feed *Feed, err error) {
 	updated := time.Time {}
 	if nativeFeed.Updated != "" {
 		updated, err = parseTime(supportedAtomTimeFormats, nativeFeed.Updated)
@@ -98,7 +98,7 @@ func (nativeFeed *atomFeed) Marshal() (feed Feed, err error) {
 		}
 	}
 
-	feed = Feed {
+	feed = &Feed {
 		Title: nativeFeed.Title,
 		Description: nativeFeed.Description,
 		Updated: updated,

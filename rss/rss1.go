@@ -61,7 +61,7 @@ type rss1Entry struct {
 	Content string `xml:"description"`
 }
 
-func (nativeFeed *rss1Feed) Marshal() (feed Feed, err error) {
+func (nativeFeed *rss1Feed) Marshal() (feed *Feed, err error) {
 	updated := time.Time {}
 	if nativeFeed.Updated != "" {
 		updated, err = parseTime(supportedRSS1TimeFormats, nativeFeed.Updated)
@@ -74,7 +74,7 @@ func (nativeFeed *rss1Feed) Marshal() (feed Feed, err error) {
 		}
 	}
 
-	feed = Feed {
+	feed = &Feed {
 		Title: nativeFeed.Title,
 		Description: nativeFeed.Description,
 		Updated: updated,

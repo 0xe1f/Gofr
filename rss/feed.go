@@ -39,41 +39,44 @@ import (
 	"time"
 )
 
-type Feed struct {
-	URL string
-	Title string
-	Description string
-	Updated time.Time
-	WWWURL string
-	Format string
-	HourlyUpdateFrequency float32
-	Entries []*Entry
-	HubURL string
-	Topic string
-}
+type (
+	Feed struct {
+		URL string
+		Title string
+		Description string
+		Updated time.Time
+		WWWURL string
+		Format string
+		HourlyUpdateFrequency float32
+		Entries []*Entry
+		HubURL string
+		Topic string
+	}
+	Entry struct {
+		GUID string
+		Author string
+		Title string
+		WWWURL string
+		Content string
+		Published time.Time
+		Updated time.Time
+		Media []Media
+	}
+	Media struct {
+		URL string
+		Type string
+		Title string
+	}
+	SortableTimes []time.Time
+)
 
-type Entry struct {
-	GUID string
-	Author string
-	Title string
-	WWWURL string
-	Content string
-	Published time.Time
-	Updated time.Time
-	Media []Media
-}
-
-type Media struct {
-	URL string
-	Type string
-	Title string
-}
+var (
+	badEntityScanner = regexp.MustCompile(`(&)(?:[^#a-zA-Z]|#[^0-9]|#[0-9]+[^0-9;]|[a-zA-Z]+[^a-zA-Z;])`)
+)
 
 const (
 	maxSummaryLength = 400
 )
-
-type SortableTimes []time.Time 
 
 func (s SortableTimes) Len() int {
 	return len(s)
@@ -189,61 +192,53 @@ func (entry Entry)Digest() []byte {
 }
 
 type FeedMarshaler interface {
-	Marshal() (Feed, error)
+	Marshal() (*Feed, error)
 }
 
 type GenericFeed struct {
 	XMLName xml.Name
 }
 
-func UnmarshalStream(url string, reader io.Reader) (*Feed, error) {
+func UnmarshalStream(url string, reader io.Reader) (feed *Feed, err error) {
 	// Read the stream into memory (we'll need to parse it twice)
 	var contentReader *bytes.Reader
-	if buffer, err := ioutil.ReadAll(reader); err == nil {
+	var buffer []byte
+	if buffer, err = ioutil.ReadAll(reader); err == nil {
 		contentReader = bytes.NewReader(buffer)
-	} else {
-		return nil, err
+
+		genericFeed := GenericFeed{}
+
+		decoder := xml.NewDecoder(contentReader)
+		decoder.CharsetReader = charset.NewReader
+
+		if err = decoder.Decode(&genericFeed); err == nil {
+			var xmlFeed FeedMarshaler
+			if genericFeed.XMLName.Space == "http://www.w3.org/1999/02/22-rdf-syntax-ns#" && genericFeed.XMLName.Local == "RDF" {
+				xmlFeed = &rss1Feed { }
+			} else if genericFeed.XMLName.Local == "rss" {
+				xmlFeed = &rss2Feed { }
+			} else if genericFeed.XMLName.Space == "http://www.w3.org/2005/Atom" && genericFeed.XMLName.Local == "feed" {
+				xmlFeed = &atomFeed { }
+			} else {
+				err = errors.New("Unsupported type of feed (" +
+					genericFeed.XMLName.Space + ":" + genericFeed.XMLName.Local + ")")
+				return
+			}
+
+			contentReader.Seek(0, 0)
+
+			decoder = xml.NewDecoder(contentReader)
+			decoder.CharsetReader = charset.NewReader
+
+			if err = decoder.Decode(xmlFeed); err == nil {
+				if feed, err = xmlFeed.Marshal(); err == nil {
+					feed.URL = url
+				}
+			}
+		}
 	}
 
-	genericFeed := GenericFeed{}
-
-	decoder := xml.NewDecoder(contentReader)
-	decoder.CharsetReader = charset.NewReader
-
-	if err := decoder.Decode(&genericFeed); err != nil {
-		 return nil, err
-	}
-
-	var xmlFeed FeedMarshaler
-
-	if genericFeed.XMLName.Space == "http://www.w3.org/1999/02/22-rdf-syntax-ns#" && genericFeed.XMLName.Local == "RDF" {
-		xmlFeed = &rss1Feed { }
-	} else if genericFeed.XMLName.Local == "rss" {
-		xmlFeed = &rss2Feed { }
-	} else if genericFeed.XMLName.Space == "http://www.w3.org/2005/Atom" && genericFeed.XMLName.Local == "feed" {
-		xmlFeed = &atomFeed { }
-	} else {
-		return nil, errors.New("Unsupported type of feed (" +
-			genericFeed.XMLName.Space + ":" + genericFeed.XMLName.Local + ")")
-	}
-
-	contentReader.Seek(0, 0)
-
-	decoder = xml.NewDecoder(contentReader)
-	decoder.CharsetReader = charset.NewReader
-
-	if err := decoder.Decode(xmlFeed); err != nil {
-		return nil, err
-	}
-	
-	feed, err := xmlFeed.Marshal()
-	feed.URL = url
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &feed, nil
+	return
 }
 
 func parseTime(supportedFormats []string, timeSpec string) (time.Time, error) {

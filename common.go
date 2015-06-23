@@ -39,18 +39,23 @@ const (
 	fetchDeadlineSeconds = 60
 )
 
-var validProperties = map[string]bool {
-	"unread": true,
-	"read":   true,
-	"star":   true,
-	"like":   true,
-}
+var (
+	tagRe = regexp.MustCompile(`<link(?:\s+\w+\s*=\s*(?:"[^"]*"|'[^']'))+\s*/?>`)
+	attrRe = regexp.MustCompile(`\b(?P<key>\w+)\s*=\s*(?:"(?P<value>[^"]*)"|'(?P<value>[^'])')`)
 
-var supportedFavIconMimeTypes = []string {
-	"image/vnd.microsoft.icon",
-	"image/png",
-	"image/gif",
-}
+	validProperties = map[string]bool {
+		"unread": true,
+		"read":   true,
+		"star":   true,
+		"like":   true,
+	}
+
+	supportedFavIconMimeTypes = []string {
+		"image/vnd.microsoft.icon",
+		"image/png",
+		"image/gif",
+	}
+)
 
 func createHttpClient(context appengine.Context) *http.Client {
 	return &http.Client {
@@ -83,9 +88,6 @@ func resolveURL(sourceURL string, partialURL string) (string, error) {
 // containing the attributes of each tag as a map. Attribute keys are
 // automatically converted to lowercase.
 func extractLinks(html string) []map[string]string {
-	tagRe := regexp.MustCompile(`<link(?:\s+\w+\s*=\s*(?:"[^"]*"|'[^']'))+\s*/?>`)
-	attrRe := regexp.MustCompile(`\b(?P<key>\w+)\s*=\s*(?:"(?P<value>[^"]*)"|'(?P<value>[^'])')`)
-
 	links := make([]map[string]string, 0, 20)
 	for _, linkTag := range tagRe.FindAllString(html, -1) {
 		link := make(map[string]string)
