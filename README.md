@@ -45,4 +45,4 @@ When running in production, Gofr routinely (every 10 minutes, configurable in [c
   [3]: http://golang.org/
   [4]: https://developers.google.com/datastore/
   [5]: http://en.wikipedia.org/wiki/JavaScript
-  [6]: http://www.google.com/events/gcdc2013/
+  [6]: http://www.google.com/events/gcdc2013/finalists.html

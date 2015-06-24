@@ -87,7 +87,7 @@ var (
 		"SDT":  "-1000",
 		"CET":  "+0100",
 	}
-	timezones = timezoneList{}
+	timezones timezoneList
 
 	supportedRSS2TimeFormats = []string {
 		"Mon, 02 Jan 2006 15:04:05 -0700",
