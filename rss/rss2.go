@@ -24,54 +24,11 @@
 package rss
 
 import (
-	"time"
-	"strings"
-	"errors"
 	"encoding/xml"
-)
-
-var (
-	// Basic TZ map to improve Golang's understanding of timezone shorthands
-
-	// Note that the replacement is very basic, so make sure that tz names
-	// that contain other tz names as substrings are listed first. For example,
-	// EEST should be listed before EST.
-	tzMap = map[string]string {
-		"EEST": "+0300",
-		"AKST": "-0900",
-		"AKDT": "-0800",
-		"HAST": "-1000",
-		"HADT": "-0900",
-		"CHST": "+1000",
-		"EET":  "+0200",
-		"AST":  "-0400",
-		"EST":  "-0500",
-		"EDT":  "-0400",
-		"CST":  "-0600",
-		"CDT":  "-0500",
-		"MST":  "-0700",
-		"MDT":  "-0600",
-		"PST":  "-0800",
-		"PDT":  "-0700",
-		"SST":  "-1100",
-		"SDT":  "-1000",
-		"CET":  "+0100",
-	}
-	tzCodes []string
-	tzOffsets []string
-
-	supportedRSS2TimeFormats = []string {
-		"Mon, 02 Jan 2006 15:04:05 -0700",
-		"2006-01-02T15:04:05-07:00",
-		"Mon, 02 Jan 2006 15:04:05 Z",
-		"Mon, 02 Jan 2006 15:04:05",
-		"Mon, 2 Jan 2006 15:04:05 -0700",
-		"Mon, 2 Jan 2006 15:04:05",
-		"2 Jan 2006 15:04:05 -0700",
-		"Mon, 2 Jan 2006 15:04 -0700",
-		"Mon, 2 Jan 06 15:04:05 -0700",
-		"January 2, 2006",
-	}
+	"errors"
+ 	"sort"
+	"strings"
+	"time"
 )
 
 type (
@@ -100,18 +57,80 @@ type (
 		Length int `xml:"length,attr"`
 		Type string `xml:"type,attr"`
 	}
+	timezone struct {
+		Code string
+		Offset string
+	}
+	timezoneList []timezone
 )
 
-func init() {
-	tzCodes = make([]string, len(tzMap))
-	tzOffsets = make([]string, len(tzMap))
+var (
+	// Basic TZ map to improve Golang's understanding of timezone shorthands
+	tzMap = map[string]string {
+		"EEST": "+0300",
+		"AKST": "-0900",
+		"AKDT": "-0800",
+		"HAST": "-1000",
+		"HADT": "-0900",
+		"CHST": "+1000",
+		"EET":  "+0200",
+		"AST":  "-0400",
+		"EST":  "-0500",
+		"EDT":  "-0400",
+		"CST":  "-0600",
+		"CDT":  "-0500",
+		"MST":  "-0700",
+		"MDT":  "-0600",
+		"PST":  "-0800",
+		"PDT":  "-0700",
+		"SST":  "-1100",
+		"SDT":  "-1000",
+		"CET":  "+0100",
+	}
+	timezones = timezoneList{}
 
+	supportedRSS2TimeFormats = []string {
+		"Mon, 02 Jan 2006 15:04:05 -0700",
+		"2006-01-02T15:04:05-07:00",
+		"Mon, 02 Jan 2006 15:04:05 Z",
+		"Mon, 02 Jan 2006 15:04:05",
+		"Mon, 2 Jan 2006 15:04:05 -0700",
+		"Mon, 2 Jan 2006 15:04:05",
+		"2 Jan 2006 15:04:05 -0700",
+		"Mon, 2 Jan 2006 15:04 -0700",
+		"Mon, 2 Jan 06 15:04:05 -0700",
+		"January 2, 2006",
+	}
+)
+
+func (s timezoneList) Len() int {
+	return len(s)
+}
+
+func (s timezoneList) Swap(i int, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s timezoneList) Less(i int, j int) bool {
+	// Longer codes before shorter ones
+	return len(s[i].Code) > len(s[j].Code)
+}
+
+func init() {
+	timezones = make(timezoneList, len(tzMap))
+
+	// Put timezones into an array
 	i := 0
 	for code, offset := range tzMap {
-		tzCodes[i] = code
-		tzOffsets[i] = offset
+		timezones[i] = timezone {
+			Code: code,
+			Offset: offset,
+		}
 		i++
 	}
+
+	// Sort the array (longer codes first)
+	sort.Sort(timezones)
 }
 
 func (nativeFeed *rss2Feed) Marshal() (feed *Feed, err error) {
@@ -236,9 +255,9 @@ func parseRSS2Time(timeSpec string) (time.Time, error) {
 		// Note that this is not a proper long-term solution
 
 		tryAgain := false
-		for i, tzCode := range tzCodes {
-			if strings.Contains(timeSpec, tzCode) {
-				timeSpec = strings.Replace(timeSpec, tzCode, tzOffsets[i], 1)
+		for _, tz := range timezones {
+			if strings.Contains(timeSpec, tz.Code) {
+				timeSpec = strings.Replace(timeSpec, tz.Code, tz.Offset, 1)
 				tryAgain = true
 				break
 			}

@@ -199,41 +199,74 @@ type GenericFeed struct {
 	XMLName xml.Name
 }
 
+func fixEntities(content []byte) (fixed bool, fixedContent []byte) {
+	buf := bytes.Buffer{}
+	start := 0
+
+	for _, m := range badEntityScanner.FindAllSubmatchIndex(content, -1) {
+		buf.Write(content[start:m[2]])
+		buf.WriteString("&amp;")
+		start = m[3]
+		fixed = true
+	}
+
+	buf.Write(content[start:])
+	fixedContent = buf.Bytes()
+
+	return
+}
+
 func UnmarshalStream(url string, reader io.Reader) (feed *Feed, err error) {
 	// Read the stream into memory (we'll need to parse it twice)
 	var contentReader *bytes.Reader
-	var buffer []byte
-	if buffer, err = ioutil.ReadAll(reader); err == nil {
-		contentReader = bytes.NewReader(buffer)
+	var content []byte
+	if content, err = ioutil.ReadAll(reader); err == nil {
+		contentReader = bytes.NewReader(content)
 
 		genericFeed := GenericFeed{}
 
 		decoder := xml.NewDecoder(contentReader)
 		decoder.CharsetReader = charset.NewReader
 
-		if err = decoder.Decode(&genericFeed); err == nil {
-			var xmlFeed FeedMarshaler
-			if genericFeed.XMLName.Space == "http://www.w3.org/1999/02/22-rdf-syntax-ns#" && genericFeed.XMLName.Local == "RDF" {
-				xmlFeed = &rss1Feed { }
-			} else if genericFeed.XMLName.Local == "rss" {
-				xmlFeed = &rss2Feed { }
-			} else if genericFeed.XMLName.Space == "http://www.w3.org/2005/Atom" && genericFeed.XMLName.Local == "feed" {
-				xmlFeed = &atomFeed { }
-			} else {
-				err = errors.New("Unsupported type of feed (" +
-					genericFeed.XMLName.Space + ":" + genericFeed.XMLName.Local + ")")
-				return
+		// First pass - parse the feed as-is
+		if err = decoder.Decode(&genericFeed); err != nil {
+			// Error - check for invalid entities and correct as appropriate
+			if fixed, fixedContent := fixEntities(content); fixed {
+				// At least one replacement was made. Retry
+				contentReader = bytes.NewReader(fixedContent)
+				decoder = xml.NewDecoder(contentReader)
+				decoder.CharsetReader = charset.NewReader
+
+				// Try decoding again
+				err = decoder.Decode(&genericFeed)
 			}
+		}
 
-			contentReader.Seek(0, 0)
+		if err != nil {
+			return
+		}
 
-			decoder = xml.NewDecoder(contentReader)
-			decoder.CharsetReader = charset.NewReader
+		var xmlFeed FeedMarshaler
+		if genericFeed.XMLName.Space == "http://www.w3.org/1999/02/22-rdf-syntax-ns#" && genericFeed.XMLName.Local == "RDF" {
+			xmlFeed = &rss1Feed { }
+		} else if genericFeed.XMLName.Local == "rss" {
+			xmlFeed = &rss2Feed { }
+		} else if genericFeed.XMLName.Space == "http://www.w3.org/2005/Atom" && genericFeed.XMLName.Local == "feed" {
+			xmlFeed = &atomFeed { }
+		} else {
+			err = errors.New("Unsupported type of feed (" +
+				genericFeed.XMLName.Space + ":" + genericFeed.XMLName.Local + ")")
+			return
+		}
 
-			if err = decoder.Decode(xmlFeed); err == nil {
-				if feed, err = xmlFeed.Marshal(); err == nil {
-					feed.URL = url
-				}
+		contentReader.Seek(0, 0)
+
+		decoder = xml.NewDecoder(contentReader)
+		decoder.CharsetReader = charset.NewReader
+
+		if err = decoder.Decode(xmlFeed); err == nil {
+			if feed, err = xmlFeed.Marshal(); err == nil {
+				feed.URL = url
 			}
 		}
 	}

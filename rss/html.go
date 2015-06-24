@@ -40,9 +40,9 @@ func ExtractRSSLink(c appengine.Context, sourceURL string, html string) (string,
 		for _, attr := range attrRe.FindAllStringSubmatch(linkTag, -1) {
 			key := strings.ToLower(attr[1])
 			if attr[2] != "" {
-				link[key] = strings.ToLower(attr[2])
+				link[key] = attr[2]
 			} else if attr[3] != "" {
-				link[key] = strings.ToLower(attr[3])
+				link[key] = attr[3]
 			}
 		}
 
