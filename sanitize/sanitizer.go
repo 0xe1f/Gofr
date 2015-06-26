@@ -38,6 +38,7 @@ const (
 	contentTag
 	contentScript
 	contentComment
+	contentDoctypish
 )
 
 func (content content)String() string {
@@ -128,6 +129,18 @@ func StripTags(html string) string {
 					// Comment
 					stack.Push(Context{ content: contentComment })
 					i += 3
+				} else if i + 2 < n && rune(bytes[i + 1]) == '!' && unicode.IsLetter(rune(bytes[i + 2])) {
+					// !tag (e.g. doctype)
+					j := i + 2
+					for ; j < n; j++ {
+						if !unicode.IsLetter(rune(bytes[j])) {
+							break
+						}
+					}
+					tagName := strings.ToLower(string(bytes[i + 1:j]))
+					stack.Push(Context{ content: contentDoctypish, tagName: tagName })
+
+					i = j - 1
 				} else if i + 1 < n && unicode.IsLetter(rune(bytes[i + 1])) {
 					// Opening tag
 					j := i + 2
@@ -206,6 +219,20 @@ func StripTags(html string) string {
 					// Not a self-closing tag
 					stack.Push(Context { content: contentFromTag(ctx.tagName), tagName: ctx.tagName })
 				}
+			}
+		} else if ctx.content == contentDoctypish {
+			if b == '"' || b == '\'' {
+				// Quoted text
+				j := i + 1
+				for ; j < n; j++ {
+					if bytes[j] == b {
+						break
+					}
+				}
+				i = j
+			} else if b == '>' {
+				// Closing bracket
+				stack.Pop()
 			}
 		} else if ctx.content == contentScript {
 			if i + 1 < n && b == '/' && bytes[i + 1] == '/' {
