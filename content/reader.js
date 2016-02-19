@@ -2,7 +2,7 @@
  **
  ** Gofr
  ** https://github.com/pokebyte/Gofr
- ** Copyright (C) 2013 Akop Karapetyan
+ ** Copyright (C) 2013-2016 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -768,6 +768,24 @@ $().ready(function() {
 			$content.find('.gofr-article-body img').not('[src^="http"],[src^="https"]').each(function() {
 				$(this).attr('src', function(index, value) {
 					return entry.resolveUrl(value);
+				})
+				$(this).attr('srcset', function(index, value) {
+					if (!value) {
+						return value;
+					}
+					
+					var out = [];
+					value.split(',').forEach(function(v) {
+						v = v.trim();
+						var pos = v.indexOf(' ');
+						if (pos < 0) {
+							out.push(entry.resolveUrl(v));
+						} else {
+							out.push(entry.resolveUrl(v.substring(0, pos)) + v.substring(pos));
+						}
+					});
+
+					return out.join(', ');
 				})
 			});
 			$content.find('.gofr-article-body a').not('[href^="http"],[href^="https"]').each(function() {

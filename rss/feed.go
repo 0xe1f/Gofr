@@ -2,7 +2,7 @@
  **
  ** Gofr
  ** https://github.com/pokebyte/Gofr
- ** Copyright (C) 2013 Akop Karapetyan
+ ** Copyright (C) 2013-2016 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@ package rss
 
 import (
 	"bytes"
-	"code.google.com/p/go-charset/charset"
-	_ "code.google.com/p/go-charset/data"
+	"github.com/paulrosania/go-charset/charset"
+	_ "github.com/paulrosania/go-charset/data"
 	"crypto/md5"
 	"encoding/xml"
 	"errors"

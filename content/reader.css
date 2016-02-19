@@ -2,7 +2,7 @@
  **
  ** Gofr
  ** https://github.com/pokebyte/Gofr
- ** Copyright (C) 2013 Akop Karapetyan
+ ** Copyright (C) 2013-2016 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -327,6 +327,7 @@ a.gofr-entry-title:hover {
 	padding: 0.5em 0.5em;
 	border-top: solid 1px #ebebeb;
 	background-color: #fafafa;
+	clear: both;
 }
 
 .gofr-entry-action-group {
