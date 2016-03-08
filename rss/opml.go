@@ -48,7 +48,7 @@ type Outline struct {
 	Title string `xml:"title,attr"`
 	Type string `xml:"type,attr,omitempty"`
 	FeedURL string `xml:"xmlUrl,attr,omitempty"`
-	WebURL string `xml:"htmlUrl,attr"`
+	WebURL string `xml:"htmlUrl,attr,omitempty"`
 	Outlines []*Outline `xml:"outline"`
 }
 
