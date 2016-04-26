@@ -265,7 +265,7 @@ $().ready(function() {
 								// 	// Prevent expansion
 								// 	e.stopPropagation();
 								// })
-								.text(details.title))
+								.text(entry.getTitle()))
 							.append($('<span />', { 'class' : 'gofr-entry-source-mobile' })
 								.text(" - " + sourceTitle))
 							))
@@ -599,6 +599,12 @@ $().ready(function() {
 		'toggleLike': function() {
 			this.toggleProperty("like");
 		},
+		'getTitle': function() {
+			if (this.details && $.trim(this.details.title).length > 0) {
+				return this.details.title;
+			}
+			return _l("[Untitled]");
+		},
 		'toggleProperty': function(propertyName) {
 			this.setProperty(propertyName, 
 				!this.hasProperty(propertyName));
@@ -672,7 +678,7 @@ $().ready(function() {
 					.append($('<div />', { 'class': 'gofr-article' })
 						.append($('<a />', { 'href': details.link, 'target': '_blank', 'class': 'gofr-article-title' })
 							.append($('<h2 />')
-								.text(details.title)))
+								.text(entry.getTitle())))
 						.append($('<div />', { 'class': 'gofr-article-author' }))
 						.append($('<div />', { 'class': 'gofr-article-pubDate' })
 							.text(_l("Published %s", [getPublishedDate(entry.time)])))
