@@ -600,7 +600,7 @@ $().ready(function() {
 			this.toggleProperty("like");
 		},
 		'getTitle': function() {
-			if (this.details && $.trim(this.details.title).length > 0) {
+			if (this.details && $.trim(this.details.title).length) {
 				return this.details.title;
 			}
 			return _l("[Untitled]");
@@ -771,7 +771,7 @@ $().ready(function() {
 			$content.find('.gofr-article-body a').attr('target', '_blank');
 
 			// Resolve relative URLs
-			$content.find('.gofr-article-body img').not('[src^="http"],[src^="https"]').each(function() {
+			$content.find('.gofr-article-body img').not('[src^="http"],[src^="https"],[src^="data"]').each(function() {
 				$(this).attr('src', function(index, value) {
 					return entry.resolveUrl(value);
 				})
