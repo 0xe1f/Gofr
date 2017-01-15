@@ -41,7 +41,7 @@ Dev Server Notes
 When running in production, Gofr routinely (every 10 minutes, configurable in [cron.yaml](cron.yaml)) runs a cron job to update feeds. Since the development server does not support cron jobs, the feeds will need to be updated manually by logging in to the application as an Administrator, and opening the cron job URL in a web browser: `http://localhost:8080/cron/updateFeeds`.
 
   [1]: https://developers.google.com/appengine/
-  [2]: https://github.com/melllvar/grr/
+  [2]: https://github.com/pokebyte/grr/
   [3]: http://golang.org/
   [4]: https://developers.google.com/datastore/
   [5]: http://en.wikipedia.org/wiki/JavaScript

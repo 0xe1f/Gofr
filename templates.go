@@ -2,7 +2,7 @@
  **
  ** Gofr
  ** https://github.com/pokebyte/Gofr
- ** Copyright (C) 2013-2016 Akop Karapetyan
+ ** Copyright (C) 2013-2017 Akop Karapetyan
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ const introTemplateHTML = `
 			</div>
 			<div class="footer">
 				Written by <a href="http://www.akop.org/">Akop Karapetyan</a>
-				&bull; <a class="license" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
+				&bull; <a class="license" href="https://raw.github.com/pokebyte/Gofr/master/LICENSE">License</a>
 				&bull; <a class="source" href="https://github.com/pokebyte/Gofr">Source</a>
 			</div>
 		</div>
@@ -131,7 +131,7 @@ const readerTemplateHTML = `
 		</div>
 		<div id="footer">
 			<a class="about _l" href="http://www.akop.org/">About</a>
-			&bull; <a class="license _l" href="https://raw.github.com/melllvar/Gofr/master/LICENSE">License</a>
+			&bull; <a class="license _l" href="https://raw.github.com/pokebyte/Gofr/master/LICENSE">License</a>
 			&bull; <a class="source _l" href="https://github.com/pokebyte/Gofr">Source</a>
 			<a class="bookmarklet _l" href="#">Bookmarklet</a>
 		</div>
@@ -157,7 +157,7 @@ const readerTemplateHTML = `
 			<a href="https://github.com/pokebyte/Gofr">GitHub</a>.</p>
 			<p>It's written in <a href="http://golang.org/">Go</a> and JavaScript 
 			(using <a href="http://jquery.com/">jQuery</a>) and is loosely based on 
-			<a href="https://github.com/melllvar/grr">grr</a> - 
+			<a href="https://github.com/pokebyte/grr">grr</a> - 
 			an initial implementation written for PHP/MySQL.</p>
 			<p>Gofr is written by <a href="http://www.akop.org/">Akop Karapetyan</a>.</p>
 			<div class="buttons">
