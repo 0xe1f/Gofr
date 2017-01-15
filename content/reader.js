@@ -172,8 +172,14 @@ $().ready(function() {
 			lastContinued = continueFrom;
 
 			var subscription = this;
+			var filter = subscription.getFilter();
+			if (filter.p === undefined) {
+				$.removeCookie('filter');
+			} else {
+				$.cookie('filter', filter.p);
+			}
 			$.getJSON('articles', {
-				'filter':   JSON.stringify(subscription.getFilter()),
+				'filter':   JSON.stringify(filter),
 				'continue': continueFrom ? continueFrom : undefined,
 				'client':   clientId,
 			})
@@ -896,7 +902,12 @@ $().ready(function() {
 			this.initModals();
 			this.initBookmarklet();
 
-			$('#menu-filter').selectItem('.menu-all-items');
+			if ($.cookie('filter') == 'unread') {
+				$('#menu-filter').selectItem('.menu-new-items');
+			} else {
+				$('#menu-filter').selectItem('.menu-all-items');
+			}
+
 			this.onScopeChanged();
 
 			this.toggleSidebar($.cookie('show-sidebar') !== 'false');
