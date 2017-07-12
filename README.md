@@ -1,9 +1,9 @@
 Gofr
 ==========
 
-**Gofr** is a Feed Reader (Google Reader clone) for [Google App Engine] [1]. It grew out of my frustration with the relational backend of [grr] [2] and my inability to optimize it beyond unsatisfactory results. 
+**Gofr** is a Feed Reader (Google Reader clone) for [Google App Engine](https://developers.google.com/appengine/). It grew out of my frustration with the relational backend of [grr](https://github.com/pokebyte/grr/) and my inability to optimize it beyond unsatisfactory results. 
 
-Gofr is written in [Go] [3], and uses the [Google Cloud Datastore] [4]. It was one of the [Google Cloud Developer Challenge] [6] finalists.
+Gofr is written in [Go](http://golang.org/), and uses the [Google Cloud Datastore](https://developers.google.com/datastore/). It was one of the finalists in Google Cloud Developer Challenge 2013.
 
 ![Screenshot](http://i.imgur.com/r4MjqY5.png "Screenshot")
 
@@ -39,10 +39,3 @@ Dev Server Notes
 ----------------
 
 When running in production, Gofr routinely (every 10 minutes, configurable in [cron.yaml](cron.yaml)) runs a cron job to update feeds. Since the development server does not support cron jobs, the feeds will need to be updated manually by logging in to the application as an Administrator, and opening the cron job URL in a web browser: `http://localhost:8080/cron/updateFeeds`.
-
-  [1]: https://developers.google.com/appengine/
-  [2]: https://github.com/pokebyte/grr/
-  [3]: http://golang.org/
-  [4]: https://developers.google.com/datastore/
-  [5]: http://en.wikipedia.org/wiki/JavaScript
-  [6]: http://www.google.com/events/gcdc2013/finalists.html

@@ -29,6 +29,10 @@ body {
 	background-color: #fff;
 }
 
+ol, ul {
+	list-style: none;
+}
+
 #header {
 	border-bottom: solid 1px #ccc;
 	background-color: #eee;
